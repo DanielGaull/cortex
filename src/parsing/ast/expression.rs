@@ -3,8 +3,8 @@ use crate::parsing::codegen::r#trait::SimpleCodeGen;
 use super::typ::CType;
 
 pub struct Expression {
-    atom: Atom,
-    tail: ExpressionTail,
+    pub(crate) atom: Atom,
+    pub(crate) tail: ExpressionTail,
 }
 impl SimpleCodeGen for Expression {
     fn codegen(&self, indent: usize) -> String {
@@ -39,6 +39,7 @@ impl SimpleCodeGen for Atom {
 }
 
 pub enum ExpressionTail {
+    None,
     Call {
         args: Vec<Expression>,
         next: Box<ExpressionTail>,
@@ -47,6 +48,7 @@ pub enum ExpressionTail {
 impl SimpleCodeGen for ExpressionTail {
     fn codegen(&self, indent: usize) -> String {
         match self {
+            Self::None => String::new(),
             Self::Call { args, next } => {
                 let mut s = String::new();
                 s.push_str("(");
