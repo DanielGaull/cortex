@@ -1,49 +1,49 @@
 use std::error::Error;
+use paste::paste;
 
 use cortex::parsing::{codegen::r#trait::SimpleCodeGen, parser::CortexParser};
 
-fn run_expr_test(input: &str) -> Result<(), Box<dyn Error>> {
-    let ast = CortexParser::parse_expression(&String::from(input))?;
-    let code = ast.codegen(0);
-    assert_eq!(input, code);
-    Ok(())
+macro_rules! parse_test {
+    ($name:ident) => {
+        paste! {
+            fn [<run_ $name _test>](input: &str) -> Result<(), Box<dyn Error>> {
+                let ast = CortexParser::[<parse_ $name>](&String::from(input))?;
+                let code = ast.codegen(0);
+                assert_eq!(input, code);
+                Ok(())
+            }
+        }
+    }
 }
-fn run_type_test(input: &str) -> Result<(), Box<dyn Error>> {
-    let ast = CortexParser::parse_type(&String::from(input))?;
-    let code = ast.codegen(0);
-    assert_eq!(input, code);
-    Ok(())
-}
-fn run_stmt_test(input: &str) -> Result<(), Box<dyn Error>> {
-    let ast = CortexParser::parse_statement(&String::from(input))?;
-    let code = ast.codegen(0);
-    assert_eq!(input, code);
-    Ok(())
-}
+
+parse_test!(expression);
+parse_test!(type);
+parse_test!(statement);
+parse_test!(function);
 
 #[test]
 fn test_parse_literals() -> Result<(), Box<dyn Error>> {
-    run_expr_test("5")?;
-    run_expr_test("1.7")?;
-    run_expr_test("\"hello\"")?;
-    run_expr_test("\"true\"")?;
-    run_expr_test("true")?;
-    run_expr_test("null")?;
-    run_expr_test("void")?;
+    run_expression_test("5")?;
+    run_expression_test("1.7")?;
+    run_expression_test("\"hello\"")?;
+    run_expression_test("\"true\"")?;
+    run_expression_test("true")?;
+    run_expression_test("null")?;
+    run_expression_test("void")?;
     Ok(())
 }
 
 #[test]
 fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
-    run_expr_test("println(hello, \"hi\")")?;
+    run_expression_test("println(hello, \"hi\")")?;
     Ok(())
 }
 
 #[test]
 fn test_parse_paths() -> Result<(), Box<dyn Error>> {
-    run_expr_test("foo")?;
-    run_expr_test("foo::bar")?;
-    run_expr_test("foo::bar::baz")?;
+    run_expression_test("foo")?;
+    run_expression_test("foo::bar")?;
+    run_expression_test("foo::bar::baz")?;
     Ok(())
 }
 
@@ -58,15 +58,24 @@ fn test_types() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_statements() -> Result<(), Box<dyn Error>> {
-    run_stmt_test("stop;")?;
-    run_stmt_test("null;")?;
-    run_stmt_test("println(hello, \"hi\");")?;
-    run_stmt_test("let x = 5;")?;
-    run_stmt_test("let x: number = 5;")?;
-    run_stmt_test("const x = 5;")?;
-    run_stmt_test("const x: number = 5;")?;
-    run_stmt_test("let ~ = 5;")?;
-    run_stmt_test("x = 5;")?;
-    run_stmt_test("x::y = 5;")?;
+    run_statement_test("stop;")?;
+    run_statement_test("null;")?;
+    run_statement_test("println(hello, \"hi\");")?;
+    run_statement_test("let x = 5;")?;
+    run_statement_test("let x: number = 5;")?;
+    run_statement_test("const x = 5;")?;
+    run_statement_test("const x: number = 5;")?;
+    run_statement_test("let ~ = 5;")?;
+    run_statement_test("x = 5;")?;
+    run_statement_test("x::y = 5;")?;
+    Ok(())
+}
+
+#[test]
+fn test_functions() -> Result<(), Box<dyn Error>> {
+    run_function_test("fn test(x: number): void {\n    stop;\n}")?;
+    run_function_test("fn test(x: number): void {\n    const x: number = 5;\n    x;\n}")?;
+    run_function_test("fn test(x: number): number {\n    const x: number = 5;\n    x\n}")?;
+    run_function_test("fn ~(x: number): void {\n    stop;\n}")?;
     Ok(())
 }

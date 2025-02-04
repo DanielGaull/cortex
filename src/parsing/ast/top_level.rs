@@ -89,7 +89,7 @@ impl SimpleCodeGen for Body {
         }
         if let Some(exp) = &self.result {
             let indent_prefix = "    ".repeat(indent);
-            s.push_str(&format!("{}{}", indent_prefix, exp.codegen(indent)));
+            s.push_str(&format!("{}{}\n", indent_prefix, exp.codegen(indent)));
         }
         s
     }
