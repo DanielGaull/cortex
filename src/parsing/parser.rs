@@ -73,7 +73,6 @@ impl CortexParser {
     }
 
     fn parse_expr_tail_pair(pair: Pair<Rule>) -> Result<ExpressionTail, ParseError> {
-        let r = pair.as_rule();
         match pair.as_rule() {
             Rule::callTail => {
                 let pairs = pair.into_inner();
