@@ -22,6 +22,7 @@ pub enum Atom {
     Null,
     String(String),
     PathIdent(PathIdent),
+    Call(PathIdent, Vec<Expression>),
     Expression(Box<Expression>),
 }
 impl SimpleCodeGen for Atom {
@@ -34,23 +35,9 @@ impl SimpleCodeGen for Atom {
             Atom::Null => String::from("null"),
             Atom::PathIdent(path) => path.codegen(indent),
             Atom::Expression(expr) => expr.codegen(indent),
-        }
-    }
-}
-
-pub enum ExpressionTail {
-    None,
-    Call {
-        args: Vec<Expression>,
-        next: Box<ExpressionTail>,
-    },
-}
-impl SimpleCodeGen for ExpressionTail {
-    fn codegen(&self, indent: usize) -> String {
-        match self {
-            Self::None => String::new(),
-            Self::Call { args, next } => {
+            Atom::Call(path, args) => {
                 let mut s = String::new();
+                s.push_str(&path.codegen(indent));
                 s.push_str("(");
                 for (i, arg) in args.iter().enumerate() {
                     s.push_str(&arg.codegen(indent));
@@ -59,9 +46,19 @@ impl SimpleCodeGen for ExpressionTail {
                     }
                 }
                 s.push_str(")");
-                s.push_str(&next.codegen(indent));
                 s
             }
+        }
+    }
+}
+
+pub enum ExpressionTail {
+    None,
+}
+impl SimpleCodeGen for ExpressionTail {
+    fn codegen(&self, _: usize) -> String {
+        match self {
+            Self::None => String::new(),
         }
     }
 }

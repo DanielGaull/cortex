@@ -184,6 +184,16 @@ impl CortexParser {
             Rule::expr => {
                 Ok(Atom::Expression(Box::new(Self::parse_expr_pair(pair.into_inner().next().unwrap())?)))
             },
+            Rule::call => {
+                let mut pairs = pair.into_inner();
+                let name = Self::parse_path_ident(pairs.next().unwrap())?;
+                let mut args: Vec<Expression> = Vec::new();
+                for arg in pairs {
+                    let parsed_arg = Self::parse_expr_pair(arg)?;
+                    args.push(parsed_arg);
+                }
+                Ok(Atom::Call(name, args))
+            },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }
@@ -193,24 +203,6 @@ impl CortexParser {
             Rule::exprTail => {
                 if let Some(tail_pair) = pair.into_inner().next() {
                     match tail_pair.as_rule() {
-                        Rule::callTail => {
-                            let pairs = tail_pair.into_inner();
-                            // Silent rule for the args, so last item will be the next tail
-                            // Convert to Vec for easier handling
-                            let mut items: Vec<Pair<'_, Rule>> = pairs.collect();
-                            let next_tail = Self::parse_expr_tail_pair(items.pop().unwrap())?;
-                            let mut args: Vec<Expression> = Vec::new();
-                            for arg in items {
-                                let parsed_arg = Self::parse_expr_pair(arg)?;
-                                args.push(parsed_arg);
-                            }
-                            Ok(
-                                ExpressionTail::Call {
-                                    args: args,
-                                    next: Box::new(next_tail),
-                                }
-                            )
-                        },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }
                 } else {

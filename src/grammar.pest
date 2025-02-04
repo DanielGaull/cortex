@@ -17,11 +17,11 @@ varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { pathIdent ~ "=" ~ expr }
 
 // Expressions
-atom = { number | boolean | null | void | string | pathIdent | if | "(" ~ expr ~ ")" }
-exprTail = { callTail | binOpTail | "" }
+atom = { number | boolean | null | void | string | call | pathIdent | if | "(" ~ expr ~ ")" }
+exprTail = { binOpTail | "" }
 expr = { atom ~ exprTail }
+call = { pathIdent ~ "(" ~ exprList ~ ")" }
 
-callTail = { "(" ~ exprList ~ ")" ~ exprTail }
 binOpTail = { binOp ~ expr ~ exprTail }
 
 // NOTE: if the else is missing, and the first block returns a value, then the if will return null
