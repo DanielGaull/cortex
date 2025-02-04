@@ -20,6 +20,7 @@ parse_test!(expression);
 parse_test!(type);
 parse_test!(statement);
 parse_test!(function);
+parse_test!(top_level);
 
 #[test]
 fn test_parse_literals() -> Result<(), Box<dyn Error>> {
@@ -77,5 +78,14 @@ fn test_functions() -> Result<(), Box<dyn Error>> {
     run_function_test("fn test(x: number): void {\n    const x: number = 5;\n    x;\n}")?;
     run_function_test("fn test(x: number): number {\n    const x: number = 5;\n    x\n}")?;
     run_function_test("fn ~(x: number): void {\n    stop;\n}")?;
+    Ok(())
+}
+
+#[test]
+fn test_top_level() -> Result<(), Box<dyn Error>> {
+    run_top_level_test("fn test(x: number): void {\n    stop;\n}")?;
+    run_top_level_test("module myMod {\n    fn test(x: number): void {\n        stop;\n    }\n}")?;
+    run_top_level_test("import hello;")?;
+    run_top_level_test("import \"hello\";")?;
     Ok(())
 }

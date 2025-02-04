@@ -3,7 +3,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use super::ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, Parameter, PathIdent}, statement::Statement, top_level::{Body, Function}, typ::CType};
+use super::ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, Parameter, PathIdent}, statement::Statement, top_level::{Body, Function, TopLevel}, typ::CType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -27,6 +27,8 @@ pub enum ParseError {
     FailOptionalIdentifier(String),
     #[error("Failed to parse type '{0}'")]
     FailType(String),
+    #[error("Failed to parse top level declaration '{0}'")]
+    FailTopLevel(String),
 }
 
 impl CortexParser {
@@ -56,6 +58,45 @@ impl CortexParser {
         match pair {
             Ok(mut v) => Self::parse_func_pair(v.next().unwrap()),
             Err(_) => Err(ParseError::FailType(input.clone())),
+        }
+    }
+    pub fn parse_top_level(input: &String) -> Result<TopLevel, ParseError> {
+        let pair = PestCortexParser::parse(Rule::topLevel, input.as_str());
+        match pair {
+            Ok(mut v) => Self::parse_toplevel_pair(v.next().unwrap()),
+            Err(_) => Err(ParseError::FailType(input.clone())),
+        }
+    }
+
+    fn parse_toplevel_pair(mut pair: Pair<Rule>) -> Result<TopLevel, ParseError> {
+        pair = pair.into_inner().next().unwrap();
+        match pair.as_rule() {
+            Rule::function => {
+                Ok(TopLevel::Function(Self::parse_func_pair(pair)?))
+            },
+            Rule::import => {
+                let name: &str;
+                let mut is_string = false;
+                let p = pair.into_inner().next().unwrap();
+                if p.as_rule() == Rule::string {
+                    name = p.into_inner().next().unwrap().as_str();
+                    is_string = true;
+                } else {
+                    name = p.as_str();
+                }
+                Ok(TopLevel::Import { name: String::from(name), is_string_import: is_string })
+            },
+            Rule::module => {
+                let mut pairs = pair.into_inner();
+                let name = pairs.next().unwrap().as_str();
+                let mut contents = Vec::<TopLevel>::new();
+                for p in pairs {
+                    let toplevel = Self::parse_toplevel_pair(p)?;
+                    contents.push(toplevel);
+                }
+                Ok(TopLevel::Module { name: String::from(name), contents: contents })
+            },
+            _ => Err(ParseError::FailTopLevel(String::from(pair.as_str()))),
         }
     }
 

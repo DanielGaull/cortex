@@ -18,9 +18,9 @@ impl SimpleCodeGen for TopLevel {
         match self {
             Self::Import { name, is_string_import } => {
                 if *is_string_import {
-                    format!("\"{}\"", name)
+                    format!("import \"{}\";", name)
                 } else {
-                    name.clone()
+                    format!("import {};", name.clone())
                 }
             },
             Self::Module { name, contents } => {
@@ -29,12 +29,13 @@ impl SimpleCodeGen for TopLevel {
                 s.push_str(indent_prefix);
                 s.push_str("module ");
                 s.push_str(name);
-                s.push_str("{\n");
+                s.push_str(" {\n");
 
                 for top in contents {
                     s.push_str(&top.codegen(indent + 1));
+                    s.push_str("\n");
                 }
-
+                
                 s.push_str(indent_prefix);
                 s.push_str("}");
                 s
