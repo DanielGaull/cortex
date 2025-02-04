@@ -3,7 +3,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use super::ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, typ::CType};
+use super::ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, Parameter, PathIdent}, statement::Statement, top_level::{Body, Function}, typ::CType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -48,6 +48,13 @@ impl CortexParser {
         let pair = PestCortexParser::parse(Rule::typ, input.as_str());
         match pair {
             Ok(mut v) => Self::parse_type_pair(v.next().unwrap()),
+            Err(_) => Err(ParseError::FailType(input.clone())),
+        }
+    }
+    pub fn parse_function(input: &String) -> Result<Function, ParseError> {
+        let pair = PestCortexParser::parse(Rule::function, input.as_str());
+        match pair {
+            Ok(mut v) => Self::parse_func_pair(v.next().unwrap()),
             Err(_) => Err(ParseError::FailType(input.clone())),
         }
     }
@@ -196,5 +203,64 @@ impl CortexParser {
         } else {
             Ok(OptionalIdentifier::Ident(String::from(pair.as_str())))
         }
+    }
+
+    fn parse_func_pair(pair: Pair<Rule>) -> Result<Function, ParseError> {
+        let mut pairs = pair.into_inner();
+        let name = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let params = Self::parse_param_list(pairs.next().unwrap())?;
+        let return_type = Self::parse_type_pair(pairs.next().unwrap())?;
+        let body = Self::parse_body(pairs.next().unwrap())?;
+        Ok(Function {
+            name: name,
+            params: params,
+            return_type: return_type,
+            body: body,
+        })
+    }
+
+    fn parse_param_list(pair: Pair<Rule>) -> Result<Vec<Parameter>, ParseError> {
+        let pairs = pair.into_inner();
+        let mut params = Vec::<Parameter>::new();
+        for p in pairs {
+            params.push(Self::parse_param(p)?);
+        }
+        Ok(params)
+    }
+    fn parse_param(pair: Pair<Rule>) -> Result<Parameter, ParseError> {
+        let mut pairs = pair.into_inner();
+        let ident = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let typ = Self::parse_type_pair(pairs.next().unwrap())?;
+        Ok(
+            Parameter {
+                name: ident,
+                typ: typ,
+            }
+        )
+    }
+
+    fn parse_body(pair: Pair<Rule>) -> Result<Body, ParseError> {
+        let mut result: Option<Expression> = None;
+        let mut statements = Vec::<Statement>::new();
+
+        let mut iter = pair.into_inner().peekable();
+        while let Some(p) = iter.next() {
+            let is_last = iter.peek().is_none();
+            if is_last {
+                if p.as_rule() == Rule::expr {
+                    result = Some(Self::parse_expr_pair(p)?);
+                } else {
+                    statements.push(Self::parse_stmt_pair(p)?);
+                }
+            } else {
+                statements.push(Self::parse_stmt_pair(p)?);
+            }
+        }
+        Ok(
+            Body {
+                statements: statements,
+                result: result,
+            }
+        )
     }
 }

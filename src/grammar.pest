@@ -52,8 +52,8 @@ typ = { ident ~ "?"? }
 
 // Useful utilities
 param = { optIdentifier ~ ":" ~ typ }
-paramList = _{ (param ~ ",")* ~ param? }
+paramList = { (param ~ ",")* ~ param? }
 exprList = _{ (expr ~ ",")* ~ expr? }
 arithLogicBinOp = { "+" | "-" | "*" | "/" | "%" | "&&" | "||" }
 binOp = { arithLogicBinOp | "==" | "!=" | ">" | "<" | ">=" | "<=" }
-body = _{ statement* ~ expr? }
+body = { statement* ~ expr? }
