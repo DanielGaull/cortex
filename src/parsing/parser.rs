@@ -3,7 +3,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use super::ast::expression::{Atom, Expression, ExpressionTail, PathIdent};
+use super::ast::{expression::{Atom, Expression, ExpressionTail, PathIdent}, typ::CType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -28,6 +28,13 @@ impl CortexParser {
         let pair = PestCortexParser::parse(Rule::expr, input.as_str());
         match pair {
             Ok(mut v) => Self::parse_expr_pair(v.next().unwrap()),
+            Err(_) => Err(ParseError::FailExpression(input.clone())),
+        }
+    }
+    pub fn parse_type(input: &String) -> Result<CType, ParseError> {
+        let pair = PestCortexParser::parse(Rule::typ, input.as_str());
+        match pair {
+            Ok(mut v) => Self::parse_type_pair(v.next().unwrap()),
             Err(_) => Err(ParseError::FailExpression(input.clone())),
         }
     }
@@ -110,5 +117,11 @@ impl CortexParser {
         Ok(PathIdent {
             path: names,
         })
+    }
+
+    fn parse_type_pair(pair: Pair<Rule>) -> Result<CType, ParseError> {
+        let nullable = pair.as_str().contains("?");
+        let ident = pair.into_inner().next().unwrap().as_str();
+        Ok(CType::Basic { name: String::from(ident), is_nullable: nullable })
     }
 }
