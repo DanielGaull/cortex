@@ -3,7 +3,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use super::ast::expression::{Atom, Expression, ExpressionTail};
+use super::ast::expression::{Atom, Expression, ExpressionTail, PathIdent};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -19,6 +19,8 @@ pub enum ParseError {
     FailAtom(String),
     #[error("Failed to parse expression tail '{0}'")]
     FailTail(String),
+    #[error("Failed to parse path tail '{0}'")]
+    FailPath(String),
 }
 
 impl CortexParser {
@@ -65,6 +67,9 @@ impl CortexParser {
             Rule::void => {
                 Ok(Atom::Void)
             },
+            Rule::pathIdent => {
+                Ok(Atom::PathIdent(Self::parse_path_ident(pair)?))
+            },
             Rule::expr => {
                 Ok(Atom::Expression(Box::new(Self::parse_expr_pair(pair.into_inner().next().unwrap())?)))
             },
@@ -94,5 +99,16 @@ impl CortexParser {
             },
             _ => Err(ParseError::FailTail(String::from(pair.as_str()))),
         }
+    }
+
+    fn parse_path_ident(pair: Pair<Rule>) -> Result<PathIdent, ParseError> {
+        let mut names = Vec::<String>::new();
+        for p in pair.into_inner() {
+            let name = String::from(p.as_str());
+            names.push(name);
+        }
+        Ok(PathIdent {
+            path: names,
+        })
     }
 }

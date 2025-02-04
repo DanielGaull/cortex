@@ -18,3 +18,11 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
     run_expr_test(String::from("true"))?;
     Ok(())
 }
+
+#[test]
+fn test_parse_paths() -> Result<(), Box<dyn Error>> {
+    run_expr_test(String::from("foo"))?;
+    run_expr_test(String::from("foo::bar"))?;
+    run_expr_test(String::from("foo::bar::baz"))?;
+    Ok(())
+}

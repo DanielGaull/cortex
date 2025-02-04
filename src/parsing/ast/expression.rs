@@ -94,7 +94,7 @@ impl SimpleCodeGen for OptionalIdentifier {
 }
 
 pub struct PathIdent {
-    path: Vec<String>,
+    pub(crate) path: Vec<String>,
 }
 impl SimpleCodeGen for PathIdent {
     fn codegen(&self, _: usize) -> String {
