@@ -15,7 +15,7 @@ statement = { (statementNeedsSemicolon ~ ";") }// | bigStatement }
 stop = { "stop" }
 
 // Expressions
-atom = { number | boolean | void | string | ident | if | "(" ~ expr ~ ")" }
+atom = { number | boolean | void | string | pathIdent | if | "(" ~ expr ~ ")" }
 exprTail = { callTail | binOpTail | "" }
 expr = { atom ~ exprTail }
 
@@ -44,6 +44,7 @@ strchar = {
 
 optIdentifier = { ident | "~" }
 ident = ${ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
+pathIdent = { (ident ~ "::")* ~ ident }
 
 typ = { ident ~ "?"? }
 
