@@ -3,7 +3,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use super::ast::{expression::{Atom, Expression, ExpressionTail, PathIdent}, typ::CType};
+use super::ast::{expression::{Atom, Expression, ExpressionTail, PathIdent}, statement::Statement, typ::CType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -13,17 +13,28 @@ pub struct CortexParser;
 
 #[derive(Error, Debug)]
 pub enum ParseError {
+    #[error("Failed to parse statement '{0}'")]
+    FailStatement(String),
     #[error("Failed to parse expression '{0}'")]
     FailExpression(String),
     #[error("Failed to parse atom '{0}'")]
     FailAtom(String),
     #[error("Failed to parse expression tail '{0}'")]
     FailTail(String),
-    #[error("Failed to parse path tail '{0}'")]
+    #[error("Failed to parse path '{0}'")]
     FailPath(String),
+    #[error("Failed to parse type '{0}'")]
+    FailType(String),
 }
 
 impl CortexParser {
+    pub fn parse_statement(input: &String) -> Result<Statement, ParseError> {
+        let pair = PestCortexParser::parse(Rule::statement, input.as_str());
+        match pair {
+            Ok(mut v) => Self::parse_stmt_pair(v.next().unwrap()),
+            Err(_) => Err(ParseError::FailStatement(input.clone())),
+        }
+    }
     pub fn parse_expression(input: &String) -> Result<Expression, ParseError> {
         let pair = PestCortexParser::parse(Rule::expr, input.as_str());
         match pair {
@@ -35,7 +46,21 @@ impl CortexParser {
         let pair = PestCortexParser::parse(Rule::typ, input.as_str());
         match pair {
             Ok(mut v) => Self::parse_type_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailExpression(input.clone())),
+            Err(_) => Err(ParseError::FailType(input.clone())),
+        }
+    }
+
+    fn parse_stmt_pair(mut pair: Pair<Rule>) -> Result<Statement, ParseError> {
+        pair = pair.into_inner().next().unwrap();
+        match pair.as_rule() {
+            Rule::expr => {
+                let expression = Self::parse_expr_pair(pair)?;
+                Ok(Statement::Expression(expression))
+            },
+            Rule::stop => {
+                Ok(Statement::Stop)
+            },
+            _ => Err(ParseError::FailStatement(String::from(pair.as_str()))),
         }
     }
 
@@ -44,7 +69,7 @@ impl CortexParser {
         let atom_pair = pairs.next().unwrap();
         let atom = Self::parse_atom_pair(atom_pair.into_inner().next().unwrap())?;
         let mut expr_tail = ExpressionTail::None;
-        let next = pairs.next().unwrap().into_inner().next();
+        let next = pairs.next();
         if next.is_some() {
             let expr_tail_pair = next.unwrap();
             expr_tail = Self::parse_expr_tail_pair(expr_tail_pair)?;
@@ -86,24 +111,33 @@ impl CortexParser {
 
     fn parse_expr_tail_pair(pair: Pair<Rule>) -> Result<ExpressionTail, ParseError> {
         match pair.as_rule() {
-            Rule::callTail => {
-                let pairs = pair.into_inner();
-                // Silent rule for the args, so last item will be the next tail
-                // Convert to Vec for easier handling
-                let mut items: Vec<Pair<'_, Rule>> = pairs.collect();
-                let next_tail = Self::parse_expr_tail_pair(items.pop().unwrap())?;
-                let mut args: Vec<Expression> = Vec::new();
-                for arg in items {
-                    let parsed_arg = Self::parse_expr_pair(arg)?;
-                    args.push(parsed_arg);
-                }
-                Ok(
-                    ExpressionTail::Call {
-                        args: args,
-                        next: Box::new(next_tail),
+            Rule::exprTail => {
+                if let Some(tail_pair) = pair.into_inner().next() {
+                    match tail_pair.as_rule() {
+                        Rule::callTail => {
+                            let pairs = tail_pair.into_inner();
+                            // Silent rule for the args, so last item will be the next tail
+                            // Convert to Vec for easier handling
+                            let mut items: Vec<Pair<'_, Rule>> = pairs.collect();
+                            let next_tail = Self::parse_expr_tail_pair(items.pop().unwrap())?;
+                            let mut args: Vec<Expression> = Vec::new();
+                            for arg in items {
+                                let parsed_arg = Self::parse_expr_pair(arg)?;
+                                args.push(parsed_arg);
+                            }
+                            Ok(
+                                ExpressionTail::Call {
+                                    args: args,
+                                    next: Box::new(next_tail),
+                                }
+                            )
+                        },
+                        _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }
-                )
-            },
+                } else {
+                    Ok(ExpressionTail::None)
+                }
+            }
             _ => Err(ParseError::FailTail(String::from(pair.as_str()))),
         }
     }

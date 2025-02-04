@@ -8,14 +8,12 @@ import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ ":" ~ typ ~ "{" ~ body ~ "}" }
 
 // Statements
-statementNeedsSemicolon = _{ expr ~ stop }
-//bigStatement = _{ "" }
-statement = { (statementNeedsSemicolon ~ ";") }// | bigStatement }
+statement = { (stop | expr) ~ ";" }
 
 stop = { "stop" }
 
 // Expressions
-atom = { number | boolean | void | string | pathIdent | if | "(" ~ expr ~ ")" }
+atom = { number | boolean | null | void | string | pathIdent | if | "(" ~ expr ~ ")" }
 exprTail = { callTail | binOpTail | "" }
 expr = { atom ~ exprTail }
 

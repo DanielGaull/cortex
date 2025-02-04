@@ -14,6 +14,12 @@ fn run_type_test(input: &str) -> Result<(), Box<dyn Error>> {
     assert_eq!(input, code);
     Ok(())
 }
+fn run_stmt_test(input: &str) -> Result<(), Box<dyn Error>> {
+    let ast = CortexParser::parse_statement(&String::from(input))?;
+    let code = ast.codegen(0);
+    assert_eq!(input, code);
+    Ok(())
+}
 
 #[test]
 fn test_parse_literals() -> Result<(), Box<dyn Error>> {
@@ -22,6 +28,14 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
     run_expr_test("\"hello\"")?;
     run_expr_test("\"true\"")?;
     run_expr_test("true")?;
+    run_expr_test("null")?;
+    run_expr_test("void")?;
+    Ok(())
+}
+
+#[test]
+fn test_parse_tails() -> Result<(), Box<dyn Error>> {
+    run_expr_test("println(hello, \"hi\")")?;
     Ok(())
 }
 
@@ -39,5 +53,13 @@ fn test_types() -> Result<(), Box<dyn Error>> {
     run_type_test("any")?;
     run_type_test("number?")?;
     run_type_test("any?")?;
+    Ok(())
+}
+
+#[test]
+fn test_statements() -> Result<(), Box<dyn Error>> {
+    run_stmt_test("stop;")?;
+    run_stmt_test("null;")?;
+    run_stmt_test("println(hello, \"hi\");")?;
     Ok(())
 }
