@@ -7,4 +7,8 @@ use pest_derive::Parser;
 #[grammar = "grammar.pest"] // relative to src
 struct PestCortexParser;
 
+pub struct CortexParser;
 
+impl CortexParser {
+    
+}
