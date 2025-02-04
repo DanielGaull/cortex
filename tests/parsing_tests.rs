@@ -34,7 +34,7 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn test_parse_tails() -> Result<(), Box<dyn Error>> {
+fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expr_test("println(hello, \"hi\")")?;
     Ok(())
 }
@@ -61,5 +61,11 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_stmt_test("stop;")?;
     run_stmt_test("null;")?;
     run_stmt_test("println(hello, \"hi\");")?;
+    run_stmt_test("let x = 5;")?;
+    run_stmt_test("let x: number = 5;")?;
+    run_stmt_test("const x = 5;")?;
+    run_stmt_test("const x: number = 5;")?;
+    run_stmt_test("x = 5;")?;
+    run_stmt_test("x::y = 5;")?;
     Ok(())
 }

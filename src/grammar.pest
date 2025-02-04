@@ -8,12 +8,12 @@ import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ ":" ~ typ ~ "{" ~ body ~ "}" }
 
 // Statements
-statementNeedingSemicolon = _{ (stop | varDec | expr | varAssign) }
+statementNeedingSemicolon = _{ (stop | varDec | varAssign | expr) }
 statement = { statementNeedingSemicolon ~ ";" }
 
 stop = { "stop" }
 
-varDec = { ("let" | "const") ~ (":" ~ typ)? ~ "=" ~ expr }
+varDec = { ("let" | "const") ~ ident ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { pathIdent ~ "=" ~ expr }
 
 // Expressions

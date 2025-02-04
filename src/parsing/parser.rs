@@ -60,6 +60,35 @@ impl CortexParser {
             Rule::stop => {
                 Ok(Statement::Stop)
             },
+            Rule::varDec => {
+                let is_const = pair.as_str().starts_with("const");
+                let mut pairs = pair.into_inner();
+                let name = pairs.next().unwrap().as_str();
+                let third_pair = pairs.next().unwrap();
+                let mut typ: Option<CType> = None;
+                let init_value = 
+                    if third_pair.as_rule() == Rule::typ {
+                        typ = Some(Self::parse_type_pair(third_pair)?);
+                        Self::parse_expr_pair(pairs.next().unwrap())?
+                    } else {
+                        Self::parse_expr_pair(third_pair)?
+                    };
+                Ok(Statement::VariableDeclaration { 
+                    name: String::from(name),
+                    is_const: is_const,
+                    typ: typ,
+                    initial_value: init_value,
+                })
+            },
+            Rule::varAssign => {
+                let mut pairs = pair.into_inner();
+                let path = Self::parse_path_ident(pairs.next().unwrap())?;
+                let value = Self::parse_expr_pair(pairs.next().unwrap())?;
+                Ok(Statement::VariableAssignment { 
+                    name: path, 
+                    value: value,
+                })
+            },
             _ => Err(ParseError::FailStatement(String::from(pair.as_str()))),
         }
     }
