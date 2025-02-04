@@ -4,7 +4,7 @@ pub enum CType {
 
 }
 impl SimpleCodeGen for CType {
-    fn codegen(&self, indent: usize) -> String {
+    fn codegen(&self, _: usize) -> String {
         String::new()
     }
 }

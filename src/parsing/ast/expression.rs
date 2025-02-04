@@ -85,7 +85,7 @@ pub enum OptionalIdentifier {
     Ignore, // The ignore token, "~"
 }
 impl SimpleCodeGen for OptionalIdentifier {
-    fn codegen(&self, indent: usize) -> String {
+    fn codegen(&self, _: usize) -> String {
         match self {
             Self::Ident(s) => s.clone(),
             Self::Ignore => String::from("~"),

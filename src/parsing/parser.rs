@@ -1,5 +1,4 @@
 use pest::iterators::Pair;
-use std::{error::Error, fs};
 use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
@@ -23,12 +22,20 @@ pub enum ParseError {
 }
 
 impl CortexParser {
-    pub fn parse_expr_pair(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    pub fn parse_expression(input: &String) -> Result<Expression, ParseError> {
+        let pair = PestCortexParser::parse(Rule::expr, input.as_str());
+        match pair {
+            Ok(mut v) => Self::parse_expr_pair(v.next().unwrap()),
+            Err(_) => Err(ParseError::FailExpression(input.clone())),
+        }
+    }
+
+    fn parse_expr_pair(pair: Pair<Rule>) -> Result<Expression, ParseError> {
         let mut pairs = pair.into_inner();
         let atom_pair = pairs.next().unwrap();
         let atom = Self::parse_atom_pair(atom_pair.into_inner().next().unwrap())?;
         let mut expr_tail = ExpressionTail::None;
-        let next = pairs.next();
+        let next = pairs.next().unwrap().into_inner().next();
         if next.is_some() {
             let expr_tail_pair = next.unwrap();
             expr_tail = Self::parse_expr_tail_pair(expr_tail_pair)?;
@@ -66,6 +73,7 @@ impl CortexParser {
     }
 
     fn parse_expr_tail_pair(pair: Pair<Rule>) -> Result<ExpressionTail, ParseError> {
+        let r = pair.as_rule();
         match pair.as_rule() {
             Rule::callTail => {
                 let pairs = pair.into_inner();
