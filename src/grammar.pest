@@ -1,0 +1,56 @@
+COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!"\n" ~ ANY)*) }
+WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
+
+// Top-level
+topLevel = { import | function | module }
+module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
+import = { "import" ~ (ident | string) ~ ";" }
+function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ ":" ~ typ ~ "{" ~ body ~ "}" }
+
+// Statements
+statementNeedsSemicolon = _{ expr ~ stop }
+//bigStatement = _{ "" }
+statement = { (statementNeedsSemicolon ~ ";") }// | bigStatement }
+
+stop = { "stop" }
+
+// Expressions
+atom = { number | boolean | void | string | ident | if | "(" ~ expr ~ ")" }
+exprTail = { callTail | binOpTail | "" }
+expr = { atom ~ exprTail }
+
+callTail = { "(" ~ exprList ~ ")" ~ exprTail }
+binOpTail = { binOp ~ expr ~ exprTail }
+
+// NOTE: if the else is missing, and the first block returns a value, then the if will return null
+if = { "if" ~ expr ~ "{" ~ body ~ "}" ~ elifs ~ else? }
+elifs = { elif* }
+elif = { "elif" ~ expr ~ "{" ~ body ~ "}" }
+else = { "else" ~ "{" ~ body ~ "}" }
+
+// Literals/Primitives
+number = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ ~ ("." ~ (ASCII_DIGIT)+)? }
+boolean = { "true" | "false" }
+null = { "null" }
+void = { "void" }
+
+string = ${ "\"" ~ strinner ~ "\"" }
+strinner = @{ strchar* }
+strchar = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+
+optIdentifier = { ident | "~" }
+ident = ${ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
+
+typ = { ident ~ "?"? }
+
+// Useful utilities
+param = { optIdentifier ~ ":" ~ typ }
+paramList = { (param ~ ",")* ~ param? }
+exprList = { (expr ~ ",")* ~ expr? }
+arithLogicBinOp = { "+" | "-" | "*" | "/" | "%" | "&&" | "||" }
+binOp = { arithLogicBinOp | "==" | "!=" | ">" | "<" | ">=" | "<=" }
+body = _{ statement* ~ expr? }
