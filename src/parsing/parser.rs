@@ -3,7 +3,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use super::ast::{expression::{Atom, Expression, ExpressionTail, PathIdent}, statement::Statement, typ::CType};
+use super::ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, typ::CType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -23,6 +23,8 @@ pub enum ParseError {
     FailTail(String),
     #[error("Failed to parse path '{0}'")]
     FailPath(String),
+    #[error("Failed to parse identifier '{0}'")]
+    FailOptionalIdentifier(String),
     #[error("Failed to parse type '{0}'")]
     FailType(String),
 }
@@ -63,7 +65,7 @@ impl CortexParser {
             Rule::varDec => {
                 let is_const = pair.as_str().starts_with("const");
                 let mut pairs = pair.into_inner();
-                let name = pairs.next().unwrap().as_str();
+                let name = Self::parse_opt_ident(pairs.next().unwrap())?;
                 let third_pair = pairs.next().unwrap();
                 let mut typ: Option<CType> = None;
                 let init_value = 
@@ -74,7 +76,7 @@ impl CortexParser {
                         Self::parse_expr_pair(third_pair)?
                     };
                 Ok(Statement::VariableDeclaration { 
-                    name: String::from(name),
+                    name: name,
                     is_const: is_const,
                     typ: typ,
                     initial_value: init_value,
@@ -186,5 +188,13 @@ impl CortexParser {
         let nullable = pair.as_str().contains("?");
         let ident = pair.into_inner().next().unwrap().as_str();
         Ok(CType::Basic { name: String::from(ident), is_nullable: nullable })
+    }
+
+    fn parse_opt_ident(pair: Pair<Rule>) -> Result<OptionalIdentifier, ParseError> {
+        if pair.as_str() == "~" {
+            Ok(OptionalIdentifier::Ignore)
+        } else {
+            Ok(OptionalIdentifier::Ident(String::from(pair.as_str())))
+        }
     }
 }

@@ -13,7 +13,7 @@ statement = { statementNeedingSemicolon ~ ";" }
 
 stop = { "stop" }
 
-varDec = { ("let" | "const") ~ ident ~ (":" ~ typ)? ~ "=" ~ expr }
+varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { pathIdent ~ "=" ~ expr }
 
 // Expressions

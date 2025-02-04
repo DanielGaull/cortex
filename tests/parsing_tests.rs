@@ -65,6 +65,7 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_stmt_test("let x: number = 5;")?;
     run_stmt_test("const x = 5;")?;
     run_stmt_test("const x: number = 5;")?;
+    run_stmt_test("let ~ = 5;")?;
     run_stmt_test("x = 5;")?;
     run_stmt_test("x::y = 5;")?;
     Ok(())

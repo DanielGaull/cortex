@@ -1,12 +1,12 @@
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
-use super::{expression::{Expression, PathIdent}, typ::CType};
+use super::{expression::{Expression, OptionalIdentifier, PathIdent}, typ::CType};
 
 pub enum Statement {
     Expression(Expression),
     Stop,
     VariableDeclaration {
-        name: String,
+        name: OptionalIdentifier,
         is_const: bool,
         typ: Option<CType>,
         initial_value: Expression,
@@ -21,7 +21,7 @@ impl SimpleCodeGen for Statement {
         let mut s = String::new();
         let indent_prefix = "    ".repeat(indent);
         s.push_str(&indent_prefix);
-        let mut semicolon = true;
+        let semicolon = true;
         match self {
             Self::Expression(expr) => {
                 s.push_str(&expr.codegen(indent));
@@ -35,7 +35,7 @@ impl SimpleCodeGen for Statement {
                 } else {
                     s.push_str("let ");
                 }
-                s.push_str(name);
+                s.push_str(&name.codegen(indent));
                 if let Some(given_type) = typ {
                     s.push_str(": ");
                     s.push_str(&given_type.codegen(indent));
