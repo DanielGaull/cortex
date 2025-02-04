@@ -8,9 +8,13 @@ import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ ":" ~ typ ~ "{" ~ body ~ "}" }
 
 // Statements
-statement = { (stop | expr) ~ ";" }
+statementNeedingSemicolon = _{ (stop | varDec | expr | varAssign) }
+statement = { statementNeedingSemicolon ~ ";" }
 
 stop = { "stop" }
+
+varDec = { ("let" | "const") ~ (":" ~ typ)? ~ "=" ~ expr }
+varAssign = { pathIdent ~ "=" ~ expr }
 
 // Expressions
 atom = { number | boolean | null | void | string | pathIdent | if | "(" ~ expr ~ ")" }

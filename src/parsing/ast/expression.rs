@@ -9,8 +9,8 @@ pub struct Expression {
 impl SimpleCodeGen for Expression {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
-        s.push_str(self.atom.codegen(indent).as_str());
-        s.push_str(self.tail.codegen(indent).as_str());
+        s.push_str(&self.atom.codegen(indent));
+        s.push_str(&self.tail.codegen(indent));
         s
     }
 }
@@ -53,13 +53,13 @@ impl SimpleCodeGen for ExpressionTail {
                 let mut s = String::new();
                 s.push_str("(");
                 for (i, arg) in args.iter().enumerate() {
-                    s.push_str(arg.codegen(indent).as_str());
+                    s.push_str(&arg.codegen(indent));
                     if i + 1 < args.len() {
                         s.push_str(", ");
                     }
                 }
                 s.push_str(")");
-                s.push_str(next.codegen(indent).as_str());
+                s.push_str(&next.codegen(indent));
                 s
             }
         }
@@ -73,9 +73,9 @@ pub struct Parameter {
 impl SimpleCodeGen for Parameter {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
-        s.push_str(self.name.as_str());
+        s.push_str(&self.name);
         s.push_str(": ");
-        s.push_str(self.typ.codegen(indent).as_str());
+        s.push_str(&self.typ.codegen(indent));
         s
     }
 }
@@ -100,7 +100,7 @@ impl SimpleCodeGen for PathIdent {
     fn codegen(&self, _: usize) -> String {
         let mut s = String::new();
         for (i, p) in self.path.iter().enumerate() {
-            s.push_str(p.as_str());
+            s.push_str(p);
             if i + 1 < self.path.len() {
                 s.push_str("::");
             }
