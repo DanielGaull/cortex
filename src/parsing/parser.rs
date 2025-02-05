@@ -182,7 +182,7 @@ impl CortexParser {
                 Ok(Atom::PathIdent(Self::parse_path_ident(pair)?))
             },
             Rule::expr => {
-                Ok(Atom::Expression(Box::new(Self::parse_expr_pair(pair.into_inner().next().unwrap())?)))
+                Ok(Atom::Expression(Box::new(Self::parse_expr_pair(pair)?)))
             },
             Rule::call => {
                 let mut pairs = pair.into_inner();

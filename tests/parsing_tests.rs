@@ -7,9 +7,16 @@ macro_rules! parse_test {
     ($name:ident) => {
         paste! {
             fn [<run_ $name _test>](input: &str) -> Result<(), Box<dyn Error>> {
+                // let ast = CortexParser::[<parse_ $name>](&String::from(input))?;
+                // let code = ast.codegen(0);
+                // assert_eq!(input, code);
+                // Ok(())
+                [<run_ $name _test_expected>](input, input)
+            }
+            fn [<run_ $name _test_expected>](input: &str, expected: &str) -> Result<(), Box<dyn Error>> {
                 let ast = CortexParser::[<parse_ $name>](&String::from(input))?;
                 let code = ast.codegen(0);
-                assert_eq!(input, code);
+                assert_eq!(expected, code);
                 Ok(())
             }
         }
@@ -37,6 +44,8 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("println(hello, \"hi\")")?;
+    run_expression_test_expected("(void)", "void")?;
+    run_expression_test_expected("(((void)))", "void")?;
     Ok(())
 }
 

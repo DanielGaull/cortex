@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CortexType {
     name: String,
     nullable: bool,
@@ -44,5 +44,11 @@ impl CortexType {
             return true;
         }
         false
+    }
+}
+
+impl PartialEq for CortexType {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.nullable == other.nullable && self.is_any == other.is_any
     }
 }
