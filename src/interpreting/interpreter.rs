@@ -1,8 +1,7 @@
 use std::error::Error;
-use thiserror::Error;
 
-use crate::parsing::ast::{expression::{Atom, Expression, ExpressionTail, PathError, PathIdent}, top_level::Function};
-use super::{env::{EnvError, Environment}, module::{Module, ModuleError}, value::CortexValue};
+use crate::parsing::ast::{expression::{Atom, Expression, ExpressionTail, PathIdent}, top_level::Function};
+use super::{env::Environment, module::Module, value::CortexValue};
 
 type CortexError = Box<dyn Error>;
 
@@ -12,6 +11,8 @@ pub struct CortexInterpreter {
 }
 
 impl CortexInterpreter {
+
+
     pub fn evaluate_expression(&self, expr: &Expression) -> Result<CortexValue, CortexError> {
         let atom_result = self.evaluate_atom(&expr.atom)?;
         let tail_result = self.handle_expr_tail(atom_result, &expr.tail)?;

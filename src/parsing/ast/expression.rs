@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use thiserror::Error;
 
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
