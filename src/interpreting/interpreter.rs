@@ -82,20 +82,49 @@ impl CortexInterpreter {
         }
     }
 
+    pub fn evaluate_type(&self, typ: &CType) -> Result<CortexType, CortexError> {
+        match typ {
+            CType::Basic { name, is_nullable } => {
+                if name == "any" {
+                    Ok(CortexType::any(*is_nullable))
+                } else {
+                    Ok(CortexType::new(name, *is_nullable))
+                }
+            },
+        }
+    }
+
+    pub fn determine_type(&self, expr: &Expression) -> Result<CortexType, CortexError> {
+        let atom_result = self.determine_type_atom(&expr.atom)?;
+        let tail_result = self.determine_type_tail(atom_result, &expr.tail)?;
+        Ok(tail_result)
+    }
+    fn determine_type_atom(&self, atom: &Atom) -> Result<CortexType, CortexError> {
+        match atom {
+            Atom::Number(_) => Ok(CortexType::number(false)),
+            Atom::Boolean(_) => Ok(CortexType::boolean(false)),
+            Atom::Void => Ok(CortexType::void(false)),
+            Atom::Null => Ok(CortexType::any(true)),
+            Atom::String(_) => Ok(CortexType::string(false)),
+            Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
+            Atom::Call(path_ident, _) => {
+                let func = self.lookup_function(path_ident)?;
+                Ok(self.evaluate_type(&func.return_type)?)
+            },
+            Atom::Expression(expression) => Ok(self.determine_type(expression)?),
+        }
+    }
+    fn determine_type_tail(&self, atom: CortexType, tail: &ExpressionTail) -> Result<CortexType, CortexError> {
+        match tail {
+            ExpressionTail::None => Ok(atom),
+        }
+    }
+
     pub fn evaluate_expression(&self, expr: &Expression) -> Result<CortexValue, CortexError> {
         let atom_result = self.evaluate_atom(&expr.atom)?;
         let tail_result = self.handle_expr_tail(atom_result, &expr.tail)?;
         Ok(tail_result)
     }
-
-    pub fn evaluate_type(&self, typ: &CType) -> Result<CortexType, CortexError> {
-        todo!()
-    }
-
-    pub fn determine_type(&self, expr: &Expression) -> Result<CortexType, CortexError> {
-        todo!()
-    }
-
     fn evaluate_atom(&self, atom: &Atom) -> Result<CortexValue, CortexError> {
         match atom {
             Atom::Boolean(v) => Ok(CortexValue::Boolean(*v)),
@@ -117,6 +146,15 @@ impl CortexInterpreter {
         }
     }
 
+    fn lookup_type(&self, path: &PathIdent) -> Result<CortexType, CortexError> {
+        if path.is_final()? {
+            // Search in our environment for it
+            Ok(self.current_env.get_type(path.get_front()?)?.clone())
+        } else {
+            let last = path.get_back()?;
+            Ok(self.base_module.get_module(path)?.env().get_type(last)?.clone())
+        }
+    }
     fn lookup_value(&self, path: &PathIdent) -> Result<CortexValue, CortexError> {
         if path.is_final()? {
             // Search in our environment for it

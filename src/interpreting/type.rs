@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct CortexType {
     name: String,
     nullable: bool,

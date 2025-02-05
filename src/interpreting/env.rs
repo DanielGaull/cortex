@@ -89,6 +89,15 @@ impl Environment {
         }
     }
 
+    pub fn get_type(&self, name: &String) -> Result<&CortexType, EnvError> {
+        let search_result = self.get_variable(name);
+        if let Some(var) = search_result {
+            Ok(var.typ())
+        } else {
+            Err(EnvError::VariableDoesNotExist(name.clone()))
+        }
+    }
+
     pub fn get_value(&self, name: &String) -> Result<&CortexValue, EnvError> {
         let search_result = self.get_variable(name);
         if let Some(var) = search_result {
