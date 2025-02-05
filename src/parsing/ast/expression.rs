@@ -1,3 +1,7 @@
+use std::error::Error;
+
+use thiserror::Error;
+
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
 use super::typ::CType;
@@ -103,5 +107,34 @@ impl SimpleCodeGen for PathIdent {
             }
         }
         s
+    }
+}
+#[derive(Error, Debug)]
+pub enum PathError {
+    #[error("Path is empty")]
+    PathEmpty,
+}
+impl PathIdent {
+    pub fn pop_front(&mut self) -> Result<(), PathError> {
+        if self.path.len() <= 0 {
+            Err(PathError::PathEmpty)
+        } else {
+            self.path.remove(0);
+            Ok(())
+        }
+    }
+    pub fn get_front(&self) -> Result<&String, PathError> {
+        if let Some(elem) = self.path.get(0) {
+            Ok(elem)
+        } else {
+            Err(PathError::PathEmpty)
+        }
+    }
+    pub fn is_final(&self) -> Result<bool, PathError> {
+        if self.path.len() <= 0 {
+            Err(PathError::PathEmpty)
+        } else {
+            Ok(self.path.len() == 1)
+        }
     }
 }
