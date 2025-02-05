@@ -7,14 +7,10 @@ macro_rules! parse_test {
     ($name:ident) => {
         paste! {
             fn [<run_ $name _test>](input: &str) -> Result<(), Box<dyn Error>> {
-                // let ast = CortexParser::[<parse_ $name>](&String::from(input))?;
-                // let code = ast.codegen(0);
-                // assert_eq!(input, code);
-                // Ok(())
                 [<run_ $name _test_expected>](input, input)
             }
             fn [<run_ $name _test_expected>](input: &str, expected: &str) -> Result<(), Box<dyn Error>> {
-                let ast = CortexParser::[<parse_ $name>](&String::from(input))?;
+                let ast = CortexParser::[<parse_ $name>](input)?;
                 let code = ast.codegen(0);
                 assert_eq!(expected, code);
                 Ok(())

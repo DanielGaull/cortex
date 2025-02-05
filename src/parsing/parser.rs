@@ -32,39 +32,46 @@ pub enum ParseError {
 }
 
 impl CortexParser {
-    pub fn parse_statement(input: &String) -> Result<Statement, ParseError> {
-        let pair = PestCortexParser::parse(Rule::statement, input.as_str());
+    pub fn parse_statement(input: &str) -> Result<Statement, ParseError> {
+        let pair = PestCortexParser::parse(Rule::statement, input);
         match pair {
             Ok(mut v) => Self::parse_stmt_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailStatement(input.clone())),
+            Err(_) => Err(ParseError::FailStatement(String::from(input))),
         }
     }
-    pub fn parse_expression(input: &String) -> Result<Expression, ParseError> {
-        let pair = PestCortexParser::parse(Rule::expr, input.as_str());
+    pub fn parse_expression(input: &str) -> Result<Expression, ParseError> {
+        let pair = PestCortexParser::parse(Rule::expr, input);
         match pair {
             Ok(mut v) => Self::parse_expr_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailExpression(input.clone())),
+            Err(_) => Err(ParseError::FailExpression(String::from(input))),
         }
     }
-    pub fn parse_type(input: &String) -> Result<CType, ParseError> {
-        let pair = PestCortexParser::parse(Rule::typ, input.as_str());
+    pub fn parse_type(input: &str) -> Result<CType, ParseError> {
+        let pair = PestCortexParser::parse(Rule::typ, input);
         match pair {
             Ok(mut v) => Self::parse_type_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailType(input.clone())),
+            Err(_) => Err(ParseError::FailType(String::from(input))),
         }
     }
-    pub fn parse_function(input: &String) -> Result<Function, ParseError> {
-        let pair = PestCortexParser::parse(Rule::function, input.as_str());
+    pub fn parse_function(input: &str) -> Result<Function, ParseError> {
+        let pair = PestCortexParser::parse(Rule::function, input);
         match pair {
             Ok(mut v) => Self::parse_func_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailType(input.clone())),
+            Err(_) => Err(ParseError::FailType(String::from(input))),
         }
     }
-    pub fn parse_top_level(input: &String) -> Result<TopLevel, ParseError> {
-        let pair = PestCortexParser::parse(Rule::topLevel, input.as_str());
+    pub fn parse_top_level(input: &str) -> Result<TopLevel, ParseError> {
+        let pair = PestCortexParser::parse(Rule::topLevel, input);
         match pair {
             Ok(mut v) => Self::parse_toplevel_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailType(input.clone())),
+            Err(_) => Err(ParseError::FailType(String::from(input))),
+        }
+    }
+    pub fn parse_path(input: &str) -> Result<PathIdent, ParseError> {
+        let pair = PestCortexParser::parse(Rule::pathIdent, input);
+        match pair {
+            Ok(mut v) => Self::parse_path_ident(v.next().unwrap()),
+            Err(_) => Err(ParseError::FailType(String::from(input))),
         }
     }
 
