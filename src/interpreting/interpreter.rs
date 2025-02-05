@@ -1,9 +1,10 @@
 use std::error::Error;
 use crate::parsing::ast::expression::{Atom, Expression, ExpressionTail, PathIdent};
-use super::value::CortexValue;
+use super::{env::Environment, module::Module, value::CortexValue};
 
 pub struct CortexInterpreter {
-
+    base_module: Module,
+    current_env: Environment,
 }
 
 impl CortexInterpreter {

@@ -19,6 +19,9 @@ pub enum EnvError {
     FunctionAlreadyExists(String),
     #[error("Function \"{0}\" was not found")]
     FunctionDoesNotExist(String),
+
+    #[error("Cannot return from a base environment")]
+    AlreadyBase,
 }
 
 pub struct Environment {
@@ -39,6 +42,14 @@ impl Environment {
             parent: None,
             variables: HashMap::new(),
             functions: HashMap::new(),
+        }
+    }
+
+    pub fn exit(self) -> Result<Environment, EnvError> {
+        if let Some(parent) = self.parent {
+            Ok(*parent)
+        } else {
+            Err(EnvError::AlreadyBase)
         }
     }
 
