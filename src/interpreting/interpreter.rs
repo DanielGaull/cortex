@@ -53,7 +53,7 @@ impl CortexInterpreter {
                         let true_type = if let Some(the_type) = typ {
                             self.evaluate_type(the_type)?
                         } else {
-                            todo!("TODO - type determination mechanism")
+                            self.determine_type(initial_value)?
                         };
 
                         if *is_const {
@@ -89,6 +89,10 @@ impl CortexInterpreter {
     }
 
     pub fn evaluate_type(&self, typ: &CType) -> Result<CortexType, CortexError> {
+        todo!()
+    }
+
+    pub fn determine_type(&self, expr: &Expression) -> Result<CortexType, CortexError> {
         todo!()
     }
 
