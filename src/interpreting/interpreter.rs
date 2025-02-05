@@ -1,9 +1,19 @@
 use std::error::Error;
 
-use crate::parsing::ast::{expression::{Atom, Expression, ExpressionTail, PathIdent}, top_level::Function};
-use super::{env::Environment, module::Module, value::CortexValue};
+use thiserror::Error;
+
+use crate::parsing::{ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, top_level::Function, typ::CType}, codegen::r#trait::SimpleCodeGen};
+use super::{env::Environment, module::Module, r#type::CortexType, value::CortexValue};
 
 type CortexError = Box<dyn Error>;
+
+#[derive(Error, Debug)]
+pub enum InterpreterError {
+    #[error("Cannot modify value \"\" if it comes from a module")]
+    CannotModifyModuleEnvironment(String),
+    #[error("Program execution was forcibly stopped using a \"stop\" statement")]
+    ProgramStopped,
+}
 
 pub struct CortexInterpreter {
     base_module: Module,
@@ -25,10 +35,61 @@ impl CortexInterpreter {
         Ok(())
     }
 
+    pub fn run_statement(&mut self, statement: &Statement) -> Result<(), CortexError> {
+        match statement {
+            Statement::Expression(expression) => {
+                self.evaluate_expression(expression)?;
+                Ok(())
+            },
+            Statement::Stop => {
+                Err(Box::new(InterpreterError::ProgramStopped))
+            },
+            Statement::VariableDeclaration { 
+                name, is_const, typ, initial_value 
+            } => {
+                match name {
+                    OptionalIdentifier::Ident(ident) => {
+                        let value = self.evaluate_expression(initial_value)?;
+                        let true_type = if let Some(the_type) = typ {
+                            self.evaluate_type(the_type)?
+                        } else {
+                            todo!("TODO - type determination mechanism")
+                        };
+
+                        if *is_const {
+                            self.current_env.add_const(ident.clone(), true_type, value)?;
+                        } else {
+                            self.current_env.add_var(ident.clone(), true_type, value)?;
+                        }
+                        Ok(())
+                    },
+                    OptionalIdentifier::Ignore => {
+                        self.evaluate_expression(initial_value)?;
+                        Ok(())
+                    },
+                }
+            },
+            Statement::VariableAssignment { name, value } => {
+                if !name.is_final()? {
+                    Err(Box::new(InterpreterError::CannotModifyModuleEnvironment(name.codegen(0))))
+                } else {
+                    let var_name = name.get_front()?;
+                    let value = self.evaluate_expression(value)?;
+                    self.current_env.set_value(var_name, value)?;
+                    Ok(())
+                }
+            },
+        }
+    }
+
     pub fn evaluate_expression(&self, expr: &Expression) -> Result<CortexValue, CortexError> {
         let atom_result = self.evaluate_atom(&expr.atom)?;
         let tail_result = self.handle_expr_tail(atom_result, &expr.tail)?;
         Ok(tail_result)
+    }
+
+    pub fn evaluate_type(&self, typ: &CType) -> Result<CortexType, CortexError> {
+        todo!()
     }
 
     fn evaluate_atom(&self, atom: &Atom) -> Result<CortexValue, CortexError> {
