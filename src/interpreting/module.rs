@@ -55,4 +55,19 @@ impl Module {
             Err(ModuleError::ModuleDoesNotExist(front.clone()))
         }
     }
+    pub fn add_module(&mut self, path: &PathIdent, module: Module) -> Result<(), ModuleError> {
+        if path.is_final().map_err(|e| ModuleError::PathError(e))? {
+            let name = path.get_front().map_err(|e| ModuleError::PathError(e))?.clone();
+            self.add_child(name, module)?;
+            return Ok(());
+        }
+        let front = path.get_front().map_err(|e| ModuleError::PathError(e))?;
+        if self.children.contains_key(front) {
+            let child = self.children.get_mut(front).unwrap();
+            let next_path = path.pop_front().map_err(|e| ModuleError::PathError(e))?;
+            child.add_module(&next_path, module)
+        } else {
+            Err(ModuleError::ModuleDoesNotExist(front.clone()))
+        }
+    }
 }

@@ -137,11 +137,16 @@ impl PathIdent {
             Err(PathError::PathEmpty)
         }
     }
+    // Returns true if there is only one segment in this path left
+    // Error if the path is empty
     pub fn is_final(&self) -> Result<bool, PathError> {
         if self.path.len() <= 0 {
             Err(PathError::PathEmpty)
         } else {
             Ok(self.path.len() == 1)
         }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.path.len() <= 0
     }
 }

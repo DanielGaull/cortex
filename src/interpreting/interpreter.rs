@@ -11,7 +11,19 @@ pub struct CortexInterpreter {
 }
 
 impl CortexInterpreter {
+    pub fn new() -> Self {
+        CortexInterpreter {
+            // NOTE: We will never use the base module's environment
+            // since module Environments are immutable
+            base_module: Module::new(Environment::base()),
+            current_env: Environment::base(),
+        }
+    }
 
+    pub fn register_module(&mut self, path: &PathIdent, module: Module) -> Result<(), CortexError> {
+        self.base_module.add_module(path, module)?;
+        Ok(())
+    }
 
     pub fn evaluate_expression(&self, expr: &Expression) -> Result<CortexValue, CortexError> {
         let atom_result = self.evaluate_atom(&expr.atom)?;
