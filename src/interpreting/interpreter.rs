@@ -2,7 +2,7 @@ use std::error::Error;
 
 use thiserror::Error;
 
-use crate::parsing::{ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, top_level::Function, typ::CType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, top_level::{Body, Function}, typ::CType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, module::Module, r#type::CortexType, value::CortexValue};
 
 type CortexError = Box<dyn Error>;
@@ -143,6 +143,19 @@ impl CortexInterpreter {
     fn handle_expr_tail(&self, atom: CortexValue, tail: &ExpressionTail) -> Result<CortexValue, CortexError> {
         match tail {
             ExpressionTail::None => Ok(atom),
+        }
+    }
+
+    fn evaluate_body(&mut self, body: &Body) -> Result<CortexValue, CortexError> {
+        for st in &body.statements {
+            self.run_statement(st)?;
+        }
+
+        if let Some(return_expr) = &body.result {
+            let res = self.evaluate_expression(return_expr)?;
+            Ok(res)
+        } else {
+            Ok(CortexValue::Void)
         }
     }
 
