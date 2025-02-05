@@ -115,16 +115,25 @@ pub enum PathError {
     PathEmpty,
 }
 impl PathIdent {
-    pub fn pop_front(&mut self) -> Result<(), PathError> {
+    pub fn pop_front(&self) -> Result<PathIdent, PathError> {
         if self.path.len() <= 0 {
             Err(PathError::PathEmpty)
         } else {
-            self.path.remove(0);
-            Ok(())
+            let new_path: Vec<String> = self.path.iter().skip(1).cloned().collect();
+            Ok(PathIdent {
+                path: new_path,
+            })
         }
     }
     pub fn get_front(&self) -> Result<&String, PathError> {
         if let Some(elem) = self.path.get(0) {
+            Ok(elem)
+        } else {
+            Err(PathError::PathEmpty)
+        }
+    }
+    pub fn get_back(&self) -> Result<&String, PathError> {
+        if let Some(elem) = self.path.get(self.path.len() - 1) {
             Ok(elem)
         } else {
             Err(PathError::PathEmpty)

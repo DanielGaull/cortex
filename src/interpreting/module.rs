@@ -42,15 +42,15 @@ impl Module {
         }
     }
 
-    pub fn get_module(&self, mut path: PathIdent) -> Result<&Module, ModuleError> {
+    pub fn get_module(&self, path: &PathIdent) -> Result<&Module, ModuleError> {
         if path.is_final().map_err(|e| ModuleError::PathError(e))? {
             return Ok(self);
         }
         let front = path.get_front().map_err(|e| ModuleError::PathError(e))?;
         if self.children.contains_key(front) {
             let child = self.children.get(front).unwrap();
-            path.pop_front().map_err(|e| ModuleError::PathError(e))?;
-            child.get_module(path)
+            let next_path = path.pop_front().map_err(|e| ModuleError::PathError(e))?;
+            child.get_module(&next_path)
         } else {
             Err(ModuleError::ModuleDoesNotExist(front.clone()))
         }
