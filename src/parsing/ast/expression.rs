@@ -4,6 +4,7 @@ use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
 use super::typ::CType;
 
+#[derive(Clone)]
 pub struct Expression {
     pub(crate) atom: Atom,
     pub(crate) tail: ExpressionTail,
@@ -17,6 +18,7 @@ impl SimpleCodeGen for Expression {
     }
 }
 
+#[derive(Clone)]
 pub enum Atom {
     Number(f64),
     Boolean(bool),
@@ -54,6 +56,7 @@ impl SimpleCodeGen for Atom {
     }
 }
 
+#[derive(Clone)]
 pub enum ExpressionTail {
     None,
 }
@@ -65,6 +68,7 @@ impl SimpleCodeGen for ExpressionTail {
     }
 }
 
+#[derive(Clone)]
 pub struct Parameter {
     pub(crate) name: OptionalIdentifier,
     pub(crate) typ: CType,
@@ -79,6 +83,7 @@ impl SimpleCodeGen for Parameter {
     }
 }
 
+#[derive(Clone)]
 pub enum OptionalIdentifier {
     Ident(String), // A true identifier
     Ignore, // The ignore token, "~"
@@ -92,6 +97,7 @@ impl SimpleCodeGen for OptionalIdentifier {
     }
 }
 
+#[derive(Clone)]
 pub struct PathIdent {
     pub(crate) path: Vec<String>,
 }

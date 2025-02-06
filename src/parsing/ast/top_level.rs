@@ -78,6 +78,7 @@ impl SimpleCodeGen for Function {
     }
 }
 
+#[derive(Clone)]
 pub struct Body {
     pub(crate) statements: Vec<Statement>,
     pub(crate) result: Option<Expression>,
@@ -93,5 +94,13 @@ impl SimpleCodeGen for Body {
             s.push_str(&format!("{}{}\n", indent_prefix, exp.codegen(indent)));
         }
         s
+    }
+}
+impl Body {
+    pub fn empty() -> Self {
+        Body {
+            statements: Vec::new(),
+            result: None,
+        }
     }
 }

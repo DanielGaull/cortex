@@ -9,15 +9,19 @@ type CortexError = Box<dyn Error>;
 
 #[derive(Error, Debug)]
 pub enum InterpreterError {
-    #[error("Cannot modify value \"\" if it comes from a module")]
+    #[error("Cannot modify value \"{0}\" if it comes from a module")]
     CannotModifyModuleEnvironment(String),
     #[error("Program execution was forcibly stopped using a \"stop\" statement")]
     ProgramStopped,
+    #[error("Mismatched argument count: Function {0} expects {1} arguments but only received {2}")]
+    MismatchedArgumentCount(String, usize, usize),
+    #[error("Parent environment does not exist")]
+    NoParentEnv,
 }
 
 pub struct CortexInterpreter {
     base_module: Module,
-    current_env: Environment,
+    current_env: Option<Box<Environment>>,
 }
 
 impl CortexInterpreter {
@@ -26,7 +30,7 @@ impl CortexInterpreter {
             // NOTE: We will never use the base module's environment
             // since module Environments are immutable
             base_module: Module::new(Environment::base()),
-            current_env: Environment::base(),
+            current_env: Some(Box::new(Environment::base())),
         }
     }
 
@@ -57,9 +61,9 @@ impl CortexInterpreter {
                         };
 
                         if *is_const {
-                            self.current_env.add_const(ident.clone(), true_type, value)?;
+                            self.current_env.as_mut().unwrap().add_const(ident.clone(), true_type, value)?;
                         } else {
-                            self.current_env.add_var(ident.clone(), true_type, value)?;
+                            self.current_env.as_mut().unwrap().add_var(ident.clone(), true_type, value)?;
                         }
                         Ok(())
                     },
@@ -75,7 +79,7 @@ impl CortexInterpreter {
                 } else {
                     let var_name = name.get_front()?;
                     let value = self.evaluate_expression(value)?;
-                    self.current_env.set_value(var_name, value)?;
+                    self.current_env.as_mut().unwrap().set_value(var_name, value)?;
                     Ok(())
                 }
             },
@@ -120,12 +124,12 @@ impl CortexInterpreter {
         }
     }
 
-    pub fn evaluate_expression(&self, expr: &Expression) -> Result<CortexValue, CortexError> {
+    pub fn evaluate_expression(&mut self, expr: &Expression) -> Result<CortexValue, CortexError> {
         let atom_result = self.evaluate_atom(&expr.atom)?;
         let tail_result = self.handle_expr_tail(atom_result, &expr.tail)?;
         Ok(tail_result)
     }
-    fn evaluate_atom(&self, atom: &Atom) -> Result<CortexValue, CortexError> {
+    fn evaluate_atom(&mut self, atom: &Atom) -> Result<CortexValue, CortexError> {
         match atom {
             Atom::Boolean(v) => Ok(CortexValue::Boolean(*v)),
             Atom::Number(v) => Ok(CortexValue::Number(*v)),
@@ -135,8 +139,7 @@ impl CortexInterpreter {
             Atom::Expression(expr) => Ok(self.evaluate_expression(expr)?),
             Atom::PathIdent(path) => Ok(self.lookup_value(path)?),
             Atom::Call(path_ident, expressions) => {
-                let func = self.lookup_function(path_ident)?;
-                todo!()
+                Ok(self.run_function(path_ident, expressions)?)
             },
         }
     }
@@ -144,6 +147,69 @@ impl CortexInterpreter {
         match tail {
             ExpressionTail::None => Ok(atom),
         }
+    }
+
+
+    pub fn run_function(&mut self, function_name: &PathIdent, args: &Vec<Expression>) -> Result<CortexValue, CortexError> {
+        let func = self.lookup_function(function_name)?;
+        let body = func.body.clone();
+        let mut param_names = Vec::<OptionalIdentifier>::with_capacity(func.params.len());
+        let mut param_types = Vec::<CortexType>::with_capacity(func.params.len());
+        for param in &func.params {
+            param_names.push(param.name.clone());
+            param_types.push(self.evaluate_type(&param.typ)?);
+        }
+
+        if args.len() != func.params.len() {
+            return Err(Box::new(
+                InterpreterError::MismatchedArgumentCount(func.name.codegen(0), func.params.len(), args.len())
+            ));
+        }
+
+        // Four steps:
+        // 1. Construct a new environment for this function w/ all params in it
+        // 2. Run the code of the function and store the return value
+        // 3. Deconstruct the environment we just created
+        // 4. Return the saved-off value
+        
+        // Create new env
+        // Get ownership sorted first before adding values to the new environment
+        let parent_env = self.current_env.take().ok_or(InterpreterError::NoParentEnv)?;
+        let mut new_env = Environment::new(*parent_env);
+        for (i, expr) in args.iter().enumerate() {
+            let value = self.evaluate_expression(expr)?;
+            let param_name = param_names.get(i).unwrap();
+            let param_type = param_types.remove(0);
+            match &param_name {
+                OptionalIdentifier::Ident(ident) => {
+                    new_env
+                        .add_var(
+                            ident.clone(), 
+                            param_type,
+                            value
+                        )?;
+                },
+                OptionalIdentifier::Ignore => {
+                    // Do nothing
+                    // We already evaluated the expression of the argument,
+                    // so we now just need to not place it into our new environment
+                },
+            }
+        }
+        self.current_env = Some(Box::new(new_env));
+
+        // Run body
+        let result = self.evaluate_body(&body)?;
+
+        // Deconstruct environment
+        self.current_env = Some(Box::new(
+            self.current_env
+                .take()
+                .ok_or(InterpreterError::NoParentEnv)?
+                .exit()?));
+
+        // Return result
+        Ok(result)
     }
 
     fn evaluate_body(&mut self, body: &Body) -> Result<CortexValue, CortexError> {
@@ -162,7 +228,7 @@ impl CortexInterpreter {
     fn lookup_type(&self, path: &PathIdent) -> Result<CortexType, CortexError> {
         if path.is_final()? {
             // Search in our environment for it
-            Ok(self.current_env.get_type(path.get_front()?)?.clone())
+            Ok(self.current_env.as_ref().unwrap().get_type(path.get_front()?)?.clone())
         } else {
             let last = path.get_back()?;
             Ok(self.base_module.get_module(path)?.env().get_type(last)?.clone())
@@ -171,7 +237,7 @@ impl CortexInterpreter {
     fn lookup_value(&self, path: &PathIdent) -> Result<CortexValue, CortexError> {
         if path.is_final()? {
             // Search in our environment for it
-            Ok(self.current_env.get_value(path.get_front()?)?.clone())
+            Ok(self.current_env.as_ref().unwrap().get_value(path.get_front()?)?.clone())
         } else {
             let last = path.get_back()?;
             Ok(self.base_module.get_module(path)?.env().get_value(last)?.clone())
@@ -180,7 +246,7 @@ impl CortexInterpreter {
     fn lookup_function(&self, path: &PathIdent) -> Result<&Function, CortexError> {
         if path.is_final()? {
             // Search in our environment for it
-            Ok(self.current_env.get_function(path.get_front()?)?)
+            Ok(self.current_env.as_ref().unwrap().get_function(path.get_front()?)?)
         } else {
             let last = path.get_back()?;
             Ok(self.base_module.get_module(path)?.env().get_function(last)?)

@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, r#type::CortexType, value::CortexValue}, parsing::{ast::expression::PathIdent, parser::CortexParser}};
+use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, r#type::CortexType, value::CortexValue}, parsing::parser::CortexParser};
 
 fn run_test(input: &str, type_str: &str, interpreter: &CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;

@@ -2,6 +2,7 @@ use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
 use super::{expression::{Expression, OptionalIdentifier, PathIdent}, typ::CType};
 
+#[derive(Clone)]
 pub enum Statement {
     Expression(Expression),
     Stop,

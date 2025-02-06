@@ -1,5 +1,6 @@
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
+#[derive(Clone)]
 pub enum CType {
     Basic {
         name: String,
