@@ -153,6 +153,11 @@ impl CortexInterpreter {
             ));
         }
 
+        let mut arg_values = Vec::<CortexValue>::new();
+        for arg in args {
+            arg_values.push(self.evaluate_expression(arg)?);
+        }
+
         // Four steps:
         // 1. Construct a new environment for this function w/ all params in it
         // 2. Run the code of the function and store the return value
@@ -163,8 +168,8 @@ impl CortexInterpreter {
         // Get ownership sorted first before adding values to the new environment
         let parent_env = self.current_env.take().ok_or(InterpreterError::NoParentEnv)?;
         let mut new_env = Environment::new(*parent_env);
-        for (i, expr) in args.iter().enumerate() {
-            let value = self.evaluate_expression(expr)?;
+        for i in 0..args.len() {
+            let value = arg_values.remove(0);
             let param_name = param_names.get(i).unwrap();
             let param_type = param_types.remove(0);
             match &param_name {

@@ -1,7 +1,6 @@
-use std::error::Error;
-
 use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}, parser::CortexParser}};
 use thiserror::Error;
+use std::error::Error;
 
 #[derive(Error, Debug)]
 enum TestError {
@@ -9,7 +8,12 @@ enum TestError {
     Err(&'static str),
 }
 
-fn run_test(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+fn run_statement(input: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+    let ast = CortexParser::parse_statement(input)?;
+    interpreter.run_statement(&ast)?;
+    Ok(())
+}
+fn assert_expression(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
     let value = interpreter.evaluate_expression(&ast)?;
     let value_string = format!("{}", value);
@@ -17,37 +21,7 @@ fn run_test(input: &str, expected: &str, interpreter: &mut CortexInterpreter) ->
     Ok(())
 }
 
-#[test]
-fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
-    run_test("5", "5", &mut interpreter)?;
-    run_test("5.3", "5.3", &mut interpreter)?;
-    run_test("true", "true", &mut interpreter)?;
-    run_test("false", "false", &mut interpreter)?;
-    run_test("\"hello\"", "\"hello\"", &mut interpreter)?;
-    run_test("null", "null", &mut interpreter)?;
-    run_test("void", "void", &mut interpreter)?;
-    Ok(())
-}
-
-#[test]
-fn mod_var_eval_tests() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
-    let mut mod_env = Environment::base();
-    mod_env.add_const(String::from("myBoolean"), CortexType::boolean(false), CortexValue::Boolean(true))?;
-    mod_env.add_const(String::from("nullableBoolean"), CortexType::boolean(true), CortexValue::Null)?;
-    let path = CortexParser::parse_path("simple")?;
-    let module = Module::new(mod_env);
-    interpreter.register_module(&path, module)?;
-
-    run_test("simple::myBoolean", "true", &mut interpreter)?;
-    run_test("simple::nullableBoolean", "null", &mut interpreter)?;
-    
-    Ok(())
-}
-
-#[test]
-fn native_function_tests() -> Result<(), Box<dyn Error>> {
+fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let add_body = Body::Native(|env| {
         // The two arguments are "a" and "b"
         let a = env.get_value("a")?;
@@ -77,10 +51,21 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
     let path = CortexParser::parse_path("simple")?;
     let module = Module::new(mod_env);
     interpreter.register_module(&path, module)?;
+    Ok(interpreter)
+}
 
-    run_test("simple::add(5,2)", "7", &mut interpreter)?;
-    run_test("simple::add(5.5,2.2)", "7.7", &mut interpreter)?;
-    run_test("simple::add(-5,2)", "-3", &mut interpreter)?;
+#[test]
+fn statement_tests() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+    run_statement("let x = 5;", &mut interpreter)?;
+    run_statement("let y: number = 7;", &mut interpreter)?;
+    run_statement("let z = simple::add(x,y);", &mut interpreter)?;
+    assert_expression("x", "5", &mut interpreter)?;
+    assert_expression("y", "7", &mut interpreter)?;
+    assert_expression("z", "12", &mut interpreter)?;
+
+    run_statement("z = 10;", &mut interpreter)?;
+    assert_expression("z", "10", &mut interpreter)?;
 
     Ok(())
 }
