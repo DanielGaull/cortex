@@ -80,26 +80,32 @@ impl SimpleCodeGen for Function {
 }
 
 #[derive(Clone)]
-pub struct Body {
-    pub(crate) statements: Vec<Statement>,
-    pub(crate) result: Option<Expression>,
+pub enum Body {
+    Basic {
+        statements: Vec<Statement>,
+        result: Option<Expression>,
+    },
 }
 impl SimpleCodeGen for Body {
     fn codegen(&self, indent: usize) -> String {
-        let mut s = String::new();
-        for st in &self.statements {
-            s.push_str(&format!("{}\n", st.codegen(indent)));
+        match self {
+            Body::Basic { statements, result } => {
+                let mut s = String::new();
+                for st in statements {
+                    s.push_str(&format!("{}\n", st.codegen(indent)));
+                }
+                if let Some(exp) = result {
+                    let indent_prefix = "    ".repeat(indent);
+                    s.push_str(&format!("{}{}\n", indent_prefix, exp.codegen(indent)));
+                }
+                s
+            },
         }
-        if let Some(exp) = &self.result {
-            let indent_prefix = "    ".repeat(indent);
-            s.push_str(&format!("{}{}\n", indent_prefix, exp.codegen(indent)));
-        }
-        s
     }
 }
 impl Body {
     pub fn empty() -> Self {
-        Body {
+        Body::Basic {
             statements: Vec::new(),
             result: None,
         }

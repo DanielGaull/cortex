@@ -213,15 +213,19 @@ impl CortexInterpreter {
     }
 
     fn evaluate_body(&mut self, body: &Body) -> Result<CortexValue, CortexError> {
-        for st in &body.statements {
-            self.run_statement(st)?;
-        }
-
-        if let Some(return_expr) = &body.result {
-            let res = self.evaluate_expression(return_expr)?;
-            Ok(res)
-        } else {
-            Ok(CortexValue::Void)
+        match body {
+            Body::Basic { statements, result } => {
+                for st in statements {
+                    self.run_statement(st)?;
+                }
+        
+                if let Some(return_expr) = result {
+                    let res = self.evaluate_expression(return_expr)?;
+                    Ok(res)
+                } else {
+                    Ok(CortexValue::Void)
+                }
+            },
         }
     }
 

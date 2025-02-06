@@ -297,7 +297,7 @@ impl CortexParser {
             }
         }
         Ok(
-            Body {
+            Body::Basic {
                 statements: statements,
                 result: result,
             }
