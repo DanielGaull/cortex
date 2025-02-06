@@ -84,3 +84,29 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn basic_function_tests() -> Result<(), Box<dyn Error>> {
+    let test_body = Body::Basic { 
+        statements: vec![
+            CortexParser::parse_statement("let x = 5;")?
+        ],
+        result: Some(CortexParser::parse_expression("x")?),
+    };
+    let test_func = Function::new(
+        OptionalIdentifier::Ident(String::from("test")),
+        Vec::new(),
+        CortexType::number(false),
+        test_body
+    );
+    let mut interpreter = CortexInterpreter::new();
+    let mut mod_env = Environment::base();
+    mod_env.add_function(test_func)?;
+    let path = CortexParser::parse_path("simple")?;
+    let module = Module::new(mod_env);
+    interpreter.register_module(&path, module)?;
+
+    run_test("simple::test()", "5", &mut interpreter)?;
+
+    Ok(())
+}
