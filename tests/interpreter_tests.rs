@@ -48,28 +48,39 @@ fn mod_var_eval_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn native_function_tests() -> Result<(), Box<dyn Error>> {
-    // let add_body = Body::Native(|env| {
-    //     // The two arguments are "a" and "b"
-    //     let a = env.get_value("a")?;
-    //     let b = env.get_value("b")?;
-    //     if let CortexValue::Number(a_val) = a {
-    //         if let CortexValue::Number(b_val) = b {
-    //             Ok(CortexValue::Number(a_val + b_val))
-    //         } else {
-    //             Err(Box::new(TestError::Err("b is not a number")))
-    //         }
-    //     } else {
-    //         Err(Box::new(TestError::Err("a is not a number")))
-    //     }
-    // });
-    // let add_func = Function::new(
-    //     OptionalIdentifier::Ident(String::from("add")),
-    //     vec![Parameter::named("a", 
-    //         CType::Basic { name: String::from("number"), is_nullable: false }
-    //     )],
-    //     CType::Basic {},
-    //     add_body
-    // );
+    let add_body = Body::Native(|env| {
+        // The two arguments are "a" and "b"
+        let a = env.get_value("a")?;
+        let b = env.get_value("b")?;
+        if let CortexValue::Number(a_val) = a {
+            if let CortexValue::Number(b_val) = b {
+                Ok(CortexValue::Number(a_val + b_val))
+            } else {
+                Err(Box::new(TestError::Err("b is not a number")))
+            }
+        } else {
+            Err(Box::new(TestError::Err("a is not a number")))
+        }
+    });
+    let add_func = Function::new(
+        OptionalIdentifier::Ident(String::from("add")),
+        vec![
+            Parameter::named("a", CortexType::number(false)),
+            Parameter::named("b", CortexType::number(false))
+        ],
+        CortexType::number(false),
+        add_body
+    );
+    let mut interpreter = CortexInterpreter::new();
+    let mut mod_env = Environment::base();
+    mod_env.add_function(add_func)?;
+    let path = CortexParser::parse_path("simple")?;
+    let module = Module::new(mod_env);
+    interpreter.register_module(&path, module)?;
+
+    run_test("simple::add(5,2)", "7", &mut interpreter)?;
+    run_test("simple::add(5.5,2.2)", "7.7", &mut interpreter)?;
+    run_test("simple::add(-5,2)", "-3", &mut interpreter)?;
 
     Ok(())
 }
