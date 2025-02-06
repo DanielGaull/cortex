@@ -7,7 +7,7 @@ use super::{env::Environment, module::Module, value::CortexValue};
 
 pub type CortexError = Box<dyn Error>;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum InterpreterError {
     #[error("Cannot modify value \"{0}\" if it comes from a module")]
     CannotModifyModuleEnvironment(String),

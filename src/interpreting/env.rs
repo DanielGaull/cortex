@@ -6,7 +6,7 @@ use crate::parsing::ast::{expression::OptionalIdentifier, top_level::Function, r
 
 use super::value::CortexValue;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum EnvError {
     #[error("Cannot modify: Value \"{0}\" is constant")]
     ModifyConstant(String),

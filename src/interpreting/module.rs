@@ -11,7 +11,7 @@ pub struct Module {
     children: HashMap<String, Module>,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
     #[error("Module \"{0}\" already exists")]
     ModuleAlreadyExists(String),

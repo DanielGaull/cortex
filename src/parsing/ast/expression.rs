@@ -121,7 +121,7 @@ impl SimpleCodeGen for PathIdent {
         s
     }
 }
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum PathError {
     #[error("Path is empty")]
     PathEmpty,
