@@ -17,6 +17,8 @@ pub enum InterpreterError {
     MismatchedArgumentCount(String, usize, usize),
     #[error("Parent environment does not exist")]
     NoParentEnv,
+    #[error("Expected type {0} but expression of type {1} was found")]
+    MismatchedType(String, String),
 }
 
 pub struct CortexInterpreter {
@@ -55,6 +57,11 @@ impl CortexInterpreter {
                     OptionalIdentifier::Ident(ident) => {
                         let value = self.evaluate_expression(initial_value)?;
                         let true_type = if let Some(the_type) = typ {
+                            // Check that the declared type and type of the result match
+                            let value_type = self.determine_type(initial_value)?;
+                            if !value_type.is_subtype_of(the_type) {
+                                return Err(Box::new(InterpreterError::MismatchedType(the_type.codegen(0), value_type.codegen(0))));
+                            }
                             the_type.clone()
                         } else {
                             self.determine_type(initial_value)?
@@ -78,6 +85,11 @@ impl CortexInterpreter {
                     Err(Box::new(InterpreterError::CannotModifyModuleEnvironment(name.codegen(0))))
                 } else {
                     let var_name = name.get_front()?;
+                    let assigned_type = self.determine_type(value)?;
+                    let var_type = self.current_env.as_ref().unwrap().get_type(var_name)?;
+                    if !assigned_type.is_subtype_of(var_type) {
+                        return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), assigned_type.codegen(0))));
+                    }
                     let value = self.evaluate_expression(value)?;
                     self.current_env.as_mut().unwrap().set_value(var_name, value)?;
                     Ok(())
