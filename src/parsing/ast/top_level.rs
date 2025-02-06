@@ -45,6 +45,7 @@ impl SimpleCodeGen for TopLevel {
     }
 }
 
+#[derive(Clone)]
 pub struct Function {
     pub(crate) name: OptionalIdentifier,
     pub(crate) params: Vec<Parameter>,

@@ -139,7 +139,8 @@ impl CortexInterpreter {
             Atom::Expression(expr) => Ok(self.evaluate_expression(expr)?),
             Atom::PathIdent(path) => Ok(self.lookup_value(path)?),
             Atom::Call(path_ident, expressions) => {
-                Ok(self.run_function(path_ident, expressions)?)
+                let func = self.lookup_function(path_ident)?;
+                Ok(self.run_function(&func.clone(), expressions)?)
             },
         }
     }
@@ -150,9 +151,8 @@ impl CortexInterpreter {
     }
 
 
-    pub fn run_function(&mut self, function_name: &PathIdent, args: &Vec<Expression>) -> Result<CortexValue, CortexError> {
-        let func = self.lookup_function(function_name)?;
-        let body = func.body.clone();
+    pub fn run_function(&mut self, func: &Function, args: &Vec<Expression>) -> Result<CortexValue, CortexError> {
+        let body = &func.body;
         let mut param_names = Vec::<OptionalIdentifier>::with_capacity(func.params.len());
         let mut param_types = Vec::<CortexType>::with_capacity(func.params.len());
         for param in &func.params {
