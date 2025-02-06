@@ -98,20 +98,20 @@ impl Environment {
         }
     }
 
-    pub fn get_value(&self, name: &String) -> Result<&CortexValue, EnvError> {
-        let search_result = self.get_variable(name);
+    pub fn get_value(&self, name: &str) -> Result<&CortexValue, EnvError> {
+        let search_result = self.get_variable(&String::from(name));
         if let Some(var) = search_result {
             Ok(var.value())
         } else {
-            Err(EnvError::VariableDoesNotExist(name.clone()))
+            Err(EnvError::VariableDoesNotExist(String::from(name)))
         }
     }
-    pub fn set_value(&mut self, name: &String, value: CortexValue) -> Result<(), EnvError> {
-        let search_result = self.get_variable_mut(name);
+    pub fn set_value(&mut self, name: &str, value: CortexValue) -> Result<(), EnvError> {
+        let search_result = self.get_variable_mut(&String::from(name));
         if let Some(var) = search_result {
             var.set(value)
         } else {
-            Err(EnvError::VariableDoesNotExist(name.clone()))
+            Err(EnvError::VariableDoesNotExist(String::from(name)))
         }
     }
 

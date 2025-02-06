@@ -82,6 +82,14 @@ impl SimpleCodeGen for Parameter {
         s
     }
 }
+impl Parameter {
+    pub fn named(name: &str, typ: CType) -> Self {
+        Parameter {
+            name: OptionalIdentifier::Ident(String::from(name)),
+            typ: typ,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub enum OptionalIdentifier {

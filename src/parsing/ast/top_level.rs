@@ -78,6 +78,16 @@ impl SimpleCodeGen for Function {
         s
     }
 }
+impl Function {
+    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CType, body: Body) -> Self {
+        Function {
+            name: name,
+            params: params,
+            return_type: return_type,
+            body: body,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub enum Body {
