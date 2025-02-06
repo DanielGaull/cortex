@@ -2,8 +2,8 @@ use std::error::Error;
 
 use thiserror::Error;
 
-use crate::parsing::{ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, top_level::{Body, Function}, typ::CType}, codegen::r#trait::SimpleCodeGen};
-use super::{env::Environment, module::Module, r#type::CortexType, value::CortexValue};
+use crate::parsing::{ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, top_level::{Body, Function}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use super::{env::Environment, module::Module, value::CortexValue};
 
 pub type CortexError = Box<dyn Error>;
 
@@ -55,7 +55,7 @@ impl CortexInterpreter {
                     OptionalIdentifier::Ident(ident) => {
                         let value = self.evaluate_expression(initial_value)?;
                         let true_type = if let Some(the_type) = typ {
-                            self.evaluate_type(the_type)?
+                            the_type.clone()
                         } else {
                             self.determine_type(initial_value)?
                         };
@@ -86,18 +86,6 @@ impl CortexInterpreter {
         }
     }
 
-    pub fn evaluate_type(&self, typ: &CType) -> Result<CortexType, CortexError> {
-        match typ {
-            CType::Basic { name, is_nullable } => {
-                if name == "any" {
-                    Ok(CortexType::any(*is_nullable))
-                } else {
-                    Ok(CortexType::new(name, *is_nullable))
-                }
-            },
-        }
-    }
-
     pub fn determine_type(&self, expr: &Expression) -> Result<CortexType, CortexError> {
         let atom_result = self.determine_type_atom(&expr.atom)?;
         let tail_result = self.determine_type_tail(atom_result, &expr.tail)?;
@@ -113,7 +101,7 @@ impl CortexInterpreter {
             Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
             Atom::Call(path_ident, _) => {
                 let func = self.lookup_function(path_ident)?;
-                Ok(self.evaluate_type(&func.return_type)?)
+                Ok(func.return_type.clone())
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
         }
@@ -157,7 +145,7 @@ impl CortexInterpreter {
         let mut param_types = Vec::<CortexType>::with_capacity(func.params.len());
         for param in &func.params {
             param_names.push(param.name.clone());
-            param_types.push(self.evaluate_type(&param.typ)?);
+            param_types.push(param.typ.clone());
         }
 
         if args.len() != func.params.len() {

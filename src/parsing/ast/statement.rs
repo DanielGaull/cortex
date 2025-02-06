@@ -1,6 +1,6 @@
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
-use super::{expression::{Expression, OptionalIdentifier, PathIdent}, typ::CType};
+use super::{expression::{Expression, OptionalIdentifier, PathIdent}, r#type::CortexType};
 
 #[derive(Clone)]
 pub enum Statement {
@@ -9,7 +9,7 @@ pub enum Statement {
     VariableDeclaration {
         name: OptionalIdentifier,
         is_const: bool,
-        typ: Option<CType>,
+        typ: Option<CortexType>,
         initial_value: Expression,
     },
     VariableAssignment {

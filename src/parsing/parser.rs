@@ -3,7 +3,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use super::ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, Parameter, PathIdent}, statement::Statement, top_level::{Body, Function, TopLevel}, typ::CType};
+use super::ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, Parameter, PathIdent}, statement::Statement, top_level::{Body, Function, TopLevel}, r#type::CortexType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -46,7 +46,7 @@ impl CortexParser {
             Err(_) => Err(ParseError::FailExpression(String::from(input))),
         }
     }
-    pub fn parse_type(input: &str) -> Result<CType, ParseError> {
+    pub fn parse_type(input: &str) -> Result<CortexType, ParseError> {
         let pair = PestCortexParser::parse(Rule::typ, input);
         match pair {
             Ok(mut v) => Self::parse_type_pair(v.next().unwrap()),
@@ -122,7 +122,7 @@ impl CortexParser {
                 let mut pairs = pair.into_inner();
                 let name = Self::parse_opt_ident(pairs.next().unwrap())?;
                 let third_pair = pairs.next().unwrap();
-                let mut typ: Option<CType> = None;
+                let mut typ: Option<CortexType> = None;
                 let init_value = 
                     if third_pair.as_rule() == Rule::typ {
                         typ = Some(Self::parse_type_pair(third_pair)?);
@@ -231,10 +231,14 @@ impl CortexParser {
         })
     }
 
-    fn parse_type_pair(pair: Pair<Rule>) -> Result<CType, ParseError> {
+    fn parse_type_pair(pair: Pair<Rule>) -> Result<CortexType, ParseError> {
         let nullable = pair.as_str().contains("?");
         let ident = pair.into_inner().next().unwrap().as_str();
-        Ok(CType::Basic { name: String::from(ident), is_nullable: nullable })
+        if ident == "any" {
+            Ok(CortexType::any(nullable))
+        } else {
+            Ok(CortexType::new(ident, nullable))
+        }
     }
 
     fn parse_opt_ident(pair: Pair<Rule>) -> Result<OptionalIdentifier, ParseError> {

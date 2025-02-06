@@ -1,6 +1,6 @@
 use crate::{interpreting::{env::Environment, interpreter::CortexError, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
 
-use super::{expression::{Expression, OptionalIdentifier, Parameter}, statement::Statement, typ::CType};
+use super::{expression::{Expression, OptionalIdentifier, Parameter}, statement::Statement, r#type::CortexType};
 
 pub enum TopLevel {
     Import {
@@ -49,7 +49,7 @@ impl SimpleCodeGen for TopLevel {
 pub struct Function {
     pub(crate) name: OptionalIdentifier,
     pub(crate) params: Vec<Parameter>,
-    pub(crate) return_type: CType,
+    pub(crate) return_type: CortexType,
     pub(crate) body: Body,
 }
 impl SimpleCodeGen for Function {
@@ -79,7 +79,7 @@ impl SimpleCodeGen for Function {
     }
 }
 impl Function {
-    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CType, body: Body) -> Self {
+    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body) -> Self {
         Function {
             name: name,
             params: params,

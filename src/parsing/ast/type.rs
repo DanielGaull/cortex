@@ -1,8 +1,21 @@
+use crate::parsing::codegen::r#trait::SimpleCodeGen;
+
 #[derive(Clone, Debug)]
 pub struct CortexType {
-    name: String,
-    nullable: bool,
-    is_any: bool,
+    pub(crate) name: String,
+    pub(crate) nullable: bool,
+    pub(crate) is_any: bool,
+}
+
+impl SimpleCodeGen for CortexType {
+    fn codegen(&self, _: usize) -> String {
+        let mut s = String::new();
+        s.push_str(&self.name);
+        if self.nullable {
+            s.push_str("?");
+        }
+        s
+    }
 }
 
 impl CortexType {

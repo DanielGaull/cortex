@@ -1,11 +1,11 @@
 use std::error::Error;
 
-use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, r#type::CortexType, value::CortexValue}, parsing::parser::CortexParser};
+use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::r#type::CortexType, parser::CortexParser}};
 
 fn run_test(input: &str, type_str: &str, interpreter: &CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
     let eval_typ = interpreter.determine_type(&ast)?;
-    let typ = interpreter.evaluate_type(&CortexParser::parse_type(type_str)?)?;
+    let typ = CortexParser::parse_type(type_str)?;
     assert_eq!(typ, eval_typ);
     Ok(())
 }

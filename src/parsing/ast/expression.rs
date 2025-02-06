@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
-use super::typ::CType;
+use super::r#type::CortexType;
 
 #[derive(Clone)]
 pub struct Expression {
@@ -71,7 +71,7 @@ impl SimpleCodeGen for ExpressionTail {
 #[derive(Clone)]
 pub struct Parameter {
     pub(crate) name: OptionalIdentifier,
-    pub(crate) typ: CType,
+    pub(crate) typ: CortexType,
 }
 impl SimpleCodeGen for Parameter {
     fn codegen(&self, indent: usize) -> String {
@@ -83,7 +83,7 @@ impl SimpleCodeGen for Parameter {
     }
 }
 impl Parameter {
-    pub fn named(name: &str, typ: CType) -> Self {
+    pub fn named(name: &str, typ: CortexType) -> Self {
         Parameter {
             name: OptionalIdentifier::Ident(String::from(name)),
             typ: typ,

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::OptionalIdentifier, top_level::Function};
+use crate::parsing::ast::{expression::OptionalIdentifier, top_level::Function, r#type::CortexType};
 
-use super::{r#type::CortexType, value::CortexValue};
+use super::value::CortexValue;
 
 #[derive(Error, Debug)]
 pub enum EnvError {
