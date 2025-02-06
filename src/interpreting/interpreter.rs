@@ -138,7 +138,6 @@ impl CortexInterpreter {
         }
     }
 
-
     pub fn run_function(&mut self, func: &Function, args: &Vec<Expression>) -> Result<CortexValue, CortexError> {
         let body = &func.body;
         let mut param_names = Vec::<OptionalIdentifier>::with_capacity(func.params.len());
