@@ -1,4 +1,4 @@
-use crate::parsing::codegen::r#trait::SimpleCodeGen;
+use crate::{interpreting::{env::Environment, interpreter::CortexError, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
 
 use super::{expression::{Expression, OptionalIdentifier, Parameter}, statement::Statement, typ::CType};
 
@@ -85,6 +85,7 @@ pub enum Body {
         statements: Vec<Statement>,
         result: Option<Expression>,
     },
+    Native(fn(&Environment) -> Result<CortexValue, CortexError>),
 }
 impl SimpleCodeGen for Body {
     fn codegen(&self, indent: usize) -> String {
@@ -100,6 +101,7 @@ impl SimpleCodeGen for Body {
                 }
                 s
             },
+            Body::Native(_) => String::from("[native code]"),
         }
     }
 }

@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::parsing::{ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, top_level::{Body, Function}, typ::CType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, module::Module, r#type::CortexType, value::CortexValue};
 
-type CortexError = Box<dyn Error>;
+pub type CortexError = Box<dyn Error>;
 
 #[derive(Error, Debug)]
 pub enum InterpreterError {
@@ -225,6 +225,10 @@ impl CortexInterpreter {
                 } else {
                     Ok(CortexValue::Void)
                 }
+            },
+            Body::Native(func) => {
+                let res = func(self.current_env.as_ref().unwrap())?;
+                Ok(res)
             },
         }
     }
