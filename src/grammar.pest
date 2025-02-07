@@ -8,6 +8,7 @@ topLevel = { import | function | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ ":" ~ typ ~ "{" ~ body ~ "}" }
+struct = { "struct" ~ optIdentifier ~ "{" ~ structMember* ~ "}" }
 
 // Statements
 statementNeedingSemicolon = _{ (stop | varDec | varAssign | expr) }
@@ -23,6 +24,7 @@ atom = { number | boolean | null | void | string | call | pathIdent | if | "(" ~
 exprTail = { binOpTail | "" }
 expr = { atom ~ exprTail }
 call = { pathIdent ~ "(" ~ exprList ~ ")" }
+structConstruction = { pathIdent ~ "{" ~ (structMemberInit ~ ",")* ~ structMemberInit? ~ "}" }
 
 binOpTail = { binOp ~ expr ~ exprTail }
 
@@ -57,6 +59,8 @@ param = { optIdentifier ~ ":" ~ typ }
 paramList = { (param ~ ",")* ~ param? }
 exprList = _{ (expr ~ ",")* ~ expr? }
 body = { statement* ~ expr? }
+structMember = { ident ~ ":" ~ typ ~ ";" }
+structMemberInit = { ident ~ ":" ~ expr }
 
 // Operator utilities
 add = { "+" }
