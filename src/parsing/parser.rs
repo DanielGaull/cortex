@@ -3,7 +3,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use super::ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, Parameter, PathIdent}, statement::Statement, top_level::{Body, Function, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, Parameter, PathIdent}, statement::Statement, top_level::{Body, Function, TopLevel}, r#type::CortexType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -29,6 +29,8 @@ pub enum ParseError {
     FailType(String),
     #[error("Failed to parse top level declaration '{0}'")]
     FailTopLevel(String),
+    #[error("Operator does not exist '{0}'")]
+    OperatorDoesNotExist(String),
 }
 
 impl CortexParser {
@@ -210,6 +212,37 @@ impl CortexParser {
             Rule::exprTail => {
                 if let Some(tail_pair) = pair.into_inner().next() {
                     match tail_pair.as_rule() {
+                        Rule::binOpTail => {
+                            let mut pairs = tail_pair.into_inner();
+                            let binop_str = pairs.next().unwrap().as_str();
+                            let right_pair = pairs.next().unwrap();
+                            let next_pair = pairs.next().unwrap();
+                            let right = Self::parse_expr_pair(right_pair)?;
+                            let next = Self::parse_expr_tail_pair(next_pair)?;
+                            let op = match binop_str {
+                                "+" => BinaryOperator::Add,
+                                "-" => BinaryOperator::Subtract,
+                                "*" => BinaryOperator::Multiply,
+                                "/" => BinaryOperator::Divide,
+                                "%" => BinaryOperator::Remainder,
+                                "&&" => BinaryOperator::LogicAnd,
+                                "||" => BinaryOperator::LogicOr,
+                                "==" => BinaryOperator::IsEqual,
+                                "!=" => BinaryOperator::IsNotEqual,
+                                "<" => BinaryOperator::IsLessThan,
+                                ">" => BinaryOperator::IsGreaterThan,
+                                "<=" => BinaryOperator::IsLessThanOrEqualTo,
+                                ">=" => BinaryOperator::IsGreaterThanOrEqualTo,
+                                _ => return Err(ParseError::OperatorDoesNotExist(String::from(binop_str))),
+                            };
+                            Ok(
+                                ExpressionTail::BinaryOperation { 
+                                    op: op,
+                                    right: Box::new(right),
+                                    next: Box::new(next),
+                                }
+                            )
+                        },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }
                 } else {

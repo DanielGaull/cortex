@@ -2,7 +2,7 @@ use std::{error::Error, rc::Rc};
 
 use thiserror::Error;
 
-use crate::parsing::{ast::{expression::{Atom, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, top_level::{Body, Function}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, top_level::{Body, Function}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, module::Module, value::CortexValue};
 
 pub type CortexError = Box<dyn Error>;
@@ -19,6 +19,8 @@ pub enum InterpreterError {
     NoParentEnv,
     #[error("Expected type {0} but expression of type {1} was found")]
     MismatchedType(String, String),
+    #[error("Invalid operator values: only the types ({0}) and ({1}) are allowed")]
+    InvalidOperator(String, String),
 }
 
 pub struct CortexInterpreter {
@@ -121,6 +123,85 @@ impl CortexInterpreter {
     fn determine_type_tail(&self, atom: CortexType, tail: &ExpressionTail) -> Result<CortexType, CortexError> {
         match tail {
             ExpressionTail::None => Ok(atom),
+            ExpressionTail::BinaryOperation { op, right, next } => {
+                let left_req;
+                let right_req;
+                let pre = match op {
+                    BinaryOperator::Add => {
+                        left_req = CortexType::number(false);
+                        right_req = CortexType::number(false);
+                        CortexType::number(false)
+                    },
+                    BinaryOperator::Subtract => {
+                        left_req = CortexType::number(false);
+                        right_req = CortexType::number(false);
+                        CortexType::number(false)
+                    },
+                    BinaryOperator::Multiply => {
+                        left_req = CortexType::number(false);
+                        right_req = CortexType::number(false);
+                        CortexType::number(false)
+                    },
+                    BinaryOperator::Divide => {
+                        left_req = CortexType::number(false);
+                        right_req = CortexType::number(false);
+                        CortexType::number(false)
+                    },
+                    BinaryOperator::Remainder => {
+                        left_req = CortexType::number(false);
+                        right_req = CortexType::number(false);
+                        CortexType::number(false)
+                    },
+                    BinaryOperator::LogicAnd => {
+                        left_req = CortexType::boolean(false);
+                        right_req = CortexType::boolean(false);
+                        CortexType::boolean(false)
+                    },
+                    BinaryOperator::LogicOr => {
+                        left_req = CortexType::boolean(false);
+                        right_req = CortexType::boolean(false);
+                        CortexType::boolean(false)
+                    },
+                    BinaryOperator::IsEqual => {
+                        left_req = CortexType::any(true);
+                        right_req = CortexType::any(true);
+                        CortexType::boolean(false)
+                    },
+                    BinaryOperator::IsNotEqual => {
+                        left_req = CortexType::any(true);
+                        right_req = CortexType::any(true);
+                        CortexType::boolean(false)
+                    },
+                    BinaryOperator::IsLessThan => {
+                        left_req = CortexType::number(false);
+                        right_req = CortexType::number(false);
+                        CortexType::boolean(false)
+                    },
+                    BinaryOperator::IsGreaterThan => {
+                        left_req = CortexType::number(false);
+                        right_req = CortexType::number(false);
+                        CortexType::boolean(false)
+                    },
+                    BinaryOperator::IsLessThanOrEqualTo => {
+                        left_req = CortexType::number(false);
+                        right_req = CortexType::number(false);
+                        CortexType::boolean(false)
+                    },
+                    BinaryOperator::IsGreaterThanOrEqualTo => {
+                        left_req = CortexType::number(false);
+                        right_req = CortexType::number(false);
+                        CortexType::boolean(false)
+                    },
+                };
+                if !atom.is_subtype_of(&left_req) {
+                    return Err(Box::new(InterpreterError::InvalidOperator(left_req.codegen(0), right_req.codegen(0))));
+                }
+                let right_type = self.determine_type(right)?;
+                if !right_type.is_subtype_of(&right_req) {
+                    return Err(Box::new(InterpreterError::InvalidOperator(left_req.codegen(0), right_req.codegen(0))));
+                }
+                Ok(self.determine_type_tail(pre, next)?)
+            },
         }
     }
 
@@ -144,9 +225,144 @@ impl CortexInterpreter {
             },
         }
     }
-    fn handle_expr_tail(&self, atom: CortexValue, tail: &ExpressionTail) -> Result<CortexValue, CortexError> {
+    fn handle_expr_tail(&mut self, atom: CortexValue, tail: &ExpressionTail) -> Result<CortexValue, CortexError> {
         match tail {
             ExpressionTail::None => Ok(atom),
+            ExpressionTail::BinaryOperation { op, right, next } => {
+                let right_value = self.evaluate_expression(right)?;
+                let pre = match op {
+                    BinaryOperator::Add => {
+                        if let CortexValue::Number(n1) = atom {
+                            if let CortexValue::Number(n2) = right_value {
+                                Ok(CortexValue::Number(n1 + n2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                        }
+                    },
+                    BinaryOperator::Subtract => {
+                        if let CortexValue::Number(n1) = atom {
+                            if let CortexValue::Number(n2) = right_value {
+                                Ok(CortexValue::Number(n1 - n2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                        }
+                    },
+                    BinaryOperator::Multiply => {
+                        if let CortexValue::Number(n1) = atom {
+                            if let CortexValue::Number(n2) = right_value {
+                                Ok(CortexValue::Number(n1 * n2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                        }
+                    },
+                    BinaryOperator::Divide => {
+                        if let CortexValue::Number(n1) = atom {
+                            if let CortexValue::Number(n2) = right_value {
+                                Ok(CortexValue::Number(n1 / n2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                        }
+                    },
+                    BinaryOperator::Remainder => {
+                        if let CortexValue::Number(n1) = atom {
+                            if let CortexValue::Number(n2) = right_value {
+                                Ok(CortexValue::Number(n1 % n2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                        }
+                    },
+                    BinaryOperator::LogicAnd => {
+                        if let CortexValue::Boolean(b1) = atom {
+                            if let CortexValue::Boolean(b2) = right_value {
+                                Ok(CortexValue::Boolean(b1 && b2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("bool"), String::from("bool"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("bool"), String::from("bool"))))
+                        }
+                    },
+                    BinaryOperator::LogicOr => {
+                        if let CortexValue::Boolean(b1) = atom {
+                            if let CortexValue::Boolean(b2) = right_value {
+                                Ok(CortexValue::Boolean(b1 || b2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("bool"), String::from("bool"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("bool"), String::from("bool"))))
+                        }
+                    },
+                    BinaryOperator::IsEqual => {
+                        let result = atom == right_value;
+                        Ok(CortexValue::Boolean(result))
+                    },
+                    BinaryOperator::IsNotEqual => {
+                        let result = atom != right_value;
+                        Ok(CortexValue::Boolean(result))
+                    },
+                    BinaryOperator::IsLessThan => {
+                        if let CortexValue::Number(n1) = atom {
+                            if let CortexValue::Number(n2) = right_value {
+                                Ok(CortexValue::Boolean(n1 < n2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                        }
+                    },
+                    BinaryOperator::IsGreaterThan => {
+                        if let CortexValue::Number(n1) = atom {
+                            if let CortexValue::Number(n2) = right_value {
+                                Ok(CortexValue::Boolean(n1 > n2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                        }
+                    },
+                    BinaryOperator::IsLessThanOrEqualTo => {
+                        if let CortexValue::Number(n1) = atom {
+                            if let CortexValue::Number(n2) = right_value {
+                                Ok(CortexValue::Boolean(n1 <= n2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                        }
+                    },
+                    BinaryOperator::IsGreaterThanOrEqualTo => {
+                        if let CortexValue::Number(n1) = atom {
+                            if let CortexValue::Number(n2) = right_value {
+                                Ok(CortexValue::Boolean(n1 >= n2))
+                            } else {
+                                Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                            }
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperator(String::from("number"), String::from("number"))))
+                        }
+                    },
+                }?;
+                Ok(self.handle_expr_tail(pre, next)?)
+            },
         }
     }
 

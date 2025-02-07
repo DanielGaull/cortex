@@ -59,11 +59,40 @@ impl SimpleCodeGen for Atom {
 #[derive(Clone)]
 pub enum ExpressionTail {
     None,
+    BinaryOperation {
+        op: BinaryOperator,
+        right: Box<Expression>,
+        next: Box<ExpressionTail>,
+    },
 }
 impl SimpleCodeGen for ExpressionTail {
-    fn codegen(&self, _: usize) -> String {
+    fn codegen(&self, indent: usize) -> String {
         match self {
             Self::None => String::new(),
+            Self::BinaryOperation { op, right, next } => {
+                let opstr = match op {
+                    BinaryOperator::Add => "+",
+                    BinaryOperator::Subtract => "-",
+                    BinaryOperator::Multiply => "*",
+                    BinaryOperator::Divide => "/",
+                    BinaryOperator::Remainder => "%",
+                    BinaryOperator::LogicAnd => "&&",
+                    BinaryOperator::LogicOr => "||",
+                    BinaryOperator::IsEqual => "==",
+                    BinaryOperator::IsNotEqual => "!=",
+                    BinaryOperator::IsLessThan => "<",
+                    BinaryOperator::IsGreaterThan => ">",
+                    BinaryOperator::IsLessThanOrEqualTo => "<=",
+                    BinaryOperator::IsGreaterThanOrEqualTo => ">=",
+                };
+                let mut s = String::new();
+                s.push_str(" ");
+                s.push_str(opstr);
+                s.push_str(" ");
+                s.push_str(&right.codegen(indent));
+                s.push_str(&next.codegen(indent));
+                s
+            },
         }
     }
 }
@@ -163,4 +192,21 @@ impl PathIdent {
     pub fn is_empty(&self) -> bool {
         self.path.len() <= 0
     }
+}
+
+#[derive(Clone)]
+pub enum BinaryOperator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Remainder,
+    LogicAnd,
+    LogicOr,
+    IsEqual,
+    IsNotEqual,
+    IsLessThan,
+    IsGreaterThan,
+    IsLessThanOrEqualTo,
+    IsGreaterThanOrEqualTo,
 }

@@ -38,6 +38,9 @@ impl CortexType {
     pub fn void(nullable: bool) -> Self {
         Self::new("void", nullable)
     }
+    pub fn null() -> Self {
+        Self::new("null", true)
+    }
     pub fn any(nullable: bool) -> Self {
         CortexType {
             name: String::from("any"),
@@ -48,6 +51,9 @@ impl CortexType {
 
     pub fn is_subtype_of(&self, other: &CortexType) -> bool {
         if other.is_any {
+            return true;
+        }
+        if self.nullable && other == &CortexType::null() {
             return true;
         }
         if &self.name == &other.name {
