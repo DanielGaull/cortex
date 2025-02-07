@@ -156,6 +156,24 @@ pub enum PathError {
     PathEmpty,
 }
 impl PathIdent {
+    pub fn simple(name: String) -> Self {
+        Self {
+            path: vec![name],
+        }
+    }
+    pub fn new(name: Vec<String>) -> Self {
+        Self {
+            path: name,
+        }
+    }
+    pub fn continued(first: PathIdent, next: String) -> Self {
+        let mut path = first.path.clone();
+        path.push(next);
+        Self {
+            path: path,
+        }
+    }
+
     pub fn pop_front(&self) -> Result<PathIdent, PathError> {
         if self.path.len() <= 0 {
             Err(PathError::PathEmpty)

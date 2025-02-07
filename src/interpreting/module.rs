@@ -28,6 +28,12 @@ impl Module {
             children: HashMap::new(),
         }
     }
+    pub fn with_children(env: Environment, children: HashMap<String, Module>) -> Self {
+        Module {
+            env: env,
+            children: children,
+        }
+    }
 
     pub fn env(&self) -> &Environment {
         &self.env

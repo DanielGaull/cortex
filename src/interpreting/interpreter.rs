@@ -1,8 +1,8 @@
-use std::{error::Error, rc::Rc};
+use std::{collections::HashMap, error::Error, rc::Rc};
 
 use thiserror::Error;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, top_level::{Body, Function}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, PathIdent}, statement::Statement, top_level::{Body, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, module::Module, value::CortexValue};
 
 pub type CortexError = Box<dyn Error>;
@@ -41,6 +41,47 @@ impl CortexInterpreter {
     pub fn register_module(&mut self, path: &PathIdent, module: Module) -> Result<(), CortexError> {
         self.base_module.add_module(path, module)?;
         Ok(())
+    }
+
+    pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {
+        match top_level {
+            TopLevel::Import { name: _, is_string_import: _ } => {
+                todo!()
+            },
+            TopLevel::Module { name, contents } => {
+                let module = Self::construct_module(contents)?;
+                self.register_module(&PathIdent::simple(name), module)?;
+                Ok(())
+            },
+            TopLevel::Function(function) => {
+                self.current_env.as_mut().unwrap().add_function(function)?;
+                Ok(())
+            },
+        }
+    }
+
+    fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
+        let mut env = Environment::base();
+        let mut children = HashMap::<String, Module>::new();
+        for item in contents.into_iter() {
+            match item {
+                TopLevel::Import { name: _, is_string_import: _ } => todo!(),
+                TopLevel::Module { name: submod_name, contents } => {
+                    let new_module = Self::construct_module(contents)?;
+                    children.insert(submod_name, new_module);
+                },
+                TopLevel::Function(function) => {
+                    match &function.name {
+                        OptionalIdentifier::Ident(_) => {
+                            env.add_function(function)?;
+                        },
+                        OptionalIdentifier::Ignore => (), // Do nothing since we don't add unnamed functions to the environment
+                    }
+                },
+            }
+        }
+
+        Ok(Module::with_children(env, children))
     }
 
     pub fn run_statement(&mut self, statement: &Statement) -> Result<(), CortexError> {
