@@ -56,6 +56,21 @@ typ = { ident ~ "?"? }
 param = { optIdentifier ~ ":" ~ typ }
 paramList = { (param ~ ",")* ~ param? }
 exprList = _{ (expr ~ ",")* ~ expr? }
-arithLogicBinOp = { "+" | "-" | "*" | "/" | "%" | "&&" | "||" }
-binOp = { arithLogicBinOp | "==" | "!=" | ">=" | "<=" | ">" | "<" }
 body = { statement* ~ expr? }
+
+// Operator utilities
+add = { "+" }
+sub = { "-" }
+mul = { "*" }
+div = { "/" }
+rem = { "%" }
+and = { "&&" }
+or = { "||" }
+eq = { "==" }
+neq = { "!=" }
+lt = { "<" }
+lte = { "<=" }
+gt = { ">" }
+gte = { ">=" }
+arithLogicBinOp = { add | sub | mul | div | rem | and | or }
+binOp = { arithLogicBinOp | eq | neq | lte | gte | lt | gt }
