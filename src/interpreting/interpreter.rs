@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, rc::Rc};
 
 use thiserror::Error;
 
@@ -140,7 +140,7 @@ impl CortexInterpreter {
             Atom::PathIdent(path) => Ok(self.lookup_value(path)?),
             Atom::Call(path_ident, expressions) => {
                 let func = self.lookup_function(path_ident)?;
-                Ok(self.run_function(&func.clone(), expressions)?)
+                Ok(self.run_function(&func, expressions)?)
             },
         }
     }
@@ -150,7 +150,7 @@ impl CortexInterpreter {
         }
     }
 
-    pub fn run_function(&mut self, func: &Function, args: &Vec<Expression>) -> Result<CortexValue, CortexError> {
+    pub fn run_function(&mut self, func: &Rc<Function>, args: &Vec<Expression>) -> Result<CortexValue, CortexError> {
         let body = &func.body;
         let mut param_names = Vec::<OptionalIdentifier>::with_capacity(func.params.len());
         let mut param_types = Vec::<CortexType>::with_capacity(func.params.len());
@@ -260,7 +260,7 @@ impl CortexInterpreter {
             Ok(self.base_module.get_module(path)?.env().get_value(last)?.clone())
         }
     }
-    fn lookup_function(&self, path: &PathIdent) -> Result<&Function, CortexError> {
+    fn lookup_function(&self, path: &PathIdent) -> Result<Rc<Function>, CortexError> {
         if path.is_final()? {
             // Search in our environment for it
             Ok(self.current_env.as_ref().unwrap().get_function(path.get_front()?)?)

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use thiserror::Error;
 
@@ -27,21 +27,21 @@ pub enum EnvError {
 pub struct Environment {
     parent: Option<Box<Environment>>,
     variables: HashMap<String, Variable>,
-    functions: HashMap<String, Function>,
+    functions: Rc<RefCell<HashMap<String, Rc<Function>>>>,
 }
 impl Environment {
     pub fn new(parent: Environment) -> Self {
         Environment {
             parent: Some(Box::new(parent)),
             variables: HashMap::new(),
-            functions: HashMap::new(),
+            functions: Rc::from(RefCell::from(HashMap::new())),
         }
     }
     pub fn base() -> Self {
         Environment {
             parent: None,
             variables: HashMap::new(),
-            functions: HashMap::new(),
+            functions: Rc::from(RefCell::from(HashMap::new())),
         }
     }
 
@@ -115,14 +115,14 @@ impl Environment {
         }
     }
 
-    fn get_function_internal(&self, name: &String) -> Option<&Function> {
-        if self.functions.contains_key(name) {
-            Some(self.functions.get(name).unwrap())
+    fn get_function_internal(&self, name: &String) -> Option<Rc<Function>> {
+        if self.functions.borrow().contains_key(name) {
+            Some(self.functions.borrow().get(name).unwrap().clone())
         } else {
             self.parent.as_ref().and_then(|env| env.get_function_internal(name))
         }
     }
-    pub fn get_function(&self, name: &String) -> Result<&Function, EnvError> {
+    pub fn get_function(&self, name: &String) -> Result<Rc<Function>, EnvError> {
         let search_result = self.get_function_internal(name);
         if let Some(func) = search_result {
             Ok(func)
@@ -138,7 +138,7 @@ impl Environment {
                 if let Some(_) = self.get_function_internal(&name) {
                     Err(EnvError::FunctionAlreadyExists(name.clone()))
                 } else {
-                    self.functions.insert(name.clone(), func);
+                    self.functions.borrow_mut().insert(name.clone(), Rc::from(func));
                     Ok(())
                 }
             },

@@ -45,7 +45,6 @@ impl SimpleCodeGen for TopLevel {
     }
 }
 
-#[derive(Clone)]
 pub struct Function {
     pub(crate) name: OptionalIdentifier,
     pub(crate) params: Vec<Parameter>,
@@ -89,13 +88,12 @@ impl Function {
     }
 }
 
-#[derive(Clone)]
 pub enum Body {
     Basic {
         statements: Vec<Statement>,
         result: Option<Expression>,
     },
-    Native(fn(&Environment) -> Result<CortexValue, CortexError>),
+    Native(Box<dyn Fn(&Environment) -> Result<CortexValue, CortexError>>),
 }
 impl SimpleCodeGen for Body {
     fn codegen(&self, indent: usize) -> String {

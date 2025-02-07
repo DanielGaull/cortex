@@ -42,7 +42,7 @@ fn assert_err<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interp
 }
 
 fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
-    let add_body = Body::Native(|env| {
+    let add_body = Body::Native(Box::new(|env: &Environment| -> Result<CortexValue, Box<dyn Error>> {
         // The two arguments are "a" and "b"
         let a = env.get_value("a")?;
         let b = env.get_value("b")?;
@@ -55,7 +55,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         } else {
             Err(Box::new(TestError::Err("a is not a number")))
         }
-    });
+    }));
     let add_func = Function::new(
         OptionalIdentifier::Ident(String::from("add")),
         vec![
