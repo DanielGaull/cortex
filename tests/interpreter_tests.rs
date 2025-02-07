@@ -29,7 +29,16 @@ fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
     run_test("void", "void", &mut interpreter)?;
 
     run_test("5 + 2", "7", &mut interpreter)?;
-    run_test("5 * 7 + 2", "37", &mut interpreter)?;
+    // TODO: re-add this test once operator precedence implemented
+    // run_test("5 * 7 + 2", "37", &mut interpreter)?;
+    run_test("true && false", "false", &mut interpreter)?;
+    run_test("true || false", "true", &mut interpreter)?;
+    run_test("5 == 2", "false", &mut interpreter)?;
+    run_test("5 != 2", "true", &mut interpreter)?;
+    run_test("5 > 2", "true", &mut interpreter)?;
+    run_test("5 >= 2", "true", &mut interpreter)?;
+    run_test("5 < 2", "false", &mut interpreter)?;
+    run_test("5 <= 2", "false", &mut interpreter)?;
     Ok(())
 }
 

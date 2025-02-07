@@ -55,5 +55,5 @@ param = { optIdentifier ~ ":" ~ typ }
 paramList = { (param ~ ",")* ~ param? }
 exprList = _{ (expr ~ ",")* ~ expr? }
 arithLogicBinOp = { "+" | "-" | "*" | "/" | "%" | "&&" | "||" }
-binOp = { arithLogicBinOp | "==" | "!=" | ">" | "<" | ">=" | "<=" }
+binOp = { arithLogicBinOp | "==" | "!=" | ">=" | "<=" | ">" | "<" }
 body = { statement* ~ expr? }
