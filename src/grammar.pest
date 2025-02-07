@@ -1,6 +1,8 @@
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!"\n" ~ ANY)*) }
 WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
 
+program = { SOI ~ topLevel* ~ EOI }
+
 // Top-level
 topLevel = { import | function | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }

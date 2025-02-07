@@ -3,7 +3,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use super::ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, Parameter, PathIdent}, statement::Statement, top_level::{Body, Function, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, Parameter, PathIdent}, program::Program, statement::Statement, top_level::{Body, Function, TopLevel}, r#type::CortexType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -31,6 +31,8 @@ pub enum ParseError {
     FailTopLevel(String),
     #[error("Operator does not exist '{0}'")]
     OperatorDoesNotExist(String),
+    #[error("Failed to parse program")]
+    FailProgram,
 }
 
 impl CortexParser {
@@ -75,6 +77,25 @@ impl CortexParser {
             Ok(mut v) => Self::parse_path_ident(v.next().unwrap()),
             Err(_) => Err(ParseError::FailType(String::from(input))),
         }
+    }
+    pub fn parse_program(input: &str) -> Result<Program, ParseError> {
+        let pair = PestCortexParser::parse(Rule::program, input);
+        match pair {
+            Ok(mut v) => Self::parse_program_pair(v.next().unwrap()),
+            Err(_) => Err(ParseError::FailProgram),
+        }
+    }
+    
+    fn parse_program_pair(pair: Pair<Rule>) -> Result<Program, ParseError> {
+        let pairs = pair.into_inner();
+        let mut content = Vec::<TopLevel>::new();
+        for p in pairs {
+            if p.as_rule() != Rule::EOI {
+                let t = Self::parse_toplevel_pair(p)?;
+                content.push(t);
+            }
+        }
+        Ok(Program { content: content })
     }
 
     fn parse_toplevel_pair(mut pair: Pair<Rule>) -> Result<TopLevel, ParseError> {

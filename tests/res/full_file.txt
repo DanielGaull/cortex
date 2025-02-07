@@ -1,0 +1,6 @@
+// Calls main::main(x, y);
+module main {
+    fn main(x: number, y: number): number {
+        x + y
+    }
+}
