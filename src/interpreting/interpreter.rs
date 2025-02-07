@@ -13,7 +13,7 @@ pub enum InterpreterError {
     CannotModifyModuleEnvironment(String),
     #[error("Program execution was forcibly stopped using a \"stop\" statement")]
     ProgramStopped,
-    #[error("Mismatched argument count: Function {0} expects {1} arguments but only received {2}")]
+    #[error("Mismatched argument count: Function {0} expects {1} arguments but received {2}")]
     MismatchedArgumentCount(String, usize, usize),
     #[error("Parent environment does not exist")]
     NoParentEnv,
@@ -166,8 +166,13 @@ impl CortexInterpreter {
         }
 
         let mut arg_values = Vec::<CortexValue>::new();
-        for arg in args {
+        for (i, arg) in args.iter().enumerate() {
             arg_values.push(self.evaluate_expression(arg)?);
+            let arg_type = self.determine_type(arg)?;
+            let param_type = param_types.get(i).unwrap();
+            if !arg_type.is_subtype_of(param_type) {
+                return Err(Box::new(InterpreterError::MismatchedType(param_type.codegen(0), arg_type.codegen(0))));
+            }
         }
 
         // Four steps:

@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex::{interpreting::{env::{EnvError, Environment}, interpreter::{CortexInterpreter, InterpreterError}, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}, parser::CortexParser}};
+use cortex::{interpreting::{env::{EnvError, Environment}, interpreter::{CortexInterpreter, InterpreterError}, module::{Module, ModuleError}, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}, parser::CortexParser}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -19,6 +19,13 @@ fn test_errors() -> Result<(), Box<dyn Error>> {
     assert_err("let y: string = 5;", InterpreterError::MismatchedType(String::from("string"), String::from("number")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("let myNum = 7;")?)?;
     assert_err("myNum = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
+    assert_err("simple::add(1);", InterpreterError::MismatchedArgumentCount(String::from("add"), 2, 1), &mut interpreter)?;
+    assert_err("simple::add(1, 2, 3);", InterpreterError::MismatchedArgumentCount(String::from("add"), 2, 3), &mut interpreter)?;
+    assert_err("simple::add(1, true);", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
+    assert_err("dne::value;", ModuleError::ModuleDoesNotExist(String::from("dne")), &mut interpreter)?;
+    assert_err("dne::constantValue = 5;", InterpreterError::CannotModifyModuleEnvironment(String::from("dne::constantValue")), &mut interpreter)?;
+    assert_err("dneVar = 7;", EnvError::VariableDoesNotExist(String::from("dneVar")), &mut interpreter)?;
+    assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
     Ok(())
 }
 
@@ -61,6 +68,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new();
     let mut mod_env = Environment::base();
     mod_env.add_function(add_func)?;
+    mod_env.add_var(String::from("constantValue"), CortexType::number(false), CortexValue::Number(5.0))?;
     let path = CortexParser::parse_path("simple")?;
     let module = Module::new(mod_env);
     interpreter.register_module(&path, module)?;
