@@ -47,6 +47,10 @@ fn binop_tests() -> Result<(), Box<dyn Error>> {
     run_test("5 < 2", "false", &mut interpreter)?;
     run_test("5 <= 2", "false", &mut interpreter)?;
 
+    run_test("\"a\" + \"b\"", "\"ab\"", &mut interpreter)?;
+    run_test("\"a\" * 3", "\"aaa\"", &mut interpreter)?;
+    run_test("3 * \"a\"", "\"aaa\"", &mut interpreter)?;
+
     run_test("5 * 7 + 2", "37", &mut interpreter)?;
     run_test("5 * (7 + 2)", "45", &mut interpreter)?;
     run_test("3 * 2 == 6 && 5 * 3 == 15", "true", &mut interpreter)?;
