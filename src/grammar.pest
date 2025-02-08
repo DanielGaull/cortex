@@ -8,7 +8,7 @@ topLevel = { import | function | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ ":" ~ typ ~ "{" ~ body ~ "}" }
-struct = { "struct" ~ optIdentifier ~ "{" ~ structMember* ~ "}" }
+struct = { "struct" ~ optIdentifier ~ "{" ~ paramList ~ "}" }
 
 // Statements
 statementNeedingSemicolon = _{ (stop | varDec | varAssign | expr) }
@@ -60,11 +60,10 @@ pathIdent = { (ident ~ "::")* ~ ident }
 typ = { ident ~ "?"? }
 
 // Useful utilities
-param = { optIdentifier ~ ":" ~ typ }
+param = { ident ~ ":" ~ typ }
 paramList = { (param ~ ",")* ~ param? }
 exprList = _{ (expr ~ ",")* ~ expr? }
 body = { statement* ~ expr? }
-structMember = { ident ~ ":" ~ typ ~ ";" }
 structMemberInit = { ident ~ ":" ~ expr }
 
 // Operator utilities

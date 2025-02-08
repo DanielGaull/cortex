@@ -4,7 +4,7 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{Body, Function, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{Body, Function, Struct, StructField, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
     ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
@@ -91,6 +91,13 @@ impl CortexParser {
             Err(_) => Err(ParseError::FailType(String::from(input))),
         }
     }
+    pub fn parse_struct(input: &str) -> Result<Struct, ParseError> {
+        let pair = PestCortexParser::parse(Rule::r#struct, input);
+        match pair {
+            Ok(mut v) => Self::parse_struct_pair(v.next().unwrap()),
+            Err(_) => Err(ParseError::FailType(String::from(input))),
+        }
+    }
     pub fn parse_top_level(input: &str) -> Result<TopLevel, ParseError> {
         let pair = PestCortexParser::parse(Rule::topLevel, input);
         match pair {
@@ -130,6 +137,9 @@ impl CortexParser {
         match pair.as_rule() {
             Rule::function => {
                 Ok(TopLevel::Function(Self::parse_func_pair(pair)?))
+            },
+            Rule::r#struct => {
+                Ok(TopLevel::Struct(Self::parse_struct_pair(pair)?))
             },
             Rule::import => {
                 let name: &str;
@@ -338,6 +348,27 @@ impl CortexParser {
         }
     }
 
+    fn parse_struct_pair(pair: Pair<Rule>) -> Result<Struct, ParseError> {
+        let mut pairs = pair.into_inner();
+        let name = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let field_params = Self::parse_param_list(pairs.next().unwrap())?;
+        let fields = field_params
+            .into_iter()
+            .map(|p| {
+                StructField {
+                    name: p.name,
+                    typ: p.typ,
+                }
+            })
+            .collect();
+        Ok(
+            Struct { 
+                name: name,
+                fields: fields,
+            }
+        )
+    }
+
     fn parse_func_pair(pair: Pair<Rule>) -> Result<Function, ParseError> {
         let mut pairs = pair.into_inner();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
@@ -362,11 +393,11 @@ impl CortexParser {
     }
     fn parse_param(pair: Pair<Rule>) -> Result<Parameter, ParseError> {
         let mut pairs = pair.into_inner();
-        let ident = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let ident = pairs.next().unwrap().as_str();
         let typ = Self::parse_type_pair(pairs.next().unwrap())?;
         Ok(
             Parameter {
-                name: ident,
+                name: String::from(ident),
                 typ: typ,
             }
         )

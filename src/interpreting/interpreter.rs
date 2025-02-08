@@ -519,7 +519,7 @@ impl CortexInterpreter {
 
     pub fn run_function(&mut self, func: &Rc<Function>, args: &Vec<Expression>) -> Result<CortexValue, CortexError> {
         let body = &func.body;
-        let mut param_names = Vec::<OptionalIdentifier>::with_capacity(func.params.len());
+        let mut param_names = Vec::<String>::with_capacity(func.params.len());
         let mut param_types = Vec::<CortexType>::with_capacity(func.params.len());
         for param in &func.params {
             param_names.push(param.name.clone());
@@ -556,21 +556,12 @@ impl CortexInterpreter {
             let value = arg_values.remove(0);
             let param_name = param_names.get(i).unwrap();
             let param_type = param_types.remove(0);
-            match &param_name {
-                OptionalIdentifier::Ident(ident) => {
-                    new_env
-                        .add_var(
-                            ident.clone(), 
-                            param_type,
-                            value
-                        )?;
-                },
-                OptionalIdentifier::Ignore => {
-                    // Do nothing
-                    // We already evaluated the expression of the argument,
-                    // so we now just need to not place it into our new environment
-                },
-            }
+            new_env
+                .add_var(
+                    param_name.clone(),
+                    param_type,
+                    value
+                )?;
         }
         self.current_env = Some(Box::new(new_env));
 

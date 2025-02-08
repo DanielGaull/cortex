@@ -99,13 +99,13 @@ impl SimpleCodeGen for ExpressionTail {
 
 #[derive(Clone)]
 pub struct Parameter {
-    pub(crate) name: OptionalIdentifier,
+    pub(crate) name: String,
     pub(crate) typ: CortexType,
 }
 impl SimpleCodeGen for Parameter {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
-        s.push_str(&self.name.codegen(indent));
+        s.push_str(&self.name);
         s.push_str(": ");
         s.push_str(&self.typ.codegen(indent));
         s
@@ -114,7 +114,7 @@ impl SimpleCodeGen for Parameter {
 impl Parameter {
     pub fn named(name: &str, typ: CortexType) -> Self {
         Parameter {
-            name: OptionalIdentifier::Ident(String::from(name)),
+            name: String::from(name),
             typ: typ,
         }
     }
