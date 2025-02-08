@@ -17,7 +17,7 @@ statement = { statementNeedingSemicolon ~ ";" }
 stop = { "stop" }
 
 varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
-varAssign = { pathIdent ~ "=" ~ expr }
+varAssign = { pathIdent ~ arithLogicBinOp? ~ "=" ~ expr }
 
 // Expressions
 atom = { number | boolean | null | void | string | call | pathIdent | if | "(" ~ expr ~ ")" }
@@ -82,4 +82,3 @@ lte = { "<=" }
 gt = { ">" }
 gte = { ">=" }
 arithLogicBinOp = { add | sub | mul | div | rem | and | or }
-binOp = { arithLogicBinOp | eq | neq | lte | gte | lt | gt }

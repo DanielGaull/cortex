@@ -158,18 +158,29 @@ impl CortexInterpreter {
                     },
                 }
             },
-            Statement::VariableAssignment { name, value } => {
+            Statement::VariableAssignment { name, value, op } => {
                 if !name.is_final()? {
                     Err(Box::new(InterpreterError::CannotModifyModuleEnvironment(name.codegen(0))))
                 } else {
                     let var_name = name.get_front()?;
                     let assigned_type = self.determine_type(value)?;
                     let var_type = self.current_env.as_ref().unwrap().get_type(var_name)?;
-                    if !assigned_type.is_subtype_of(var_type) {
-                        return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), assigned_type.codegen(0))));
+                    if let Some(binop) = op {
+                        let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
+                        if !type_op.is_subtype_of(var_type) {
+                            return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), type_op.codegen(0))));
+                        }
+                        let second = self.evaluate_expression(value)?;
+                        let first = self.current_env.as_ref().unwrap().get_value(var_name)?;
+                        let value = self.evaluate_op(first.clone(), binop, second)?;
+                        self.current_env.as_mut().unwrap().set_value(var_name, value)?;
+                    } else {
+                        if !assigned_type.is_subtype_of(var_type) {
+                            return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), assigned_type.codegen(0))));
+                        }
+                        let value = self.evaluate_expression(value)?;
+                        self.current_env.as_mut().unwrap().set_value(var_name, value)?;
                     }
-                    let value = self.evaluate_expression(value)?;
-                    self.current_env.as_mut().unwrap().set_value(var_name, value)?;
                     Ok(())
                 }
             },

@@ -1,6 +1,6 @@
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
-use super::{expression::{Expression, OptionalIdentifier, PathIdent}, r#type::CortexType};
+use super::{expression::{BinaryOperator, Expression, OptionalIdentifier, PathIdent}, r#type::CortexType};
 
 #[derive(Clone)]
 pub enum Statement {
@@ -15,6 +15,7 @@ pub enum Statement {
     VariableAssignment {
         name: PathIdent,
         value: Expression,
+        op: Option<BinaryOperator>,
     },
 }
 impl SimpleCodeGen for Statement {
@@ -44,9 +45,13 @@ impl SimpleCodeGen for Statement {
                 s.push_str(" = ");
                 s.push_str(&initial_value.codegen(indent));
             },
-            Self::VariableAssignment { name, value } => {
+            Self::VariableAssignment { name, value, op } => {
                 s.push_str(&name.codegen(indent));
-                s.push_str(" = ");
+                s.push_str(" ");
+                if let Some(binop) = op {
+                    s.push_str(&binop.codegen(indent));
+                }
+                s.push_str("= ");
                 s.push_str(&value.codegen(indent));
             },
         }

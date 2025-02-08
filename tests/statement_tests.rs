@@ -67,5 +67,22 @@ fn statement_tests() -> Result<(), Box<dyn Error>> {
     run_statement("z = 10;", &mut interpreter)?;
     assert_expression("z", "10", &mut interpreter)?;
 
+    run_statement("z += 1;", &mut interpreter)?;
+    assert_expression("z", "11", &mut interpreter)?;
+    run_statement("z -= 1;", &mut interpreter)?;
+    assert_expression("z", "10", &mut interpreter)?;
+    run_statement("z *= 2;", &mut interpreter)?;
+    assert_expression("z", "20", &mut interpreter)?;
+    run_statement("z /= 2;", &mut interpreter)?;
+    assert_expression("z", "10", &mut interpreter)?;
+    run_statement("z %= 2;", &mut interpreter)?;
+    assert_expression("z", "0", &mut interpreter)?;
+
+    run_statement("let a = true;", &mut interpreter)?;
+    run_statement("a &&= false;", &mut interpreter)?;
+    assert_expression("a", "false", &mut interpreter)?;
+    run_statement("a ||= true;", &mut interpreter)?;
+    assert_expression("a", "true", &mut interpreter)?;
+
     Ok(())
 }

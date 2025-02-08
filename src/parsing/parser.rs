@@ -159,6 +159,7 @@ impl CortexParser {
 
     fn parse_stmt_pair(mut pair: Pair<Rule>) -> Result<Statement, ParseError> {
         pair = pair.into_inner().next().unwrap();
+        let orig = pair.as_str();
         match pair.as_rule() {
             Rule::expr => {
                 let expression = Self::parse_expr_pair(pair)?;
@@ -190,10 +191,25 @@ impl CortexParser {
             Rule::varAssign => {
                 let mut pairs = pair.into_inner();
                 let path = Self::parse_path_ident(pairs.next().unwrap())?;
-                let value = Self::parse_expr_pair(pairs.next().unwrap())?;
+                let value;
+                let op;
+                let next = pairs.next().unwrap();
+                match next.as_rule() {
+                    Rule::arithLogicBinOp => {
+                        op = Some(Self::parse_binop(next.into_inner().next().unwrap())?);
+                        value = Self::parse_expr_pair(pairs.next().unwrap())?;
+                    },
+                    Rule::expr => {
+                        op = None;
+                        value = Self::parse_expr_pair(next)?;
+                    },
+                    _ => return Err(ParseError::FailStatement(String::from(orig)))
+                }
+
                 Ok(Statement::VariableAssignment { 
                     name: path, 
                     value: value,
+                    op: op,
                 })
             },
             _ => Err(ParseError::FailStatement(String::from(pair.as_str()))),
