@@ -2,8 +2,35 @@ use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
+use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, Parameter, PathIdent}, program::Program, statement::Statement, top_level::{Body, Function, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{Body, Function, TopLevel}, r#type::CortexType};
+
+macro_rules! operator_parser {
+    ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
+        paste! {
+            fn [<parse_ $name>](pair: Pair<Rule>) -> Result<$typ, ParseError> {
+                let mut pairs = pair.into_inner();
+                let first = Self::[<parse_ $prev_name>](pairs.next().unwrap())?;
+                let mut pair_iter = pairs.into_iter().peekable();
+                let mut rest = Vec::<(BinaryOperator, $prev_typ)>::new();
+                while pair_iter.peek().is_some() {
+                    let first_pair = pair_iter.next().unwrap();
+                    let second_pair = pair_iter.next().unwrap();
+                    let op = Self::parse_binop(first_pair)?;
+                    let right = Self::[<parse_ $prev_name>](second_pair)?;
+                    rest.push((op, right));
+                }
+                Ok(
+                    $typ {
+                        first: first,
+                        rest: rest,
+                    }
+                )
+            }
+        }
+    }
+}
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -173,7 +200,7 @@ impl CortexParser {
         }
     }
 
-    fn parse_expr_pair(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    fn parse_primary(pair: Pair<Rule>) -> Result<Primary, ParseError> {
         let mut pairs = pair.into_inner();
         let atom_pair = pairs.next().unwrap();
         let atom = Self::parse_atom_pair(atom_pair.into_inner().next().unwrap())?;
@@ -183,11 +210,15 @@ impl CortexParser {
             let expr_tail_pair = next.unwrap();
             expr_tail = Self::parse_expr_tail_pair(expr_tail_pair)?;
         }
-        Ok(Expression {
+        Ok(Primary {
             atom: atom,
             tail: expr_tail,
         })
     }
+    operator_parser!(mul_result, MulResult, primary, Primary);
+    operator_parser!(sum_result, SumResult, mul_result, MulResult);
+    operator_parser!(eq_result, EqResult, sum_result, SumResult);
+    operator_parser!(expr_pair, Expression, eq_result, EqResult);
 
     fn parse_atom_pair(pair: Pair<Rule>) -> Result<Atom, ParseError> {
         match pair.as_rule() {
@@ -233,37 +264,6 @@ impl CortexParser {
             Rule::exprTail => {
                 if let Some(tail_pair) = pair.into_inner().next() {
                     match tail_pair.as_rule() {
-                        Rule::binOpTail => {
-                            let mut pairs = tail_pair.into_inner();
-                            let binop_str = pairs.next().unwrap().as_str();
-                            let right_pair = pairs.next().unwrap();
-                            let next_pair = pairs.next().unwrap();
-                            let right = Self::parse_expr_pair(right_pair)?;
-                            let next = Self::parse_expr_tail_pair(next_pair)?;
-                            let op = match binop_str {
-                                "+" => BinaryOperator::Add,
-                                "-" => BinaryOperator::Subtract,
-                                "*" => BinaryOperator::Multiply,
-                                "/" => BinaryOperator::Divide,
-                                "%" => BinaryOperator::Remainder,
-                                "&&" => BinaryOperator::LogicAnd,
-                                "||" => BinaryOperator::LogicOr,
-                                "==" => BinaryOperator::IsEqual,
-                                "!=" => BinaryOperator::IsNotEqual,
-                                "<" => BinaryOperator::IsLessThan,
-                                ">" => BinaryOperator::IsGreaterThan,
-                                "<=" => BinaryOperator::IsLessThanOrEqualTo,
-                                ">=" => BinaryOperator::IsGreaterThanOrEqualTo,
-                                _ => return Err(ParseError::OperatorDoesNotExist(String::from(binop_str))),
-                            };
-                            Ok(
-                                ExpressionTail::BinaryOperation { 
-                                    op: op,
-                                    right: Box::new(right),
-                                    next: Box::new(next),
-                                }
-                            )
-                        },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }
                 } else {
@@ -271,6 +271,25 @@ impl CortexParser {
                 }
             }
             _ => Err(ParseError::FailTail(String::from(pair.as_str()))),
+        }
+    }
+
+    fn parse_binop(pair: Pair<Rule>) -> Result<BinaryOperator, ParseError> {
+        match pair.as_rule() {
+            Rule::add => Ok(BinaryOperator::Add),
+            Rule::sub => Ok(BinaryOperator::Subtract),
+            Rule::mul => Ok(BinaryOperator::Multiply),
+            Rule::div => Ok(BinaryOperator::Divide),
+            Rule::rem => Ok(BinaryOperator::Remainder),
+            Rule::and => Ok(BinaryOperator::LogicAnd),
+            Rule::or => Ok(BinaryOperator::LogicOr),
+            Rule::eq => Ok(BinaryOperator::IsEqual),
+            Rule::neq => Ok(BinaryOperator::IsNotEqual),
+            Rule::lt => Ok(BinaryOperator::IsLessThan),
+            Rule::lte => Ok(BinaryOperator::IsLessThanOrEqualTo),
+            Rule::gt => Ok(BinaryOperator::IsGreaterThan),
+            Rule::gte => Ok(BinaryOperator::IsGreaterThanOrEqualTo),
+            _ => Err(ParseError::OperatorDoesNotExist(String::from(pair.as_str()))),
         }
     }
 

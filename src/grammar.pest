@@ -22,7 +22,14 @@ varAssign = { pathIdent ~ "=" ~ expr }
 // Expressions
 atom = { number | boolean | null | void | string | call | pathIdent | if | "(" ~ expr ~ ")" }
 exprTail = { binOpTail | "" }
-expr = { atom ~ exprTail }
+
+primary = { atom ~ exprTail }
+mulResult = { primary ~ ((mul | div | rem) ~ primary)* }
+sumResult = { mulResult ~ ((add | sub) ~ mulResult)* }
+eqResult = { sumResult ~ ((eq | neq | lte | gte | lt | gt) ~ sumResult)* }
+logicResult = { eqResult ~ ((and | or) ~ eqResult)* }
+expr = { logicResult }
+
 call = { pathIdent ~ "(" ~ exprList ~ ")" }
 structConstruction = { pathIdent ~ "{" ~ (structMemberInit ~ ",")* ~ structMemberInit? ~ "}" }
 

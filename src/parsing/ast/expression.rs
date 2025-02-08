@@ -4,12 +4,41 @@ use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
 use super::r#type::CortexType;
 
+macro_rules! operator_struct {
+    ($name:ident, $item: ty) => {
+        #[derive(Clone)]
+        pub struct $name {
+            pub(crate) first: $item,
+            pub(crate) rest: Vec<(BinaryOperator, $item)>,
+        }
+
+        impl SimpleCodeGen for $name {
+            fn codegen(&self, indent: usize) -> String {
+                let mut s = String::new();
+                s.push_str(&self.first.codegen(indent));
+                for (op, item) in &self.rest {
+                    s.push_str(" ");
+                    s.push_str(&op.codegen(indent));
+                    s.push_str(" ");
+                    s.push_str(&item.codegen(indent));
+                }
+                s
+            }
+        }
+    }
+}
+
+operator_struct!(MulResult, Primary);
+operator_struct!(SumResult, MulResult);
+operator_struct!(EqResult, SumResult);
+operator_struct!(Expression, EqResult);
+
 #[derive(Clone)]
-pub struct Expression {
+pub struct Primary {
     pub(crate) atom: Atom,
     pub(crate) tail: ExpressionTail,
 }
-impl SimpleCodeGen for Expression {
+impl SimpleCodeGen for Primary {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
         s.push_str(&self.atom.codegen(indent));
@@ -59,40 +88,11 @@ impl SimpleCodeGen for Atom {
 #[derive(Clone)]
 pub enum ExpressionTail {
     None,
-    BinaryOperation {
-        op: BinaryOperator,
-        right: Box<Expression>,
-        next: Box<ExpressionTail>,
-    },
 }
 impl SimpleCodeGen for ExpressionTail {
-    fn codegen(&self, indent: usize) -> String {
+    fn codegen(&self, _: usize) -> String {
         match self {
             Self::None => String::new(),
-            Self::BinaryOperation { op, right, next } => {
-                let opstr = match op {
-                    BinaryOperator::Add => "+",
-                    BinaryOperator::Subtract => "-",
-                    BinaryOperator::Multiply => "*",
-                    BinaryOperator::Divide => "/",
-                    BinaryOperator::Remainder => "%",
-                    BinaryOperator::LogicAnd => "&&",
-                    BinaryOperator::LogicOr => "||",
-                    BinaryOperator::IsEqual => "==",
-                    BinaryOperator::IsNotEqual => "!=",
-                    BinaryOperator::IsLessThan => "<",
-                    BinaryOperator::IsGreaterThan => ">",
-                    BinaryOperator::IsLessThanOrEqualTo => "<=",
-                    BinaryOperator::IsGreaterThanOrEqualTo => ">=",
-                };
-                let mut s = String::new();
-                s.push_str(" ");
-                s.push_str(opstr);
-                s.push_str(" ");
-                s.push_str(&right.codegen(indent));
-                s.push_str(&next.codegen(indent));
-                s
-            },
         }
     }
 }
@@ -227,4 +227,25 @@ pub enum BinaryOperator {
     IsGreaterThan,
     IsLessThanOrEqualTo,
     IsGreaterThanOrEqualTo,
+}
+impl SimpleCodeGen for BinaryOperator {
+    fn codegen(&self, _: usize) -> String {
+        String::from(
+            match self {
+                BinaryOperator::Add => "+",
+                BinaryOperator::Subtract => "-",
+                BinaryOperator::Multiply => "*",
+                BinaryOperator::Divide => "/",
+                BinaryOperator::Remainder => "%",
+                BinaryOperator::LogicAnd => "&&",
+                BinaryOperator::LogicOr => "||",
+                BinaryOperator::IsEqual => "==",
+                BinaryOperator::IsNotEqual => "!=",
+                BinaryOperator::IsLessThan => "<",
+                BinaryOperator::IsGreaterThan => ">",
+                BinaryOperator::IsLessThanOrEqualTo => "<=",
+                BinaryOperator::IsGreaterThanOrEqualTo => ">=",
+            }
+        )
+    }
 }
