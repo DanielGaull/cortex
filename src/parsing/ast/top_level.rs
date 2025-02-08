@@ -12,6 +12,7 @@ pub enum TopLevel {
         contents: Vec<TopLevel>,
     },
     Function(Function),
+    Struct(Struct),
 }
 impl SimpleCodeGen for TopLevel {
     fn codegen(&self, indent: usize) -> String {
@@ -41,6 +42,7 @@ impl SimpleCodeGen for TopLevel {
                 s
             },
             Self::Function(func) => func.codegen(indent),
+            Self::Struct(struc) => struc.codegen(indent),
         }
     }
 }
@@ -119,5 +121,47 @@ impl Body {
             statements: Vec::new(),
             result: None,
         }
+    }
+}
+
+pub struct Struct {
+    pub(crate) name: OptionalIdentifier,
+    pub(crate) fields: Vec<StructField>,
+}
+impl SimpleCodeGen for Struct {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        let indent_prefix = "    ".repeat(indent);
+
+        s.push_str(&indent_prefix);
+        s.push_str("struct ");
+        s.push_str(&self.name.codegen(indent));
+        s.push_str(" {\n");
+
+        for field in &self.fields {
+            s.push_str(&field.codegen(indent + 1));
+            s.push_str("\n");
+        }
+
+        s.push_str(&indent_prefix);
+        s.push_str("}\n");
+        s
+    }
+}
+
+pub struct StructField {
+    pub(crate) name: String,
+    pub(crate) typ: CortexType,
+}
+impl SimpleCodeGen for StructField {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        let indent_prefix = "    ".repeat(indent);
+        s.push_str(&indent_prefix);
+        s.push_str(&self.name);
+        s.push_str(": ");
+        s.push_str(&self.typ.codegen(indent));
+        s.push_str(",");
+        s
     }
 }

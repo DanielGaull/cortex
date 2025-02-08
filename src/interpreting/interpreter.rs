@@ -92,6 +92,10 @@ impl CortexInterpreter {
                 self.current_env.as_mut().unwrap().add_function(function)?;
                 Ok(())
             },
+            TopLevel::Struct(struc) => {
+                self.current_env.as_mut().unwrap().add_struct(struc)?;
+                Ok(())
+            },
         }
     }
 
@@ -110,7 +114,15 @@ impl CortexInterpreter {
                         OptionalIdentifier::Ident(_) => {
                             env.add_function(function)?;
                         },
-                        OptionalIdentifier::Ignore => (), // Do nothing since we don't add unnamed functions to the environment
+                        OptionalIdentifier::Ignore => (),
+                    }
+                },
+                TopLevel::Struct(item) => {
+                    match &item.name {
+                        OptionalIdentifier::Ident(_) => {
+                            env.add_struct(item)?;
+                        },
+                        OptionalIdentifier::Ignore => (),
                     }
                 },
             }
@@ -164,7 +176,7 @@ impl CortexInterpreter {
                 } else {
                     let var_name = name.get_front()?;
                     let assigned_type = self.determine_type(value)?;
-                    let var_type = self.current_env.as_ref().unwrap().get_type(var_name)?;
+                    let var_type = self.current_env.as_ref().unwrap().get_type_of(var_name)?;
                     if let Some(binop) = op {
                         let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
                         if !type_op.is_subtype_of(var_type) {
@@ -600,10 +612,10 @@ impl CortexInterpreter {
     fn lookup_type(&self, path: &PathIdent) -> Result<CortexType, CortexError> {
         if path.is_final()? {
             // Search in our environment for it
-            Ok(self.current_env.as_ref().unwrap().get_type(path.get_front()?)?.clone())
+            Ok(self.current_env.as_ref().unwrap().get_type_of(path.get_front()?)?.clone())
         } else {
             let last = path.get_back()?;
-            Ok(self.base_module.get_module(path)?.env().get_type(last)?.clone())
+            Ok(self.base_module.get_module(path)?.env().get_type_of(last)?.clone())
         }
     }
     fn lookup_value(&self, path: &PathIdent) -> Result<CortexValue, CortexError> {
