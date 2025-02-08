@@ -3,4 +3,9 @@ module main {
     fn main(x: number, y: number): number {
         x + y
     }
+
+    struct Point {
+        x: number,
+        y: number,
+    }
 }
