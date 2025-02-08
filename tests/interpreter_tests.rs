@@ -27,10 +27,17 @@ fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
     run_test("\"hello\"", "\"hello\"", &mut interpreter)?;
     run_test("null", "null", &mut interpreter)?;
     run_test("void", "void", &mut interpreter)?;
+    Ok(())
+}
 
+#[test]
+fn binop_tests() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new();
     run_test("5 + 2", "7", &mut interpreter)?;
-    // TODO: re-add this test once operator precedence implemented
-    // run_test("5 * 7 + 2", "37", &mut interpreter)?;
+    run_test("5 - 2", "3", &mut interpreter)?;
+    run_test("5 * 2", "10", &mut interpreter)?;
+    run_test("4 / 2", "2", &mut interpreter)?;
+    run_test("5 % 2", "1", &mut interpreter)?;
     run_test("true && false", "false", &mut interpreter)?;
     run_test("true || false", "true", &mut interpreter)?;
     run_test("5 == 2", "false", &mut interpreter)?;
@@ -39,6 +46,10 @@ fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
     run_test("5 >= 2", "true", &mut interpreter)?;
     run_test("5 < 2", "false", &mut interpreter)?;
     run_test("5 <= 2", "false", &mut interpreter)?;
+
+    run_test("5 * 7 + 2", "37", &mut interpreter)?;
+    run_test("5 * (7 + 2)", "45", &mut interpreter)?;
+    run_test("3 * 2 == 6 && 5 * 3 == 15", "true", &mut interpreter)?;
     Ok(())
 }
 
