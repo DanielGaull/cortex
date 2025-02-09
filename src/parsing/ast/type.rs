@@ -69,6 +69,14 @@ impl CortexType {
         }
         false
     }
+
+    pub fn to_non_nullable(self) -> Self {
+        CortexType {
+            name: self.name,
+            nullable: false,
+            is_any: self.is_any,
+        }
+    }
 }
 
 impl PartialEq for CortexType {

@@ -58,6 +58,8 @@ pub enum InterpreterError {
     ExpectedInteger(f64),
     #[error("Field {0} does not exist on struct {1}")]
     FieldDoesNotExist(String, String),
+    #[error("Bang operator called on a null value")]
+    BangCalledOnNullValue,
 }
 
 pub struct CortexInterpreter {
@@ -342,6 +344,10 @@ impl CortexInterpreter {
     fn determine_type_tail(&self, atom: CortexType, tail: &ExpressionTail) -> Result<CortexType, CortexError> {
         match tail {
             ExpressionTail::None => Ok(atom),
+            ExpressionTail::PostfixBang { next } => {
+                let new_type = atom.to_non_nullable();
+                Ok(self.determine_type_tail(new_type, next)?)
+            },
         }
     }
 
@@ -549,6 +555,13 @@ impl CortexInterpreter {
     fn handle_expr_tail(&mut self, atom: CortexValue, tail: &ExpressionTail) -> Result<CortexValue, CortexError> {
         match tail {
             ExpressionTail::None => Ok(atom),
+            ExpressionTail::PostfixBang { next } => {
+                if let CortexValue::Null = atom {
+                    Err(Box::new(InterpreterError::BangCalledOnNullValue))
+                } else {
+                    Ok(self.handle_expr_tail(atom, next)?)
+                }
+            },
         }
     }
 

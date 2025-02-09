@@ -21,7 +21,7 @@ varAssign = { pathIdent ~ arithLogicBinOp? ~ "=" ~ expr }
 
 // Expressions
 atom = { number | boolean | null | void | string | call | structConstruction | pathIdent | if | "(" ~ expr ~ ")" }
-exprTail = { "" }
+exprTail = { postfixBangTail | "" }
 
 primary = { atom ~ exprTail }
 mulResult = { primary ~ ((mul | div | rem) ~ primary)* }
@@ -33,6 +33,8 @@ expr = { logicResult }
 call = { pathIdent ~ "(" ~ exprList ~ ")" }
 structConstruction = { pathIdent ~ "{" ~ (structMemberInit ~ ",")* ~ structMemberInit? ~ "}" }
 structMemberInit = { ident ~ ":" ~ expr }
+
+postfixBangTail = { ("!" ~ !"=") ~ exprTail }
 
 // NOTE: if the else is missing, and the first block returns a value, then the if will return null
 if = { "if" ~ expr ~ "{" ~ body ~ "}" ~ elifs ~ else? }

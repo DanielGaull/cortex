@@ -105,11 +105,18 @@ impl SimpleCodeGen for Atom {
 #[derive(Clone)]
 pub enum ExpressionTail {
     None,
+    PostfixBang {
+        next: Box<ExpressionTail>,
+    }
 }
 impl SimpleCodeGen for ExpressionTail {
-    fn codegen(&self, _: usize) -> String {
+    fn codegen(&self, indent: usize) -> String {
         match self {
-            Self::None => String::new(),
+            ExpressionTail::None => String::new(),
+            ExpressionTail::PostfixBang { next } => {
+                let next = next.codegen(indent);
+                format!("!{}", next)
+            },
         }
     }
 }
