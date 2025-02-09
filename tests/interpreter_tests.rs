@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}, parser::CortexParser}};
+use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -134,6 +134,26 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
     interpreter.register_module(&path, module)?;
 
     run_test("simple::test()", "5", &mut interpreter)?;
+
+    Ok(())
+}
+
+#[test]
+fn struct_tests() -> Result<(), Box<dyn Error>> {
+    let test_struct = Struct::new("Time", vec![
+        ("m", CortexType::number(false)),
+        ("s", CortexType::number(false)),
+    ]);
+    let mut interpreter = CortexInterpreter::new();
+    let mut mod_env = Environment::base();
+    mod_env.add_struct(test_struct)?;
+    let path = CortexParser::parse_path("simple")?;
+    let module = Module::new(mod_env);
+    interpreter.register_module(&path, module)?;
+
+    interpreter.run_statement(&CortexParser::parse_statement("let time = simple::Time{m:5,s:10};")?)?;
+    run_test("time.m", "5", &mut interpreter)?;
+    run_test("time.s", "10", &mut interpreter)?;
 
     Ok(())
 }

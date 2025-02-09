@@ -153,3 +153,15 @@ impl SimpleCodeGen for Struct {
         s
     }
 }
+impl Struct {
+    pub fn new(name: &str, fields: Vec<(&str, CortexType)>) -> Self {
+        let mut map = HashMap::new();
+        for f in fields {
+            map.insert(String::from(f.0), f.1);
+        }
+        Struct {
+            name: OptionalIdentifier::Ident(String::from(name)),
+            fields: map,
+        }
+    }
+}

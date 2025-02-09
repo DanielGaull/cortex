@@ -308,6 +308,12 @@ impl CortexParser {
                             let next = Self::parse_expr_tail_pair(tail_pair.into_inner().next().unwrap())?;
                             Ok(ExpressionTail::PostfixBang { next: Box::new(next) })
                         },
+                        Rule::memberAccessTail => {
+                            let mut pairs = tail_pair.into_inner();
+                            let member = pairs.next().unwrap().as_str();
+                            let next = Self::parse_expr_tail_pair(pairs.next().unwrap())?;
+                            Ok(ExpressionTail::MemberAccess { member: String::from(member), next: Box::new(next) })
+                        },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }
                 } else {

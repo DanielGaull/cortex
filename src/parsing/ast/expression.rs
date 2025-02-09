@@ -107,7 +107,11 @@ pub enum ExpressionTail {
     None,
     PostfixBang {
         next: Box<ExpressionTail>,
-    }
+    },
+    MemberAccess {
+        member: String,
+        next: Box<ExpressionTail>,
+    },
 }
 impl SimpleCodeGen for ExpressionTail {
     fn codegen(&self, indent: usize) -> String {
@@ -116,6 +120,10 @@ impl SimpleCodeGen for ExpressionTail {
             ExpressionTail::PostfixBang { next } => {
                 let next = next.codegen(indent);
                 format!("!{}", next)
+            },
+            ExpressionTail::MemberAccess { member, next } => {
+                let next = next.codegen(indent);
+                format!(".{}{}", member, next)
             },
         }
     }

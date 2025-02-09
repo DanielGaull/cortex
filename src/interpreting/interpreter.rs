@@ -60,6 +60,8 @@ pub enum InterpreterError {
     FieldDoesNotExist(String, String),
     #[error("Bang operator called on a null value")]
     BangCalledOnNullValue,
+    #[error("Cannot access members of non-composite values")]
+    CannotAccessMemberOfNonComposite,
 }
 
 pub struct CortexInterpreter {
@@ -348,6 +350,15 @@ impl CortexInterpreter {
                 let new_type = atom.to_non_nullable();
                 Ok(self.determine_type_tail(new_type, next)?)
             },
+            ExpressionTail::MemberAccess { member, next } => {
+                let struc = self.lookup_struct(&atom.name)?;
+                if !struc.fields.contains_key(member) {
+                    Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), atom.name.codegen(0))))
+                } else {
+                    let member_type = struc.fields.get(member).unwrap().clone();
+                    Ok(self.determine_type_tail(member_type, next)?)
+                }
+            },
         }
     }
 
@@ -560,6 +571,18 @@ impl CortexInterpreter {
                     Err(Box::new(InterpreterError::BangCalledOnNullValue))
                 } else {
                     Ok(self.handle_expr_tail(atom, next)?)
+                }
+            },
+            ExpressionTail::MemberAccess { member, next } => {
+                if let CortexValue::Composite { struct_name, field_values } = atom {
+                    if field_values.contains_key(member) {
+                        let val = field_values.get(member).unwrap().clone();
+                        Ok(self.handle_expr_tail(val, next)?)
+                    } else {
+                        Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), struct_name.codegen(0))))
+                    }
+                } else {
+                    Err(Box::new(InterpreterError::CannotAccessMemberOfNonComposite))
                 }
             },
         }
