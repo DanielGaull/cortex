@@ -1,8 +1,10 @@
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
+use super::expression::PathIdent;
+
 #[derive(Clone, Debug)]
 pub struct CortexType {
-    pub(crate) name: String,
+    pub(crate) name: PathIdent,
     pub(crate) nullable: bool,
     pub(crate) is_any: bool,
 }
@@ -10,7 +12,7 @@ pub struct CortexType {
 impl SimpleCodeGen for CortexType {
     fn codegen(&self, _: usize) -> String {
         let mut s = String::new();
-        s.push_str(&self.name);
+        s.push_str(&self.name.codegen(0));
         if self.nullable {
             s.push_str("?");
         }
@@ -19,31 +21,34 @@ impl SimpleCodeGen for CortexType {
 }
 
 impl CortexType {
-    pub fn new(name: &str, nullable: bool) -> Self {
+    pub fn new(name: PathIdent, nullable: bool) -> Self {
         CortexType {
-            name: String::from(name),
+            name: name,
             nullable: nullable,
             is_any: false,
         }
     }
+    pub fn simple(name: &str, nullable: bool) -> Self {
+        Self::new(PathIdent::simple(String::from(name)), nullable)
+    }
     pub fn number(nullable: bool) -> Self {
-        Self::new("number", nullable)
+        Self::simple("number", nullable)
     }
     pub fn boolean(nullable: bool) -> Self {
-        Self::new("bool", nullable)
+        Self::simple("bool", nullable)
     }
     pub fn string(nullable: bool) -> Self {
-        Self::new("string", nullable)
+        Self::simple("string", nullable)
     }
     pub fn void(nullable: bool) -> Self {
-        Self::new("void", nullable)
+        Self::simple("void", nullable)
     }
     pub fn null() -> Self {
-        Self::new("null", true)
+        Self::simple("null", true)
     }
     pub fn any(nullable: bool) -> Self {
         CortexType {
-            name: String::from("any"),
+            name: PathIdent::simple(String::from("any")),
             nullable: nullable,
             is_any: true,
         }

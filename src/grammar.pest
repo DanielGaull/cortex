@@ -20,7 +20,7 @@ varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { pathIdent ~ arithLogicBinOp? ~ "=" ~ expr }
 
 // Expressions
-atom = { number | boolean | null | void | string | call | pathIdent | if | "(" ~ expr ~ ")" }
+atom = { number | boolean | null | void | string | call | structConstruction | pathIdent | if | "(" ~ expr ~ ")" }
 exprTail = { "" }
 
 primary = { atom ~ exprTail }
@@ -32,6 +32,7 @@ expr = { logicResult }
 
 call = { pathIdent ~ "(" ~ exprList ~ ")" }
 structConstruction = { pathIdent ~ "{" ~ (structMemberInit ~ ",")* ~ structMemberInit? ~ "}" }
+structMemberInit = { ident ~ ":" ~ expr }
 
 // NOTE: if the else is missing, and the first block returns a value, then the if will return null
 if = { "if" ~ expr ~ "{" ~ body ~ "}" ~ elifs ~ else? }
@@ -57,14 +58,13 @@ optIdentifier = { ident | "~" }
 ident = ${ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
 pathIdent = { (ident ~ "::")* ~ ident }
 
-typ = { ident ~ "?"? }
+typ = { pathIdent ~ "?"? }
 
 // Useful utilities
 param = { ident ~ ":" ~ typ }
 paramList = { (param ~ ",")* ~ param? }
 exprList = _{ (expr ~ ",")* ~ expr? }
 body = { statement* ~ expr? }
-structMemberInit = { ident ~ ":" ~ expr }
 
 // Operator utilities
 add = { "+" }

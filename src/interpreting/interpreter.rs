@@ -3,7 +3,7 @@ use std::{collections::HashMap, error::Error, rc::Rc};
 use thiserror::Error;
 use paste::paste;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult}, statement::Statement, top_level::{Body, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult}, statement::Statement, top_level::{Body, Function, Struct, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, module::Module, value::CortexValue};
 
 macro_rules! determine_op_type_fn {
@@ -56,6 +56,8 @@ pub enum InterpreterError {
     InvalidOperator(&'static str, &'static str),
     #[error("Expected an integer value in this context; {0} is not an integer")]
     ExpectedInteger(f64),
+    #[error("Field {0} does not exist on struct {1}")]
+    FieldDoesNotExist(String, String),
 }
 
 pub struct CortexInterpreter {
@@ -320,6 +322,21 @@ impl CortexInterpreter {
                 Ok(func.return_type.clone())
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
+            Atom::StructConstruction { name, assignments } => {
+                let struc = self.lookup_struct(name)?;
+                for (fname, value) in assignments {
+                    let opt_typ = struc.fields.get(fname);
+                    if let Some(typ) = opt_typ {
+                        let assigned_type = self.determine_type(value)?;
+                        if !assigned_type.is_subtype_of(typ) {
+                            return Err(Box::new(InterpreterError::MismatchedType(typ.codegen(0), assigned_type.codegen(0))));
+                        }
+                    } else {
+                        return Err(Box::new(InterpreterError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
+                    }
+                }
+                Ok(CortexType::new(name.clone(), false))
+            },
         }
     }
     fn determine_type_tail(&self, atom: CortexType, tail: &ExpressionTail) -> Result<CortexType, CortexError> {
@@ -509,6 +526,24 @@ impl CortexInterpreter {
                 let func = self.lookup_function(path_ident)?;
                 Ok(self.run_function(&func, expressions)?)
             },
+            Atom::StructConstruction { name, assignments } => {
+                let struc = self.lookup_struct(name)?;
+                let mut values = HashMap::<String, CortexValue>::new();
+                for (fname, value) in assignments {
+                    let opt_typ = struc.fields.get(fname);
+                    if let Some(typ) = opt_typ {
+                        let assigned_type = self.determine_type(value)?;
+                        if !assigned_type.is_subtype_of(typ) {
+                            return Err(Box::new(InterpreterError::MismatchedType(typ.codegen(0), assigned_type.codegen(0))));
+                        }
+                        let assigned_value = self.evaluate_expression(value)?;
+                        values.insert(fname.clone(), assigned_value);
+                    } else {
+                        return Err(Box::new(InterpreterError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
+                    }
+                }
+                Ok(CortexValue::Composite { struct_name: name.clone(), field_values: values, })
+            },
         }
     }
     fn handle_expr_tail(&mut self, atom: CortexValue, tail: &ExpressionTail) -> Result<CortexValue, CortexError> {
@@ -625,6 +660,14 @@ impl CortexInterpreter {
         } else {
             let last = path.get_back()?;
             Ok(self.base_module.get_module(path)?.env().get_function(last)?)
+        }
+    }
+    fn lookup_struct(&self, path: &PathIdent) -> Result<Rc<Struct>, CortexError> {
+        if path.is_final()? {
+            Ok(self.current_env.as_ref().unwrap().get_struct(path.get_front()?)?)
+        } else {
+            let last = path.get_back()?;
+            Ok(self.base_module.get_module(path)?.env().get_struct(last)?)
         }
     }
 }

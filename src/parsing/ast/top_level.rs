@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{interpreting::{env::Environment, interpreter::CortexError, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
 
 use super::{expression::{Expression, OptionalIdentifier, Parameter}, statement::Statement, r#type::CortexType};
@@ -126,7 +128,7 @@ impl Body {
 
 pub struct Struct {
     pub(crate) name: OptionalIdentifier,
-    pub(crate) fields: Vec<StructField>,
+    pub(crate) fields: HashMap<String, CortexType>,
 }
 impl SimpleCodeGen for Struct {
     fn codegen(&self, indent: usize) -> String {
@@ -138,30 +140,16 @@ impl SimpleCodeGen for Struct {
         s.push_str(&self.name.codegen(indent));
         s.push_str(" {\n");
 
-        for field in &self.fields {
-            s.push_str(&field.codegen(indent + 1));
+        for (field, typ) in &self.fields {
+            s.push_str(field);
+            s.push_str(": ");
+            s.push_str(&typ.codegen(indent));
+            s.push_str(",");
             s.push_str("\n");
         }
 
         s.push_str(&indent_prefix);
         s.push_str("}\n");
-        s
-    }
-}
-
-pub struct StructField {
-    pub(crate) name: String,
-    pub(crate) typ: CortexType,
-}
-impl SimpleCodeGen for StructField {
-    fn codegen(&self, indent: usize) -> String {
-        let mut s = String::new();
-        let indent_prefix = "    ".repeat(indent);
-        s.push_str(&indent_prefix);
-        s.push_str(&self.name);
-        s.push_str(": ");
-        s.push_str(&self.typ.codegen(indent));
-        s.push_str(",");
         s
     }
 }

@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{Body, Function, Struct, StructField, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{Body, Function, Struct, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
     ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
@@ -281,6 +283,18 @@ impl CortexParser {
                 }
                 Ok(Atom::Call(name, args))
             },
+            Rule::structConstruction => {
+                let mut pairs = pair.into_inner();
+                let name = Self::parse_path_ident(pairs.next().unwrap())?;
+                let mut assignments = Vec::new();
+                for p in pairs {
+                    let mut member_init = p.into_inner();
+                    let name = member_init.next().unwrap().as_str();
+                    let expr = Self::parse_expr_pair(member_init.next().unwrap())?;
+                    assignments.push((String::from(name), expr));
+                }
+                Ok(Atom::StructConstruction { name: name, assignments: assignments })
+            },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }
@@ -332,8 +346,10 @@ impl CortexParser {
 
     fn parse_type_pair(pair: Pair<Rule>) -> Result<CortexType, ParseError> {
         let nullable = pair.as_str().contains("?");
-        let ident = pair.into_inner().next().unwrap().as_str();
-        if ident == "any" {
+        let path_pair = pair.into_inner().next().unwrap();
+        let path_str = String::from(path_pair.as_str());
+        let ident = Self::parse_path_ident(path_pair)?;
+        if ident.get_back().map_err(|_e| ParseError::FailPath(path_str))? == "any" {
             Ok(CortexType::any(nullable))
         } else {
             Ok(CortexType::new(ident, nullable))
@@ -352,15 +368,11 @@ impl CortexParser {
         let mut pairs = pair.into_inner();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
         let field_params = Self::parse_param_list(pairs.next().unwrap())?;
-        let fields = field_params
-            .into_iter()
-            .map(|p| {
-                StructField {
-                    name: p.name,
-                    typ: p.typ,
-                }
-            })
-            .collect();
+        let mut fields = HashMap::new();
+        for p in field_params {
+            fields.insert(p.name, p.typ);
+        }
+        
         Ok(
             Struct { 
                 name: name,

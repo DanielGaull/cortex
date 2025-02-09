@@ -1,6 +1,6 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
-use crate::parsing::ast::r#type::CortexType;
+use crate::parsing::ast::{expression::PathIdent, r#type::CortexType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CortexValue {
@@ -9,6 +9,10 @@ pub enum CortexValue {
     String(String),
     Void,
     Null,
+    Composite {
+        struct_name: PathIdent,
+        field_values: HashMap<String, CortexValue>,
+    },
 }
 
 impl Display for CortexValue {
@@ -19,6 +23,7 @@ impl Display for CortexValue {
             CortexValue::String(v) => write!(f, "\"{}\"", v),
             CortexValue::Void => write!(f, "void"),
             CortexValue::Null => write!(f, "null"),
+            CortexValue::Composite { struct_name, field_values } => write!(f, "{:?}({:?})", struct_name, field_values),
         }
     }
 }
@@ -30,6 +35,7 @@ impl CortexValue {
             CortexValue::String(_) => CortexType::string(false),
             CortexValue::Void => CortexType::void(false),
             CortexValue::Null => CortexType::null(),
+            CortexValue::Composite { struct_name, field_values: _ } => CortexType::new(struct_name.clone(), false),
         }
     }
 }

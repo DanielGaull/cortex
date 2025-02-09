@@ -56,6 +56,10 @@ pub enum Atom {
     String(String),
     PathIdent(PathIdent),
     Call(PathIdent, Vec<Expression>),
+    StructConstruction {
+        name: PathIdent, 
+        assignments: Vec<(String, Expression)>
+    },
     Expression(Box<Expression>),
 }
 impl SimpleCodeGen for Atom {
@@ -80,7 +84,20 @@ impl SimpleCodeGen for Atom {
                 }
                 s.push_str(")");
                 s
-            }
+            },
+            Atom::StructConstruction { name, assignments } => {
+                let mut s = String::new();
+                s.push_str(&name.codegen(0));
+                s.push_str(" { ");
+                for a in assignments {
+                    s.push_str(&a.0);
+                    s.push_str(": ");
+                    s.push_str(&a.1.codegen(0));
+                    s.push_str(", ");
+                }
+                s.push_str("}");
+                s
+            },
         }
     }
 }
@@ -134,7 +151,7 @@ impl SimpleCodeGen for OptionalIdentifier {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PathIdent {
     pub(crate) path: Vec<String>,
 }

@@ -45,6 +45,7 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("5 + 2")?;
     run_expression_test("5 * 7 + 2")?;
     run_expression_test("5 >= 2")?;
+    run_expression_test("time::Time { hours: 5, minutes: 5, seconds: 5, }")?;
     Ok(())
 }
 
