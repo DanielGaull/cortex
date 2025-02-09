@@ -26,6 +26,7 @@ fn test_errors() -> Result<(), Box<dyn Error>> {
     assert_err("dne::constantValue = 5;", InterpreterError::CannotModifyModuleEnvironment(String::from("dne::constantValue")), &mut interpreter)?;
     assert_err("dneVar = 7;", EnvError::VariableDoesNotExist(String::from("dneVar")), &mut interpreter)?;
     assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
+    assert_err("null!;", InterpreterError::BangCalledOnNullValue, &mut interpreter)?;
     Ok(())
 }
 
