@@ -112,6 +112,14 @@ impl Environment {
             Err(EnvError::VariableDoesNotExist(String::from(name)))
         }
     }
+    pub fn get_value_mut(&mut self, name: &str) -> Result<&mut CortexValue, EnvError> {
+        let search_result = self.get_variable_mut(&String::from(name));
+        if let Some(var) = search_result {
+            Ok(var.value_mut())
+        } else {
+            Err(EnvError::VariableDoesNotExist(String::from(name)))
+        }
+    }
     pub fn set_value(&mut self, name: &str, value: CortexValue) -> Result<(), EnvError> {
         let search_result = self.get_variable_mut(&String::from(name));
         if let Some(var) = search_result {
@@ -206,6 +214,9 @@ impl Variable {
 
     pub fn value(&self) -> &CortexValue {
         &self.value
+    }
+    pub fn value_mut(&mut self) -> &mut CortexValue {
+        &mut self.value
     }
     pub fn typ(&self) -> &CortexType {
         &self.declared_type

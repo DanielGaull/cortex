@@ -204,7 +204,31 @@ impl CortexInterpreter {
                         Ok(())
                     }
                 } else {
-                    todo!("Implement struct assignment {} {}", name.chain.len(), name.chain.is_empty())
+                    if !name.base.is_final()? {
+                        Err(Box::new(InterpreterError::CannotModifyModuleEnvironment(name.base.codegen(0))))
+                    } else {
+                        let var_name = name.base.get_front()?;
+                        let chain = name.chain.clone();
+                        let assigned_type = self.determine_type(value)?;
+                        let current_value = self.current_env.as_ref().unwrap().get_value(var_name)?.get_field_path(chain.clone())?;
+                        let var_type = current_value.get_type();
+                        if let Some(binop) = op {
+                            let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
+                            if !type_op.is_subtype_of(&var_type) {
+                                return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), type_op.codegen(0))));
+                            }
+                            let second = self.evaluate_expression(value)?;
+                            let value = self.evaluate_op(current_value, binop, second)?;
+                            self.current_env.as_mut().unwrap().get_value_mut(var_name)?.set_field_path(chain, value)?;
+                        } else {
+                            if !assigned_type.is_subtype_of(&var_type) {
+                                return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), assigned_type.codegen(0))));
+                            }
+                            let value = self.evaluate_expression(value)?;
+                            self.current_env.as_mut().unwrap().get_value_mut(var_name)?.set_field_path(chain, value)?;
+                        }
+                        Ok(())
+                    }
                 }
             },
         }
@@ -579,16 +603,8 @@ impl CortexInterpreter {
                 }
             },
             ExpressionTail::MemberAccess { member, next } => {
-                if let CortexValue::Composite { struct_name, field_values } = atom {
-                    if field_values.contains_key(member) {
-                        let val = field_values.get(member).unwrap().clone();
-                        Ok(self.handle_expr_tail(val, next)?)
-                    } else {
-                        Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), struct_name.codegen(0))))
-                    }
-                } else {
-                    Err(Box::new(InterpreterError::CannotAccessMemberOfNonComposite))
-                }
+                let val = atom.get_field(member)?;
+                Ok(self.handle_expr_tail(val, next)?)
             },
         }
     }

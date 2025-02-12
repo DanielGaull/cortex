@@ -215,9 +215,9 @@ impl PathIdent {
             path: vec![name],
         }
     }
-    pub fn new(name: Vec<String>) -> Self {
+    pub fn new(name: Vec<&str>) -> Self {
         Self {
-            path: name,
+            path: name.iter().map(|s| String::from(*s)).collect(),
         }
     }
     pub fn continued(first: PathIdent, next: String) -> Self {

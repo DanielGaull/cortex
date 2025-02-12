@@ -38,6 +38,9 @@ impl Module {
     pub fn env(&self) -> &Environment {
         &self.env
     }
+    pub fn env_mut(&mut self) -> &mut Environment {
+        &mut self.env
+    }
 
     pub fn add_child(&mut self, name: String, module: Module) -> Result<(), ModuleError> {
         if self.children.contains_key(&name) {
@@ -57,6 +60,19 @@ impl Module {
             let child = self.children.get(front).unwrap();
             let next_path = path.pop_front().map_err(|e| ModuleError::PathError(e))?;
             child.get_module(&next_path)
+        } else {
+            Err(ModuleError::ModuleDoesNotExist(front.clone()))
+        }
+    }
+    pub fn get_module_mut(&mut self, path: &PathIdent) -> Result<&mut Module, ModuleError> {
+        if path.is_final().map_err(|e| ModuleError::PathError(e))? {
+            return Ok(self);
+        }
+        let front = path.get_front().map_err(|e| ModuleError::PathError(e))?;
+        if self.children.contains_key(front) {
+            let child = self.children.get_mut(front).unwrap();
+            let next_path = path.pop_front().map_err(|e| ModuleError::PathError(e))?;
+            child.get_module_mut(&next_path)
         } else {
             Err(ModuleError::ModuleDoesNotExist(front.clone()))
         }

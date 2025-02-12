@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
+use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -144,15 +144,31 @@ fn struct_tests() -> Result<(), Box<dyn Error>> {
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
     ]);
+    let date_struct = Struct::new("Date", vec![
+        ("t", CortexType::new(PathIdent::new(vec!["simple", "Time"]), false)),
+    ]);
     let mut interpreter = CortexInterpreter::new();
     let mut mod_env = Environment::base();
     mod_env.add_struct(test_struct)?;
+    mod_env.add_struct(date_struct)?;
     let path = CortexParser::parse_path("simple")?;
     let module = Module::new(mod_env);
     interpreter.register_module(&path, module)?;
 
     interpreter.run_statement(&CortexParser::parse_statement("let time = simple::Time{m:5,s:10};")?)?;
     run_test("time.m", "5", &mut interpreter)?;
+    run_test("time.s", "10", &mut interpreter)?;
+
+    interpreter.run_statement(&CortexParser::parse_statement("time.m = 7;")?)?;
+    run_test("time.m", "7", &mut interpreter)?;
+    interpreter.run_statement(&CortexParser::parse_statement("time.m += 7;")?)?;
+    run_test("time.m", "14", &mut interpreter)?;
+
+    interpreter.run_statement(&CortexParser::parse_statement("let date = simple::Date{t:time};")?)?;
+    run_test("date.t.m", "14", &mut interpreter)?;
+    interpreter.run_statement(&CortexParser::parse_statement("date.t.s = 100;")?)?;
+    run_test("date.t.s", "100", &mut interpreter)?;
+    // Structs are pass-by-value; important to keep them small so copying them is cheap
     run_test("time.s", "10", &mut interpreter)?;
 
     Ok(())
