@@ -1,6 +1,6 @@
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
-use super::{expression::{BinaryOperator, Expression, OptionalIdentifier, PathIdent}, r#type::CortexType};
+use super::{expression::{BinaryOperator, Expression, IdentExpression, OptionalIdentifier}, r#type::CortexType};
 
 #[derive(Clone)]
 pub enum Statement {
@@ -13,7 +13,7 @@ pub enum Statement {
         initial_value: Expression,
     },
     VariableAssignment {
-        name: PathIdent,
+        name: IdentExpression,
         value: Expression,
         op: Option<BinaryOperator>,
     },

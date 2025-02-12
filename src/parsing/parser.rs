@@ -6,7 +6,7 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{Body, Function, Struct, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{Body, Function, Struct, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
     ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
@@ -202,7 +202,7 @@ impl CortexParser {
             },
             Rule::varAssign => {
                 let mut pairs = pair.into_inner();
-                let path = Self::parse_path_ident(pairs.next().unwrap())?;
+                let left = Self::parse_ident_expr(pairs.next().unwrap())?;
                 let value;
                 let op;
                 let next = pairs.next().unwrap();
@@ -219,7 +219,7 @@ impl CortexParser {
                 }
 
                 Ok(Statement::VariableAssignment { 
-                    name: path, 
+                    name: left,
                     value: value,
                     op: op,
                 })
@@ -351,6 +351,19 @@ impl CortexParser {
         }
         Ok(PathIdent {
             path: names,
+        })
+    }
+
+    fn parse_ident_expr(pair: Pair<Rule>) -> Result<IdentExpression, ParseError> {
+        let mut pairs = pair.into_inner();
+        let path = Self::parse_path_ident(pairs.next().unwrap())?;
+        let mut chain = Vec::new();
+        for p in pairs {
+            chain.push(String::from(p.as_str()));
+        }
+        Ok(IdentExpression {
+            base: path,
+            chain: chain,
         })
     }
 

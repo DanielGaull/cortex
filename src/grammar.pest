@@ -17,7 +17,8 @@ statement = { statementNeedingSemicolon ~ ";" }
 stop = { "stop" }
 
 varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
-varAssign = { pathIdent ~ arithLogicBinOp? ~ "=" ~ expr }
+varAssign = { identExpr ~ arithLogicBinOp? ~ "=" ~ expr }
+identExpr = { pathIdent ~ ("." ~ ident)* }
 
 // Expressions
 atom = { number | boolean | null | void | string | call | structConstruction | pathIdent | if | "(" ~ expr ~ ")" }

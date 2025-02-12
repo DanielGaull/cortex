@@ -177,29 +177,34 @@ impl CortexInterpreter {
                 }
             },
             Statement::VariableAssignment { name, value, op } => {
-                if !name.is_final()? {
-                    Err(Box::new(InterpreterError::CannotModifyModuleEnvironment(name.codegen(0))))
-                } else {
-                    let var_name = name.get_front()?;
-                    let assigned_type = self.determine_type(value)?;
-                    let var_type = self.current_env.as_ref().unwrap().get_type_of(var_name)?;
-                    if let Some(binop) = op {
-                        let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
-                        if !type_op.is_subtype_of(var_type) {
-                            return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), type_op.codegen(0))));
-                        }
-                        let second = self.evaluate_expression(value)?;
-                        let first = self.current_env.as_ref().unwrap().get_value(var_name)?;
-                        let value = self.evaluate_op(first.clone(), binop, second)?;
-                        self.current_env.as_mut().unwrap().set_value(var_name, value)?;
+                if name.is_simple() {
+                    let path = &name.base;
+                    if !path.is_final()? {
+                        Err(Box::new(InterpreterError::CannotModifyModuleEnvironment(path.codegen(0))))
                     } else {
-                        if !assigned_type.is_subtype_of(var_type) {
-                            return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), assigned_type.codegen(0))));
+                        let var_name = path.get_front()?;
+                        let assigned_type = self.determine_type(value)?;
+                        let var_type = self.current_env.as_ref().unwrap().get_type_of(var_name)?;
+                        if let Some(binop) = op {
+                            let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
+                            if !type_op.is_subtype_of(var_type) {
+                                return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), type_op.codegen(0))));
+                            }
+                            let second = self.evaluate_expression(value)?;
+                            let first = self.current_env.as_ref().unwrap().get_value(var_name)?;
+                            let value = self.evaluate_op(first.clone(), binop, second)?;
+                            self.current_env.as_mut().unwrap().set_value(var_name, value)?;
+                        } else {
+                            if !assigned_type.is_subtype_of(var_type) {
+                                return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), assigned_type.codegen(0))));
+                            }
+                            let value = self.evaluate_expression(value)?;
+                            self.current_env.as_mut().unwrap().set_value(var_name, value)?;
                         }
-                        let value = self.evaluate_expression(value)?;
-                        self.current_env.as_mut().unwrap().set_value(var_name, value)?;
+                        Ok(())
                     }
-                    Ok(())
+                } else {
+                    todo!("Implement struct assignment {} {}", name.chain.len(), name.chain.is_empty())
                 }
             },
         }

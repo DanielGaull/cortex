@@ -153,6 +153,28 @@ impl Parameter {
 }
 
 #[derive(Clone)]
+pub struct IdentExpression {
+    pub(crate) base: PathIdent,
+    pub(crate) chain: Vec<String>,
+}
+impl SimpleCodeGen for IdentExpression {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        s.push_str(&self.base.codegen(indent));
+        for c in &self.chain {
+            s.push_str(".");
+            s.push_str(c);
+        }
+        s
+    }
+}
+impl IdentExpression {
+    pub fn is_simple(&self) -> bool {
+        self.chain.is_empty()
+    }
+}
+
+#[derive(Clone)]
 pub enum OptionalIdentifier {
     Ident(String), // A true identifier
     Ignore, // The ignore token, "~"
