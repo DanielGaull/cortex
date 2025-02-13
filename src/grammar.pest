@@ -21,7 +21,7 @@ varAssign = { identExpr ~ arithLogicBinOp? ~ "=" ~ expr }
 identExpr = { pathIdent ~ ("." ~ ident)* }
 
 // Expressions
-atom = { number | boolean | null | void | string | call | structConstruction | pathIdent | if | "(" ~ expr ~ ")" }
+atom = { number | boolean | null | void | string | call | structConstruction | if | pathIdent | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberAccessTail | "" }
 
 primary = { atom ~ exprTail }

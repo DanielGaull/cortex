@@ -127,12 +127,12 @@ impl SimpleCodeGen for Atom {
                 s.push_str("if ");
                 s.push_str(&first.codegen(indent));
                 for c in conds {
-                    s.push_str(" else if ");
+                    s.push_str(" elif ");
                     s.push_str(&c.codegen(indent));
                 }
-                if let Some(c) = last {
+                if let Some(body) = last {
                     s.push_str(" else {\n");
-                    s.push_str(&c.codegen(indent));
+                    s.push_str(&body.codegen(indent + 1));
                     s.push_str(&indent_prefix);
                     s.push_str("}\n");
                 }

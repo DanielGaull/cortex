@@ -6,7 +6,7 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
     ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
@@ -295,6 +295,30 @@ impl CortexParser {
                 }
                 Ok(Atom::StructConstruction { name: name, assignments: assignments })
             },
+            Rule::r#if => {
+                let mut pairs = pair.into_inner();
+                let first_cond = Self::parse_expr_pair(pairs.next().unwrap())?;
+                let first_body = Self::parse_body(pairs.next().unwrap())?;
+                let elifs_pair = pairs.next().unwrap();
+                let elifs_pairs = elifs_pair.into_inner();
+                let mut elifs = Vec::<ConditionBody>::new();
+                for p in elifs_pairs {
+                    elifs.push(Self::parse_condition_body(p)?);
+                }
+                let op_else_pair = pairs.next();
+                let else_body = 
+                    if let Some(else_pair) = op_else_pair {
+                        Some(Box::new(Self::parse_body(else_pair.into_inner().next().unwrap())?))
+                    } else {
+                        None
+                    };
+
+                Ok(Atom::IfStatement { 
+                    first: Box::new(ConditionBody { condition: first_cond, body: first_body }),
+                    conds: elifs,
+                    last: else_body,
+                })
+            },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }
@@ -322,6 +346,16 @@ impl CortexParser {
             }
             _ => Err(ParseError::FailTail(String::from(pair.as_str()))),
         }
+    }
+
+    fn parse_condition_body(pair: Pair<Rule>) -> Result<ConditionBody, ParseError> {
+        let mut pairs = pair.into_inner();
+        let cond = Self::parse_expr_pair(pairs.next().unwrap())?;
+        let body = Self::parse_body(pairs.next().unwrap())?;
+        Ok(ConditionBody {
+            condition: cond,
+            body: body,
+        })
     }
 
     fn parse_binop(pair: Pair<Rule>) -> Result<BinaryOperator, ParseError> {
@@ -414,7 +448,7 @@ impl CortexParser {
             name: name,
             params: params,
             return_type: return_type,
-            body: body,
+            body: Body::Basic(body),
         })
     }
 
@@ -438,7 +472,7 @@ impl CortexParser {
         )
     }
 
-    fn parse_body(pair: Pair<Rule>) -> Result<Body, ParseError> {
+    fn parse_body(pair: Pair<Rule>) -> Result<BasicBody, ParseError> {
         let mut result: Option<Expression> = None;
         let mut statements = Vec::<Statement>::new();
 
@@ -456,10 +490,10 @@ impl CortexParser {
             }
         }
         Ok(
-            Body::Basic(BasicBody {
+            BasicBody {
                 statements: statements,
                 result: result,
-            })
+            }
         )
     }
 }
