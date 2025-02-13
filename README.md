@@ -155,7 +155,31 @@ You do not have to include any `elif` or `else` arms. However, if any arms retur
 
 Being expressions, if expressions must be semicolon-terminated.
 ### Loops
+TODO:
 ### Functions
+Functions can be defined in a top-level context. Functions, like variables, do not have to be named (the only reason to not name a function is if your Rust code is handling it in a custom way; unnamed functions cannot be called from within Cortex code). Function definitions look like this:
+
+    fn *name*(*param*: *type*, *param*: *type*, ...): *return_type* {
+        // Body...
+    }
+
+The body consists of statements, but if you end the body with an expression (and no semicolon), the function will return that expression (otherwise, it returns void). There is no `return` statement in Cortex.
+
+You can call a function with `name(args...)`. For example:
+
+    fn add(n: number, m: number): number {
+        n+m
+    }
+    let x = add(5,2); // x=7
+
+Here is an unnamed function:
+
+    fn ~(n: number, m: number): number {
+        n*m
+    }
+
+This function cannot be called within Cortex, but you can use parse functions to read a `Function` object into the calling Rust code and use this function there.
+
 ### Structs
 ### Modules
 
