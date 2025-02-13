@@ -134,7 +134,26 @@ Example:
 
 5 >= 5 = true
 
-### If Statements
+### If Expressions
+If expressions are *expressions*, meaning they evaluate to a value. If bodies are similar to function bodies, in that you can add an expression at the end (that isn't semicolon-terminated) to return that value. All arms of an if expression must return the same type (however, if an arm returns `null` and others do not, the interpreter can infer the type as a nullable type rather than giving an error). If expressions look like this:
+
+    if *condition* {
+        // Body...
+    } elif *condition* {
+        // Body...
+    } elif *condition* {
+        // Body...
+    } else {
+        // Body...
+    };
+
+You do not have to include any `elif` or `else` arms. However, if any arms return something other than `void`, then an `else` arm is required:
+
+    if foo {
+        5
+    }; // Error: You need an else arm in this context
+
+Being expressions, if expressions must be semicolon-terminated.
 ### Loops
 ### Functions
 ### Structs

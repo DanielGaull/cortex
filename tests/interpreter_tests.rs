@@ -63,6 +63,7 @@ fn complex_expr_tests() -> Result<(), Box<dyn Error>> {
     run_test("if true{1} else {0}", "1", &mut interpreter)?;
     run_test("if false{1}elif true{2} else {0}", "2", &mut interpreter)?;
     run_test("if false{1}elif 0 == 1{2} else {0}", "0", &mut interpreter)?;
+    run_test("if false{1}elif 0 == 1{2} else {null}", "null", &mut interpreter)?;
     Ok(())
 }
 
