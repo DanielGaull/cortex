@@ -181,6 +181,32 @@ Here is an unnamed function:
 This function cannot be called within Cortex, but you can use parse functions to read a `Function` object into the calling Rust code and use this function there.
 
 ### Structs
+You can define (or inject) data types using *structs*. Structs consist of fields of a certain type, and struct instances (or composite values) consist of the values of those fields. Keep in mind *all* values are currently pass-by-value, meaning that passing a value into a function or assigning it to a variable *duplicates* the fields of structs. Make sure structs are cheap to copy, and if not, give them a way to hook into your Rust implementation where the actual complex object is stored. In the future, copy-by-reference values are planned to be added.
+
+Define structs like so:
+
+    struct Time {
+        hour: number;
+        minute: number;
+        second: number;
+    }
+
+You can then create an instance like this:
+
+    let time: Time = Time {
+        hour: 5,
+        minute: 5,
+        second: 5,
+    };
+
+You can access and change fields like this:
+
+    let hour = time.hour; // 5
+    time.hour = 1;
+    time.hour += 3; // time.hour = 4
+
+The type name to refer to a struct is the struct name itself (or path if it is in a module).
+
 ### Modules
 
 ## Crate Documentation
