@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
-use super::r#type::CortexType;
+use super::{top_level::BasicBody, r#type::CortexType};
 
 macro_rules! operator_struct {
     ($name:ident, $item: ty) => {
@@ -48,6 +48,23 @@ impl SimpleCodeGen for Primary {
 }
 
 #[derive(Clone)]
+pub struct ConditionBody {
+    pub(crate) condition: Expression,
+    pub(crate) body: BasicBody,
+}
+impl SimpleCodeGen for ConditionBody {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        s.push_str(&self.condition.codegen(indent));
+        s.push_str(" {\n");
+        s.push_str(&self.body.codegen(indent + 1));
+        s.push_str(&"    ".repeat(indent));
+        s.push_str("}");
+        s
+    }
+}
+
+#[derive(Clone)]
 pub enum Atom {
     Number(f64),
     Boolean(bool),
@@ -60,6 +77,11 @@ pub enum Atom {
         name: PathIdent, 
         assignments: Vec<(String, Expression)>
     },
+    IfStatement {
+        first: Box<ConditionBody>,
+        conds: Vec<ConditionBody>,
+        last: Option<Box<BasicBody>>,
+    },
     Expression(Box<Expression>),
 }
 impl SimpleCodeGen for Atom {
@@ -71,7 +93,7 @@ impl SimpleCodeGen for Atom {
             Atom::Void => String::from("void"),
             Atom::Null => String::from("null"),
             Atom::PathIdent(path) => path.codegen(indent),
-            Atom::Expression(expr) => expr.codegen(indent),
+            Atom::Expression(expr) => format!("({})", expr.codegen(indent)),
             Atom::Call(path, args) => {
                 let mut s = String::new();
                 s.push_str(&path.codegen(indent));
@@ -96,6 +118,24 @@ impl SimpleCodeGen for Atom {
                     s.push_str(", ");
                 }
                 s.push_str("}");
+                s
+            },
+            Atom::IfStatement { first, conds, last } => {
+                let mut s = String::new();
+                let indent_prefix = "    ".repeat(indent);
+                s.push_str(&indent_prefix);
+                s.push_str("if ");
+                s.push_str(&first.codegen(indent));
+                for c in conds {
+                    s.push_str(" else if ");
+                    s.push_str(&c.codegen(indent));
+                }
+                if let Some(c) = last {
+                    s.push_str(" else {\n");
+                    s.push_str(&c.codegen(indent));
+                    s.push_str(&indent_prefix);
+                    s.push_str("}\n");
+                }
                 s
             },
         }

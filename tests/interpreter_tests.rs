@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
+use cortex::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -114,12 +114,12 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn basic_function_tests() -> Result<(), Box<dyn Error>> {
-    let test_body = Body::Basic { 
-        statements: vec![
+    let test_body = Body::Basic(BasicBody::new( 
+        vec![
             CortexParser::parse_statement("let x = 5;")?
         ],
-        result: Some(CortexParser::parse_expression("x")?),
-    };
+        Some(CortexParser::parse_expression("x")?),
+    ));
     let test_func = Function::new(
         OptionalIdentifier::Ident(String::from("test")),
         Vec::new(),

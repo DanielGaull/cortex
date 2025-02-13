@@ -3,7 +3,7 @@ use std::{collections::HashMap, error::Error, rc::Rc};
 use thiserror::Error;
 use paste::paste;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult}, statement::Statement, top_level::{Body, Function, Struct, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult}, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, module::Module, value::CortexValue};
 
 macro_rules! determine_op_type_fn {
@@ -62,6 +62,10 @@ pub enum InterpreterError {
     BangCalledOnNullValue,
     #[error("Cannot access members of non-composite values")]
     CannotAccessMemberOfNonComposite,
+    #[error("If arm types do not match: expected {0} but found {1}")]
+    IfArmsDoNotMatch(String, String),
+    #[error("If an if arm returns a value, then there must be an else block")]
+    IfRequiresElseBlock,
 }
 
 pub struct CortexInterpreter {
@@ -370,6 +374,34 @@ impl CortexInterpreter {
                 }
                 Ok(CortexType::new(name.clone(), false))
             },
+            Atom::IfStatement { first, conds, last } => {
+                let mut the_type = self.determine_type_body(&first.body)?;
+                
+                for c in conds {
+                    let typ = self.determine_type_body(&c.body)?;
+                    let the_type_str = the_type.codegen(0);
+                    let typ_str = typ.codegen(0);
+                    let next = the_type.combine_with(typ);
+                    if let Some(t) = next {
+                        the_type = t;
+                    } else {
+                        return Err(Box::new(InterpreterError::IfArmsDoNotMatch(the_type_str, typ_str)));
+                    }
+                }
+                if let Some(fin) = last {
+                    let typ = self.determine_type_body(fin)?;
+                    let the_type_str = the_type.codegen(0);
+                    let typ_str = typ.codegen(0);
+                    let next = the_type.combine_with(typ);
+                    if let Some(t) = next {
+                        the_type = t;
+                    } else {
+                        return Err(Box::new(InterpreterError::IfArmsDoNotMatch(the_type_str, typ_str)));
+                    }
+                }
+
+                Ok(the_type)
+            },
         }
     }
     fn determine_type_tail(&self, atom: CortexType, tail: &ExpressionTail) -> Result<CortexType, CortexError> {
@@ -388,6 +420,13 @@ impl CortexInterpreter {
                     Ok(self.determine_type_tail(member_type, next)?)
                 }
             },
+        }
+    }
+    fn determine_type_body(&self, body: &BasicBody) -> Result<CortexType, CortexError> {
+        if let Some(expr) = &body.result {
+            self.determine_type(expr)
+        } else {
+            Ok(CortexType::void(false))
         }
     }
 
@@ -590,6 +629,44 @@ impl CortexInterpreter {
                 }
                 Ok(CortexValue::Composite { struct_name: name.clone(), field_values: values, })
             },
+            Atom::IfStatement { first, conds, last } => {
+                let cond = self.evaluate_expression(&first.condition)?;
+                if let CortexValue::Boolean(b) = cond {
+                    if b {
+                        self.evaluate_body(&Body::Basic(first.body.clone()))
+                    } else {
+                        for c in conds {
+                            let cond = self.evaluate_expression(&c.condition)?;
+                            if let CortexValue::Boolean(b) = cond {
+                                if b {
+                                    return Ok(self.evaluate_body(&Body::Basic(c.body.clone()))?);
+                                }
+                            } else {
+                                return Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), self.determine_type(&c.condition)?.codegen(0))))
+                            }
+                        }
+                        if let Some(c) = last {
+                            Ok(self.evaluate_body(&Body::Basic(*c.clone()))?)
+                        } else {
+                            // If all arms return void, then we're fine to return void here
+                            // Otherwise, need to throw an error
+                            if self.determine_type_body(&first.body)? != CortexType::void(false) {
+                                Err(Box::new(InterpreterError::IfRequiresElseBlock))
+                            } else {
+                                for c in conds {
+                                    if self.determine_type_body(&c.body)? != CortexType::void(false) {
+                                        return Err(Box::new(InterpreterError::IfRequiresElseBlock));
+                                    }
+                                }
+                                // If we've made it here, all arms return void
+                                Ok(CortexValue::Void)
+                            }
+                        }
+                    }
+                } else {
+                    Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), self.determine_type(&first.condition)?.codegen(0))))
+                }
+            },
         }
     }
     fn handle_expr_tail(&mut self, atom: CortexValue, tail: &ExpressionTail) -> Result<CortexValue, CortexError> {
@@ -673,12 +750,12 @@ impl CortexInterpreter {
 
     fn evaluate_body(&mut self, body: &Body) -> Result<CortexValue, CortexError> {
         match body {
-            Body::Basic { statements, result } => {
-                for st in statements {
+            Body::Basic(b) => {
+                for st in &b.statements {
                     self.run_statement(st)?;
                 }
         
-                if let Some(return_expr) = result {
+                if let Some(return_expr) = &b.result {
                     let res = self.evaluate_expression(return_expr)?;
                     Ok(res)
                 } else {

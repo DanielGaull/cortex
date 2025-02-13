@@ -6,7 +6,7 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{Body, Function, Struct, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
     ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
@@ -456,10 +456,10 @@ impl CortexParser {
             }
         }
         Ok(
-            Body::Basic {
+            Body::Basic(BasicBody {
                 statements: statements,
                 result: result,
-            }
+            })
         )
     }
 }

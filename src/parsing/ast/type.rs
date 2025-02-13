@@ -54,6 +54,34 @@ impl CortexType {
         }
     }
 
+    pub fn to_nullable(self) -> Self {
+        CortexType {
+            name: self.name,
+            nullable: true,
+            is_any: self.is_any,
+        }
+    }
+
+    pub fn to_non_nullable(self) -> Self {
+        CortexType {
+            name: self.name,
+            nullable: false,
+            is_any: self.is_any,
+        }
+    }
+
+    pub fn combine_with(self, other: CortexType) -> Option<CortexType> {
+        if self.is_any || other.is_any {
+            Some(Self::any(self.nullable || other.nullable))
+        } else {
+            if self.name == other.name {
+                Some(Self::new(self.name, self.nullable || other.nullable))
+            } else {
+                None
+            }
+        }
+    }
+
     pub fn is_subtype_of(&self, other: &CortexType) -> bool {
         if other.is_any {
             return true;
@@ -68,14 +96,6 @@ impl CortexType {
             return true;
         }
         false
-    }
-
-    pub fn to_non_nullable(self) -> Self {
-        CortexType {
-            name: self.name,
-            nullable: false,
-            is_any: self.is_any,
-        }
     }
 }
 

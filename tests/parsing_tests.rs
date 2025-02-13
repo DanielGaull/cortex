@@ -40,8 +40,8 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("println(hello, \"hi\")")?;
-    run_expression_test_expected("(void)", "void")?;
-    run_expression_test_expected("(((void)))", "void")?;
+    run_expression_test("(void)")?;
+    run_expression_test("(((void)))")?;
     run_expression_test("5 + 2")?;
     run_expression_test("5 * 7 + 2")?;
     run_expression_test("5 >= 2")?;
