@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex::{interpreting::{env::{EnvError, Environment}, interpreter::{CortexInterpreter, InterpreterError}, module::{Module, ModuleError}, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}, parser::CortexParser}};
+use cortex::{interpreting::{env::{EnvError, Environment}, interpreter::{CortexInterpreter, InterpreterError}, module::{Module, ModuleError}, value::{CortexValue, ValueError}}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -27,6 +27,15 @@ fn test_errors() -> Result<(), Box<dyn Error>> {
     assert_err("dneVar = 7;", EnvError::VariableDoesNotExist(String::from("dneVar")), &mut interpreter)?;
     assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
     assert_err("null!;", InterpreterError::BangCalledOnNullValue, &mut interpreter)?;
+    assert_err("5.foo;", ValueError::CannotAccessMemberOfNonComposite, &mut interpreter)?;
+    assert_err("dneStruct { foo: 5 };", EnvError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
+    assert_err("5 - \"foo\";", InterpreterError::InvalidOperator("number", "number"), &mut interpreter)?;
+    assert_err("5.2 * \"foo\";", InterpreterError::ExpectedInteger(5.2f64), &mut interpreter)?;
+    assert_err("simple::Time { z: 5 };", InterpreterError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
+    interpreter.run_statement(&CortexParser::parse_statement("let myTime = simple::Time { m: 5, s: 2 };")?)?;
+    assert_err("myTime.z;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
+    assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
+    assert_err("myTime.m = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
     Ok(())
 }
 
@@ -66,9 +75,14 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         CortexType::number(false),
         add_body
     );
+    let test_struct = Struct::new("Time", vec![
+        ("m", CortexType::number(false)),
+        ("s", CortexType::number(false)),
+    ]);
     let mut interpreter = CortexInterpreter::new();
     let mut mod_env = Environment::base();
     mod_env.add_function(add_func)?;
+    mod_env.add_struct(test_struct)?;
     mod_env.add_var(String::from("constantValue"), CortexType::number(false), CortexValue::Number(5.0))?;
     let path = CortexParser::parse_path("simple")?;
     let module = Module::new(mod_env);

@@ -60,8 +60,6 @@ pub enum InterpreterError {
     FieldDoesNotExist(String, String),
     #[error("Bang operator called on a null value")]
     BangCalledOnNullValue,
-    #[error("Cannot access members of non-composite values")]
-    CannotAccessMemberOfNonComposite,
     #[error("If arm types do not match: expected {0} but found {1}")]
     IfArmsDoNotMatch(String, String),
     #[error("If an if arm returns a value, then there must be an else block")]

@@ -4,12 +4,12 @@ use thiserror::Error;
 
 use crate::parsing::{ast::{expression::PathIdent, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ValueError {
     #[error("Field {0} does not exist on struct {1}")]
     FieldDoesNotExist(String, String),
     #[error("You cannot modify fields on a non-composite value")]
-    SetFieldOnNonComposite,
+    CannotModifyFieldOnNonComposite,
     #[error("You cannot access fields on a non-composite value")]
     CannotAccessMemberOfNonComposite,
     #[error("Member path cannot be empty")]
@@ -117,7 +117,7 @@ impl CortexValue {
                     Err(ValueError::FieldDoesNotExist(field.clone(), struct_name.codegen(0)))
                 }
             },
-            _ => Err(ValueError::SetFieldOnNonComposite),
+            _ => Err(ValueError::CannotModifyFieldOnNonComposite),
         }
     }
 }
