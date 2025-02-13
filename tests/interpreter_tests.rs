@@ -58,6 +58,15 @@ fn binop_tests() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn complex_expr_tests() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new();
+    run_test("if true{1} else {0}", "1", &mut interpreter)?;
+    run_test("if false{1}elif true{2} else {0}", "2", &mut interpreter)?;
+    run_test("if false{1}elif 0 == 1{2} else {0}", "0", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
 fn mod_var_eval_tests() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new();
     let mut mod_env = Environment::base();
