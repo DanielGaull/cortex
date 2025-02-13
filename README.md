@@ -40,6 +40,100 @@ There are cases where you may want to assert that a variable with a nullable typ
 If you use the bang operation on a null value, the interpreter will return an error and stop execution.
 
 ### Operators
+There are several binary operators you can use. Here is each one, and how they work:
+
+#### Addition
+number + number OR string + string
+
+Example: 
+
+5 + 2 = 7
+
+"foo" + "bar" = "foobar"
+
+#### Subtraction
+number - number
+
+Example:
+
+5 - 2 = 3
+
+#### Multiplication
+number * number OR number * string OR string * number
+
+Example:
+
+5 * 2 = 10
+
+"foo" * 2 = "foofoo"
+
+2 * "foo" = "foofoo"
+
+#### Division
+number / number
+
+Example:
+
+5 / 2 = 2.5
+
+#### Remainder
+number % number
+
+Example:
+
+5 % 2 = 1
+
+#### Logical And
+bool && bool
+
+Example:
+
+true && false = false
+
+#### Logical Or
+bool || bool
+
+Example:
+
+true || false = true
+
+#### Equals
+any == any
+
+Example:
+
+5 == 2 = false
+
+"foo" == "foo" = true
+
+#### Not Equals
+any != any
+
+Example:
+
+5 != 2 = true
+
+"foo" != "foo" = false
+
+#### Number Comparison Operators
+number < number
+
+number > number
+
+number <= number
+
+number >= number
+
+Example:
+
+5 < 2 = false
+
+5 > 2 = true
+
+5 <= 5 = true
+
+5 >= 5 = true
+
 ### If Statements
 ### Loops
 ### Functions
