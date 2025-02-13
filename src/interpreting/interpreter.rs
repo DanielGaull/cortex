@@ -235,6 +235,23 @@ impl CortexInterpreter {
                     }
                 }
             },
+            Statement::WhileLoop(condition_body) => {
+                loop {
+                    let cond = self.evaluate_expression(&condition_body.condition)?;
+                    if let CortexValue::Boolean(b) = cond {
+                        if b {
+                            for st in &condition_body.body.statements {
+                                self.run_statement(st)?;
+                            }
+                        } else {
+                            break;
+                        }
+                    } else {
+                        return Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), cond.get_type().codegen(0))));
+                    }
+                }
+                Ok(())
+            },
         }
     }
 

@@ -134,7 +134,7 @@ impl SimpleCodeGen for Atom {
                     s.push_str(" else {\n");
                     s.push_str(&body.codegen(indent + 1));
                     s.push_str(&indent_prefix);
-                    s.push_str("}\n");
+                    s.push_str("}");
                 }
                 s
             },

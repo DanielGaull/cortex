@@ -1,6 +1,6 @@
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
-use super::{expression::{BinaryOperator, Expression, IdentExpression, OptionalIdentifier}, r#type::CortexType};
+use super::{expression::{BinaryOperator, ConditionBody, Expression, IdentExpression, OptionalIdentifier}, r#type::CortexType};
 
 #[derive(Clone)]
 pub enum Statement {
@@ -17,13 +17,14 @@ pub enum Statement {
         value: Expression,
         op: Option<BinaryOperator>,
     },
+    WhileLoop(ConditionBody),
 }
 impl SimpleCodeGen for Statement {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
         let indent_prefix = "    ".repeat(indent);
         s.push_str(&indent_prefix);
-        let semicolon = true;
+        let mut semicolon = true;
         match self {
             Self::Expression(expr) => {
                 s.push_str(&expr.codegen(indent));
@@ -53,6 +54,14 @@ impl SimpleCodeGen for Statement {
                 }
                 s.push_str("= ");
                 s.push_str(&value.codegen(indent));
+            },
+            Self::WhileLoop(cond_body) => {
+                semicolon = false;
+                s.push_str("while ");
+                s.push_str(&cond_body.condition.codegen(indent));
+                s.push_str(" {\n");
+                s.push_str(&cond_body.body.codegen(indent + 1));
+                s.push_str("}");
             },
         }
         if semicolon {

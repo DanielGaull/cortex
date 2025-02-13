@@ -50,7 +50,7 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("test != 7")?;
     run_expression_test("foo.bar")?;
     run_expression_test("foo.bar.baz")?;
-    run_expression_test("if hi {\n    doThing();\n} elif foo {\n    bar();\n} else {\n    doOtherThing();\n}\n")?;
+    run_expression_test("if hi {\n    doThing();\n} elif foo {\n    bar();\n} else {\n    doOtherThing();\n}")?;
     Ok(())
 }
 
@@ -83,6 +83,7 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("let ~ = 5;")?;
     run_statement_test("x = 5;")?;
     run_statement_test("x::y = 5;")?;
+    run_statement_test("while true {\n    x += 1;\n}")?;
     Ok(())
 }
 

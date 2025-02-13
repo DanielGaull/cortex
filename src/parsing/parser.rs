@@ -224,6 +224,12 @@ impl CortexParser {
                     op: op,
                 })
             },
+            Rule::r#while => {
+                let mut pairs = pair.into_inner();
+                let cond = Self::parse_expr_pair(pairs.next().unwrap())?;
+                let body = Self::parse_body(pairs.next().unwrap())?;
+                Ok(Statement::WhileLoop(ConditionBody { condition: cond, body: body }))
+            },
             _ => Err(ParseError::FailStatement(String::from(pair.as_str()))),
         }
     }

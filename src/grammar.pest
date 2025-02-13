@@ -12,13 +12,15 @@ struct = { "struct" ~ optIdentifier ~ "{" ~ paramList ~ "}" }
 
 // Statements
 statementNeedingSemicolon = _{ (stop | varDec | varAssign | expr) }
-statement = { statementNeedingSemicolon ~ ";" }
+statement = { (statementNeedingSemicolon ~ ";") | while }
 
 stop = { "stop" }
 
 varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { identExpr ~ arithLogicBinOp? ~ "=" ~ expr }
 identExpr = { pathIdent ~ ("." ~ ident)* }
+
+while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
 atom = { number | boolean | null | void | string | call | structConstruction | if | pathIdent | "(" ~ expr ~ ")" }

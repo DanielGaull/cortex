@@ -84,5 +84,9 @@ fn statement_tests() -> Result<(), Box<dyn Error>> {
     run_statement("a ||= true;", &mut interpreter)?;
     assert_expression("a", "true", &mut interpreter)?;
 
+    run_statement("let myNum = 0;", &mut interpreter)?;
+    run_statement("while myNum < 10 { myNum += 1; }", &mut interpreter)?;
+    assert_expression("myNum", "10", &mut interpreter)?;
+
     Ok(())
 }
