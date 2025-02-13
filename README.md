@@ -208,5 +208,32 @@ You can access and change fields like this:
 The type name to refer to a struct is the struct name itself (or path if it is in a module).
 
 ### Modules
+Modules are a way to package types and functions (or even other modules) under a shared namespace. Items in modules require paths to access them. Here's an example of a module:
+
+    module time { // Convention is to use camelCase module names
+        struct Time {
+            hour: number;
+            minute: number;
+            second: number;
+        }
+
+        fn addTimes(t1: Time, t2: Time): Time {
+            Time {
+                hour: t1.hour + t2.hour,
+                minute: t1.minute + t2.minute,
+                second: t1.second + t2.second,
+            }
+        }
+    }
+
+    // From outside, we use the module like this:
+    let time = time::Time {
+        hour: 1,
+        minute: 0,
+        second: 0,
+    };
+    let doubled = time::addTimes(time, time);
+
+Modules can be constructed and injected from outside of the interpreter, which is the most common way to interface your Cortex code with Rust code. However, you can use the syntax above to create modules in Cortex code itself.
 
 ## Crate Documentation
