@@ -2,6 +2,8 @@
 
 Cortex is a Rust crate providing interactibility with a simple interpreted programming language called Cortex. This is not intended to be a standalone language, but one that works with Rust to give basic scripting functionality. It is easy to inject Cortex modules/structs/functions into the interpreter, to easily write Cortex code that calls back the source Rust code.
 
+!! NOTE: This is a very unstable package! This tool is in the early stages of development, and breaking changes may be released. The goal is to allow for backwards compatibility at all time, but breaking changes may be unavoidable!
+
 This file consists of documentation of the Cortex Language itself, and examples on how to use the tools provided in this package to run Cortex code.
 
 ## Cortex Language Documentation
@@ -155,7 +157,21 @@ You do not have to include any `elif` or `else` arms. However, if any arms retur
 
 Being expressions, if expressions must be semicolon-terminated.
 ### Loops
-TODO:
+You can construct while loops to repeat code (for loops currently do not exist). While loops have syntax like so:
+
+    while *condition* {
+        // statements...
+    }
+
+For example:
+
+    let x = 0;
+    while x < 10 {
+        x += 1;
+    }
+
+Currently, there is no "break" construct to exit from loops early.
+
 ### Functions
 Functions can be defined in a top-level context. Functions, like variables, do not have to be named (the only reason to not name a function is if your Rust code is handling it in a custom way; unnamed functions cannot be called from within Cortex code). Function definitions look like this:
 
