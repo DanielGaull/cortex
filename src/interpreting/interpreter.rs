@@ -60,6 +60,10 @@ pub enum InterpreterError {
     ExpectedInteger(f64),
     #[error("Field {0} does not exist on struct {1}")]
     FieldDoesNotExist(String, String),
+    #[error("Cannot assign multiple times to struct field {0} in construction")]
+    MultipleFieldAssignment(String),
+    #[error("Fields not assigned on struct {0}: {1}")]
+    NotAllFieldsAssigned(String, String),
     #[error("Bang operator called on a null value")]
     BangCalledOnNullValue,
     #[error("If arm types do not match: expected {0} but found {1}")]
@@ -652,6 +656,10 @@ impl CortexInterpreter {
             },
             Atom::StructConstruction { name, assignments } => {
                 let struc = self.lookup_struct(name)?;
+                let mut fields_to_assign = Vec::new();
+                for k in struc.fields.keys() {
+                    fields_to_assign.push(k.clone());
+                }
                 let mut values = HashMap::<String, CortexValue>::new();
                 for (fname, value) in assignments {
                     let opt_typ = struc.fields.get(fname);
@@ -662,11 +670,21 @@ impl CortexInterpreter {
                         }
                         let assigned_value = self.evaluate_expression(value)?;
                         values.insert(fname.clone(), assigned_value);
+                        let index_opt = fields_to_assign.iter().position(|x| *x == *fname);
+                        if let Some(index) = index_opt {
+                            fields_to_assign.remove(index);
+                        } else {
+                            return Err(Box::new(InterpreterError::MultipleFieldAssignment(fname.clone())));
+                        }
                     } else {
                         return Err(Box::new(InterpreterError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
                     }
                 }
-                Ok(CortexValue::Composite { struct_name: name.clone(), field_values: values, })
+                if fields_to_assign.is_empty() {
+                    Ok(CortexValue::Composite { struct_name: name.clone(), field_values: values, })
+                } else {
+                    Err(Box::new(InterpreterError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
+                }
             },
             Atom::IfStatement { first, conds, last } => {
                 let cond = self.evaluate_expression(&first.condition)?;

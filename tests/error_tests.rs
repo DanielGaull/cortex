@@ -39,6 +39,8 @@ fn test_errors() -> Result<(), Box<dyn Error>> {
     assert_err("let notNullable: number = null;", InterpreterError::MismatchedType(String::from("number"), String::from("null?")), &mut interpreter)?;
     assert_err("if true { 5 } else { \"hi\" };", InterpreterError::IfArmsDoNotMatch(String::from("number"), String::from("string")), &mut interpreter)?;
     assert_err("if true { 5 } elif true { 1 };", InterpreterError::IfRequiresElseBlock, &mut interpreter)?;
+    assert_err("simple::Time { m: 2 };", InterpreterError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
+    assert_err("simple::Time { m: 2, m: 3 };", InterpreterError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
     Ok(())
 }
 

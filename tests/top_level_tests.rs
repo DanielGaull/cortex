@@ -8,6 +8,13 @@ fn assert_expression(input: &str, expected: &str, interpreter: &mut CortexInterp
     assert_eq!(expected, value_string);
     Ok(())
 }
+fn assert_expression_or(input: &str, expected1: &str, expected2: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+    let ast = CortexParser::parse_expression(input)?;
+    let value = interpreter.evaluate_expression(&ast)?;
+    let value_string = format!("{}", value);
+    assert!(expected1 == value_string || expected2 == value_string);
+    Ok(())
+}
 
 #[test]
 fn test_top_level() -> Result<(), Box<dyn Error>> {
@@ -23,6 +30,7 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     }
 
     assert_expression("main::main(1, 2)", "3", &mut interpreter)?;
+    assert_expression_or("getPoint(3, 5)", "Point(x:3;y:5;)", "Point(y:5;x:3;)", &mut interpreter)?;
 
     Ok(())
 }

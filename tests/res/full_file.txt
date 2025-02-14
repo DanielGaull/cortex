@@ -3,9 +3,16 @@ module main {
     fn main(x: number, y: number): number {
         x + y
     }
+}
 
-    struct Point {
-        x: number,
-        y: number,
+struct Point {
+    x: number,
+    y: number,
+}
+
+fn getPoint(x: number, y: number): Point {
+    Point {
+        x: x,
+        y: y,
     }
 }

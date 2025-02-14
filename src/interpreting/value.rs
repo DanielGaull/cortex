@@ -37,7 +37,16 @@ impl Display for CortexValue {
             CortexValue::String(v) => write!(f, "\"{}\"", v),
             CortexValue::Void => write!(f, "void"),
             CortexValue::Null => write!(f, "null"),
-            CortexValue::Composite { struct_name, field_values } => write!(f, "{:?}({:?})", struct_name, field_values),
+            CortexValue::Composite { struct_name, field_values } => {
+                let mut s = String::new();
+                for (name, val) in field_values {
+                    s.push_str(name);
+                    s.push_str(":");
+                    s.push_str(&format!("{}", val));
+                    s.push_str(";");
+                }
+                write!(f, "{}({})", struct_name.codegen(0), s)
+            },
         }
     }
 }
