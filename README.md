@@ -4,6 +4,8 @@ Cortex is a Rust crate providing interactibility with a simple interpreted progr
 
 !! NOTE: This is a very unstable package! This tool is in the early stages of development, and breaking changes may be released. The goal is to allow for backwards compatibility at all time, but breaking changes may be unavoidable!
 
+(I created this crate for personal use. At the moment, it has not been tested very thoroughly and is likely very buggy. I am aware that it is very incomplete; there is a list of planned features to make it more usable)
+
 This file consists of documentation of the Cortex Language itself, and examples on how to use the tools provided in this package to run Cortex code.
 
 ## Cortex Language Documentation
