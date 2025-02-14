@@ -56,6 +56,30 @@ fn assert_err<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interp
     }
 }
 
+#[test]
+fn test_other_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+    interpreter.run_top_level(CortexParser::parse_top_level("fn f(): void {}")?)?;
+    assert_err_toplevel("fn f(): void {}", EnvError::FunctionAlreadyExists(String::from("f")), &mut interpreter)?;
+    interpreter.run_top_level(CortexParser::parse_top_level("struct s{}")?)?;
+    assert_err_toplevel("struct s{}", EnvError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
+    interpreter.run_top_level(CortexParser::parse_top_level("module m{}")?)?;
+    assert_err_toplevel("module m{}", ModuleError::ModuleAlreadyExists(String::from("m")), &mut interpreter)?;
+    Ok(())
+}
+
+fn assert_err_toplevel<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+    let parsed = CortexParser::parse_top_level(statement)?;
+    let evaled = interpreter.run_top_level(parsed);
+    if let Err(e) = evaled {
+        let error = *e.downcast::<T>().expect("Expected provided error type");
+        assert_eq!(flavor, error);
+        Ok(())
+    } else {
+        panic!("Statement did not result in an error: {}", statement);
+    }
+}
+
 fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let add_body = Body::Native(Box::new(|env: &Environment| -> Result<CortexValue, Box<dyn Error>> {
         // The two arguments are "a" and "b"
