@@ -1,7 +1,13 @@
 [package]
-name = "cortex"
-version = "0.1.0"
+name = "cortex-lang"
+version = "0.1.0-alpha"
 edition = "2021"
+repository = "https://github.com/DanielGaull/cortex"
+homepage = "https://github.com/DanielGaull/cortex"
+authors = ["Daniel Gaull"]
+license-file = "LICENSE"
+readme = "README.md"
+description = "A simple interpreted language for interfacing with Rust code"
 
 [dependencies]
 paste = "1.0.15"

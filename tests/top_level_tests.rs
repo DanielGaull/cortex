@@ -1,4 +1,4 @@
-use cortex::{interpreting::interpreter::CortexInterpreter, parsing::parser::CortexParser};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::parser::CortexParser};
 use std::{error::Error, fs::File, io::Read, path::Path};
 
 fn assert_expression(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {

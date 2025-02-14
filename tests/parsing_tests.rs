@@ -1,7 +1,7 @@
 use std::error::Error;
 use paste::paste;
 
-use cortex::parsing::{codegen::r#trait::SimpleCodeGen, parser::CortexParser};
+use cortex_lang::parsing::{codegen::r#trait::SimpleCodeGen, parser::CortexParser};
 
 macro_rules! parse_test {
     ($name:ident) => {
