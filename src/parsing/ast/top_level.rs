@@ -104,6 +104,10 @@ impl BasicBody {
             result: result,
         }
     }
+
+    pub fn has_result(&self) -> bool {
+        self.result.is_some()
+    }
 }
 impl SimpleCodeGen for BasicBody {
     fn codegen(&self, indent: usize) -> String {

@@ -70,6 +70,8 @@ pub enum InterpreterError {
     IfArmsDoNotMatch(String, String),
     #[error("If an if arm returns a value, then there must be an else block")]
     IfRequiresElseBlock,
+    #[error("Loop body cannot have a return value")]
+    LoopCannotHaveReturnValue,
 }
 
 pub struct CortexInterpreter {
@@ -240,6 +242,9 @@ impl CortexInterpreter {
                 }
             },
             Statement::WhileLoop(condition_body) => {
+                if condition_body.body.has_result() {
+                    return Err(Box::new(InterpreterError::LoopCannotHaveReturnValue));
+                }
                 loop {
                     let cond = self.evaluate_expression(&condition_body.condition)?;
                     if let CortexValue::Boolean(b) = cond {

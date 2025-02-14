@@ -41,6 +41,7 @@ fn test_errors() -> Result<(), Box<dyn Error>> {
     assert_err("if true { 5 } elif true { 1 };", InterpreterError::IfRequiresElseBlock, &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", InterpreterError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
     assert_err("simple::Time { m: 2, m: 3 };", InterpreterError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
+    assert_err("while true { 5 }", InterpreterError::LoopCannotHaveReturnValue, &mut interpreter)?;
     Ok(())
 }
 
