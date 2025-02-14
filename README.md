@@ -252,4 +252,11 @@ Modules are a way to package types and functions (or even other modules) under a
 
 Modules can be constructed and injected from outside of the interpreter, which is the most common way to interface your Cortex code with Rust code. However, you can use the syntax above to create modules in Cortex code itself.
 
+### Throwing Errors
+There are many errors that can naturally occur when running code. However, if you want to produce an error in your Cortex code, you can use the `throw` statement and provide any `CortexValue`. Here's an example:
+
+    throw 5;
+
+This will return an `InterpreterError::ProgramThrow` with the `CortexValue` provided by the user, so you can handle the error in your Rust code.
+
 ## Crate Documentation
