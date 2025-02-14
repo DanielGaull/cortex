@@ -177,8 +177,9 @@ impl CortexParser {
                 let expression = Self::parse_expr_pair(pair)?;
                 Ok(Statement::Expression(expression))
             },
-            Rule::stop => {
-                Ok(Statement::Stop)
+            Rule::throw => {
+                let expression = Self::parse_expr_pair(pair.into_inner().next().unwrap())?;
+                Ok(Statement::Throw(expression))
             },
             Rule::varDec => {
                 let is_const = pair.as_str().starts_with("const");

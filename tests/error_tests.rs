@@ -12,7 +12,7 @@ enum TestError {
 #[test]
 fn test_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("stop;", InterpreterError::ProgramStopped, &mut interpreter)?;
+    assert_err("throw 5;", InterpreterError::ProgramThrow(CortexValue::Number(5f64)), &mut interpreter)?;
     assert_err("simple::hi();", EnvError::FunctionDoesNotExist(String::from("hi")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("const x = 5;")?)?;
     assert_err("x = 7;", EnvError::ModifyConstant(String::from("x")), &mut interpreter)?;

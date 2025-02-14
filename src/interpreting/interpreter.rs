@@ -42,10 +42,10 @@ pub type CortexError = Box<dyn Error>;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum InterpreterError {
+    #[error("Program threw an error: {0}")]
+    ProgramThrow(CortexValue),
     #[error("Cannot modify value \"{0}\" if it comes from a module")]
     CannotModifyModuleEnvironment(String),
-    #[error("Program execution was forcibly stopped using a \"stop\" statement")]
-    ProgramStopped,
     #[error("Mismatched argument count: Function {0} expects {1} arguments but received {2}")]
     MismatchedArgumentCount(String, usize, usize),
     #[error("Parent environment does not exist")]
@@ -153,8 +153,9 @@ impl CortexInterpreter {
                 self.evaluate_expression(expression)?;
                 Ok(())
             },
-            Statement::Stop => {
-                Err(Box::new(InterpreterError::ProgramStopped))
+            Statement::Throw(expr) => {
+                let val = self.evaluate_expression(expr)?;
+                Err(Box::new(InterpreterError::ProgramThrow(val)))
             },
             Statement::VariableDeclaration { 
                 name, is_const, typ, initial_value 

@@ -11,10 +11,10 @@ function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ ":" ~ typ ~ "{" ~ bo
 struct = { "struct" ~ optIdentifier ~ "{" ~ paramList ~ "}" }
 
 // Statements
-statementNeedingSemicolon = _{ (stop | varDec | varAssign | expr) }
+statementNeedingSemicolon = _{ (throw | varDec | varAssign | expr) }
 statement = { (statementNeedingSemicolon ~ ";") | while }
 
-stop = { "stop" }
+throw = { "throw" ~ expr }
 
 varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { identExpr ~ arithLogicBinOp? ~ "=" ~ expr }

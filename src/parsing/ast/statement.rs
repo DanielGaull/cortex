@@ -5,7 +5,7 @@ use super::{expression::{BinaryOperator, ConditionBody, Expression, IdentExpress
 #[derive(Clone)]
 pub enum Statement {
     Expression(Expression),
-    Stop,
+    Throw(Expression),
     VariableDeclaration {
         name: OptionalIdentifier,
         is_const: bool,
@@ -29,8 +29,9 @@ impl SimpleCodeGen for Statement {
             Self::Expression(expr) => {
                 s.push_str(&expr.codegen(indent));
             },
-            Self::Stop => {
-                s.push_str("stop");
+            Self::Throw(expr) => {
+                s.push_str("throw ");
+                s.push_str(&expr.codegen(indent));
             },
             Self::VariableDeclaration { name, is_const, typ, initial_value } => {
                 if *is_const {
