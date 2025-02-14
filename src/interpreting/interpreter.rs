@@ -396,9 +396,17 @@ impl CortexInterpreter {
                 Ok(CortexType::new(name.clone(), false))
             },
             Atom::IfStatement { first, conds, last } => {
+                let cond_typ = self.determine_type(&first.condition)?;
+                if cond_typ != CortexType::boolean(false) {
+                    return Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), cond_typ.codegen(0))));
+                }
                 let mut the_type = self.determine_type_body(&first.body)?;
                 
                 for c in conds {
+                    let cond_typ = self.determine_type(&c.condition)?;
+                    if cond_typ != CortexType::boolean(false) {
+                        return Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), cond_typ.codegen(0))));
+                    }
                     let typ = self.determine_type_body(&c.body)?;
                     let the_type_str = the_type.codegen(0);
                     let typ_str = typ.codegen(0);
