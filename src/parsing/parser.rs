@@ -6,7 +6,7 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult}, program::Program, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
     ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
@@ -325,6 +325,12 @@ impl CortexParser {
                     last: else_body,
                 })
             },
+            Rule::unOpAtom => {
+                let mut pairs = pair.into_inner();
+                let unop = Self::parse_unop(pairs.next().unwrap())?;
+                let expr = Self::parse_expr_pair(pairs.next().unwrap())?;
+                Ok(Atom::UnaryOperation { op: unop, exp: Box::new(expr) })
+            },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }
@@ -379,6 +385,13 @@ impl CortexParser {
             Rule::lte => Ok(BinaryOperator::IsLessThanOrEqualTo),
             Rule::gt => Ok(BinaryOperator::IsGreaterThan),
             Rule::gte => Ok(BinaryOperator::IsGreaterThanOrEqualTo),
+            _ => Err(ParseError::OperatorDoesNotExist(String::from(pair.as_str()))),
+        }
+    }
+    fn parse_unop(pair: Pair<Rule>) -> Result<UnaryOperator, ParseError> {
+        match pair.as_rule() {
+            Rule::negate => Ok(UnaryOperator::Negate),
+            Rule::invert => Ok(UnaryOperator::Invert),
             _ => Err(ParseError::OperatorDoesNotExist(String::from(pair.as_str()))),
         }
     }

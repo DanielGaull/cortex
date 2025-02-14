@@ -51,6 +51,12 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("foo.bar")?;
     run_expression_test("foo.bar.baz")?;
     run_expression_test("if hi {\n    doThing();\n} elif foo {\n    bar();\n} else {\n    doOtherThing();\n}")?;
+    run_expression_test("-foo")?;
+    run_expression_test("!foo")?;
+    run_expression_test("-foo()")?;
+    run_expression_test("!foo()")?;
+    run_expression_test("-foo.bar")?;
+    run_expression_test("!foo.bar")?;
     Ok(())
 }
 

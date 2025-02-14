@@ -31,7 +31,7 @@ fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn binop_tests() -> Result<(), Box<dyn Error>> {
+fn op_tests() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new();
     run_test("5 + 2", "7", &mut interpreter)?;
     run_test("5 - 2", "3", &mut interpreter)?;
@@ -54,6 +54,9 @@ fn binop_tests() -> Result<(), Box<dyn Error>> {
     run_test("5 * 7 + 2", "37", &mut interpreter)?;
     run_test("5 * (7 + 2)", "45", &mut interpreter)?;
     run_test("3 * 2 == 6 && 5 * 3 == 15", "true", &mut interpreter)?;
+
+    run_test("!false", "true", &mut interpreter)?;
+    run_test("-(5+2)", "-7", &mut interpreter)?;
     Ok(())
 }
 

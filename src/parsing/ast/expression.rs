@@ -82,6 +82,10 @@ pub enum Atom {
         conds: Vec<ConditionBody>,
         last: Option<Box<BasicBody>>,
     },
+    UnaryOperation {
+        op: UnaryOperator,
+        exp: Box<Expression>,
+    },
     Expression(Box<Expression>),
 }
 impl SimpleCodeGen for Atom {
@@ -136,6 +140,12 @@ impl SimpleCodeGen for Atom {
                     s.push_str(&indent_prefix);
                     s.push_str("}");
                 }
+                s
+            },
+            Atom::UnaryOperation { op, exp } => {
+                let mut s = String::new();
+                s.push_str(&op.codegen(indent));
+                s.push_str(&exp.codegen(indent));
                 s
             },
         }
@@ -303,6 +313,22 @@ impl PathIdent {
     }
     pub fn is_empty(&self) -> bool {
         self.path.len() <= 0
+    }
+}
+
+#[derive(Clone)]
+pub enum UnaryOperator {
+    Negate,
+    Invert,
+}
+impl SimpleCodeGen for UnaryOperator {
+    fn codegen(&self, _indent: usize) -> String {
+        String::from(
+            match self {
+                UnaryOperator::Negate => "-",
+                UnaryOperator::Invert => "!",
+            }
+        )
     }
 }
 

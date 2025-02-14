@@ -3,7 +3,7 @@ use std::{collections::HashMap, error::Error, rc::Rc};
 use thiserror::Error;
 use paste::paste;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult}, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, module::Module, value::CortexValue};
 
 macro_rules! determine_op_type_fn {
@@ -52,8 +52,10 @@ pub enum InterpreterError {
     NoParentEnv,
     #[error("Expected type {0} but expression of type {1} was found")]
     MismatchedType(String, String),
-    #[error("Invalid operator values: only the type(s) {0} and {1} are allowed")]
+    #[error("Invalid binary operator values: only the type(s) {0} and {1} are allowed")]
     InvalidOperator(&'static str, &'static str),
+    #[error("Invalid unary operator values: only the type(s) {0} are allowed")]
+    InvalidOperatorUnary(&'static str),
     #[error("Expected an integer value in this context; {0} is not an integer")]
     ExpectedInteger(f64),
     #[error("Field {0} does not exist on struct {1}")]
@@ -417,6 +419,25 @@ impl CortexInterpreter {
 
                 Ok(the_type)
             },
+            Atom::UnaryOperation { op, exp } => {
+                let typ = self.determine_type(exp)?;
+                match op {
+                    UnaryOperator::Negate => {
+                        if typ == CortexType::number(false) {
+                            Ok(CortexType::number(false))
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperatorUnary("number")))
+                        }
+                    },
+                    UnaryOperator::Invert => {
+                        if typ == CortexType::boolean(false) {
+                            Ok(CortexType::boolean(false))
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperatorUnary("bool")))
+                        }
+                    },
+                }
+            },
         }
     }
     fn determine_type_tail(&self, atom: CortexType, tail: &ExpressionTail) -> Result<CortexType, CortexError> {
@@ -680,6 +701,25 @@ impl CortexInterpreter {
                     }
                 } else {
                     Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), self.determine_type(&first.condition)?.codegen(0))))
+                }
+            },
+            Atom::UnaryOperation { op, exp } => {
+                let val = self.evaluate_expression(exp)?;
+                match op {
+                    UnaryOperator::Negate => {
+                        if let CortexValue::Number(n) = val {
+                            Ok(CortexValue::Number(-n))
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperatorUnary("number")))
+                        }
+                    },
+                    UnaryOperator::Invert => {
+                        if let CortexValue::Boolean(b) = val {
+                            Ok(CortexValue::Boolean(!b))
+                        } else {
+                            Err(Box::new(InterpreterError::InvalidOperatorUnary("bool")))
+                        }
+                    },
                 }
             },
         }

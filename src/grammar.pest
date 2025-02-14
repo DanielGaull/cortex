@@ -23,7 +23,7 @@ identExpr = { pathIdent ~ ("." ~ ident)* }
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
-atom = { number | boolean | null | void | string | call | structConstruction | if | pathIdent | "(" ~ expr ~ ")" }
+atom = { number | boolean | null | void | string | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberAccessTail | "" }
 
 primary = { atom ~ exprTail }
@@ -44,6 +44,11 @@ if = { "if" ~ expr ~ "{" ~ body ~ "}" ~ elifs ~ else? }
 elifs = { elif* }
 elif = { "elif" ~ expr ~ "{" ~ body ~ "}" }
 else = { "else" ~ "{" ~ body ~ "}" }
+
+negate = { "-" }
+invert = { "!" }
+unOp = _{ negate | invert }
+unOpAtom = { unOp ~ expr }
 
 // Literals/Primitives
 number = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ ~ ("." ~ (ASCII_DIGIT)+)? }
