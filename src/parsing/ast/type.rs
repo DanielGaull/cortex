@@ -76,6 +76,10 @@ impl CortexType {
         } else {
             if self.name == other.name {
                 Some(Self::new(self.name, self.nullable || other.nullable))
+            } else if self == CortexType::null() {
+                Some(Self::new(other.name, true))
+            } else if other == CortexType::null() {
+                Some(Self::new(self.name, true))
             } else {
                 None
             }

@@ -415,6 +415,8 @@ impl CortexInterpreter {
                     } else {
                         return Err(Box::new(InterpreterError::IfArmsDoNotMatch(the_type_str, typ_str)));
                     }
+                } else if the_type != CortexType::void(false) {
+                    return Err(Box::new(InterpreterError::IfRequiresElseBlock));
                 }
 
                 Ok(the_type)
@@ -635,6 +637,7 @@ impl CortexInterpreter {
         }
     }
     fn evaluate_atom(&mut self, atom: &Atom) -> Result<CortexValue, CortexError> {
+        let _atom_type = self.determine_type_atom(atom)?;
         match atom {
             Atom::Boolean(v) => Ok(CortexValue::Boolean(*v)),
             Atom::Number(v) => Ok(CortexValue::Number(*v)),

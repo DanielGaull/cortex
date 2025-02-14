@@ -37,6 +37,8 @@ fn test_errors() -> Result<(), Box<dyn Error>> {
     assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.m = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
     assert_err("let notNullable: number = null;", InterpreterError::MismatchedType(String::from("number"), String::from("null?")), &mut interpreter)?;
+    assert_err("if true { 5 } else { \"hi\" };", InterpreterError::IfArmsDoNotMatch(String::from("number"), String::from("string")), &mut interpreter)?;
+    assert_err("if true { 5 } elif true { 1 };", InterpreterError::IfRequiresElseBlock, &mut interpreter)?;
     Ok(())
 }
 
@@ -48,7 +50,7 @@ fn assert_err<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interp
         assert_eq!(flavor, error);
         Ok(())
     } else {
-        panic!("Statement did not result in an error");
+        panic!("Statement did not result in an error: {}", statement);
     }
 }
 
