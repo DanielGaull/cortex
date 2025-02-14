@@ -20,7 +20,7 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
     run_test("false", "bool", &interpreter)?;
     run_test("void", "void", &interpreter)?;
     run_test("(((void)))", "void", &interpreter)?;
-    run_test("null", "any?", &interpreter)?;
+    run_test("null", "null?", &interpreter)?;
     Ok(())
 }
 
@@ -37,5 +37,11 @@ fn run_var_type_tests() -> Result<(), Box<dyn Error>> {
     run_test("simple::myBoolean", "bool", &interpreter)?;
     run_test("simple::nullableBoolean", "bool?", &interpreter)?;
 
+    Ok(())
+}
+
+#[test]
+fn subtype_tests() -> Result<(), Box<dyn Error>> {
+    assert!(CortexType::null().is_subtype_of(&CortexType::number(true)));
     Ok(())
 }

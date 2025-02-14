@@ -36,6 +36,7 @@ fn test_errors() -> Result<(), Box<dyn Error>> {
     assert_err("myTime.z;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.m = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
+    assert_err("let notNullable: number = null;", InterpreterError::MismatchedType(String::from("number"), String::from("null?")), &mut interpreter)?;
     Ok(())
 }
 

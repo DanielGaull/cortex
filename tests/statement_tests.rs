@@ -88,5 +88,10 @@ fn statement_tests() -> Result<(), Box<dyn Error>> {
     run_statement("while myNum < 10 { myNum += 1; }", &mut interpreter)?;
     assert_expression("myNum", "10", &mut interpreter)?;
 
+    run_statement("let myNullableNum: number? = 5;", &mut interpreter)?;
+    assert_expression("myNullableNum", "5", &mut interpreter)?;
+    run_statement("myNullableNum = null;", &mut interpreter)?;
+    assert_expression("myNullableNum", "null", &mut interpreter)?;
+
     Ok(())
 }

@@ -368,7 +368,7 @@ impl CortexInterpreter {
             Atom::Number(_) => Ok(CortexType::number(false)),
             Atom::Boolean(_) => Ok(CortexType::boolean(false)),
             Atom::Void => Ok(CortexType::void(false)),
-            Atom::Null => Ok(CortexType::any(true)),
+            Atom::Null => Ok(CortexType::null()),
             Atom::String(_) => Ok(CortexType::string(false)),
             Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
             Atom::Call(path_ident, _) => {

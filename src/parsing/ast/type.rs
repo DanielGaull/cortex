@@ -86,7 +86,7 @@ impl CortexType {
         if other.is_any {
             return true;
         }
-        if self.nullable && other == &CortexType::null() {
+        if other.nullable && self == &CortexType::null() {
             return true;
         }
         if &self.name == &other.name {
