@@ -90,6 +90,19 @@ impl Function {
             body: body,
         }
     }
+
+    pub fn name(&self) -> &OptionalIdentifier {
+        &self.name
+    }
+    pub fn return_type(&self) -> &CortexType {
+        &self.return_type
+    }
+    pub fn num_params(&self) -> usize {
+        self.params.len()
+    }
+    pub fn get_param(&self, index: usize) -> Option<&Parameter> {
+        self.params.get(index)
+    }
 }
 
 #[derive(Clone)]

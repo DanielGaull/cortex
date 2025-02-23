@@ -21,6 +21,13 @@ impl SimpleCodeGen for CortexType {
 }
 
 impl CortexType {
+    pub fn name(&self) -> &PathIdent {
+        &self.name
+    }
+    pub fn nullable(&self) -> bool {
+        self.nullable
+    }
+
     pub fn new(name: PathIdent, nullable: bool) -> Self {
         CortexType {
             name: name,

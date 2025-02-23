@@ -200,6 +200,13 @@ impl Parameter {
             typ: typ,
         }
     }
+
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+    pub fn param_type(&self) -> &CortexType {
+        &self.typ
+    }
 }
 
 #[derive(Clone)]
