@@ -776,7 +776,16 @@ impl CortexInterpreter {
         }
     }
 
-    pub fn run_function(&mut self, func: &Rc<Function>, args: &Vec<Expression>) -> Result<CortexValue, CortexError> {
+    fn run_function(&mut self, func: &Rc<Function>, args: &Vec<Expression>) -> Result<CortexValue, CortexError> {
+        let mut arg_values = Vec::<CortexValue>::new();
+        for arg in args {
+            arg_values.push(self.evaluate_expression(arg)?);
+        }
+
+        self.call_function(func, arg_values)
+    }
+
+    pub fn call_function(&mut self, func: &Rc<Function>, mut args: Vec<CortexValue>) -> Result<CortexValue, CortexError> {
         let body = &func.body;
         let mut param_names = Vec::<String>::with_capacity(func.params.len());
         let mut param_types = Vec::<CortexType>::with_capacity(func.params.len());
@@ -791,10 +800,8 @@ impl CortexInterpreter {
             ));
         }
 
-        let mut arg_values = Vec::<CortexValue>::new();
         for (i, arg) in args.iter().enumerate() {
-            arg_values.push(self.evaluate_expression(arg)?);
-            let arg_type = self.determine_type(arg)?;
+            let arg_type = arg.get_type();
             let param_type = param_types.get(i).unwrap();
             if !arg_type.is_subtype_of(param_type) {
                 return Err(Box::new(InterpreterError::MismatchedType(param_type.codegen(0), arg_type.codegen(0))));
@@ -812,7 +819,7 @@ impl CortexInterpreter {
         let parent_env = self.current_env.take().ok_or(InterpreterError::NoParentEnv)?;
         let mut new_env = Environment::new(*parent_env);
         for i in 0..args.len() {
-            let value = arg_values.remove(0);
+            let value = args.remove(0);
             let param_name = param_names.get(i).unwrap();
             let param_type = param_types.remove(0);
             new_env
