@@ -23,7 +23,7 @@ fn test_variable_errors() -> Result<(), Box<dyn Error>> {
     interpreter.run_statement(&CortexParser::parse_statement("const x = 5;")?)?;
     assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
     assert_err("x = 7;", EnvError::ModifyConstant(String::from("x")), &mut interpreter)?;
-    
+
     assert_err("let y: string = 5;", InterpreterError::MismatchedType(String::from("string"), String::from("number")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("let myNum = 7;")?)?;
     assert_err("myNum = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
@@ -45,6 +45,7 @@ fn test_function_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_err("simple::hi();", ModuleError::FunctionDoesNotExist(String::from("hi")), &mut interpreter)?;
     assert_err("simple::add(1);", InterpreterError::MismatchedArgumentCount(String::from("add"), 2, 1), &mut interpreter)?;
+
     assert_err("simple::add(1, 2, 3);", InterpreterError::MismatchedArgumentCount(String::from("add"), 2, 3), &mut interpreter)?;
     assert_err("simple::add(1, true);", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
     Ok(())

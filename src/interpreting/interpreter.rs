@@ -668,14 +668,10 @@ impl CortexInterpreter {
             Atom::PathIdent(path) => Ok(self.lookup_value(path)?),
             Atom::Call(path_ident, expressions) => {
                 let func = self.lookup_function(path_ident)?;
-                println!("\n\nMy starting context: '{}' Expressions: {:?}", self.current_context.codegen(0), 
-                    expressions.iter().map(|e| e.codegen(0)).collect::<Vec<String>>().join(","));
                 let context_to_return_to = std::mem::replace(&mut self.current_context, path_ident.without_last());
-                println!("My Context: '{}'; To Return to: '{}'", self.current_context.codegen(0), context_to_return_to.codegen(0));
-                let func_result = self.run_function(&func, expressions)?;
+                let func_result = self.run_function(&func, expressions);
                 self.current_context = context_to_return_to;
-                println!("My final context: '{}'\n\n", self.current_context.codegen(0));
-                Ok(func_result)
+                Ok(func_result?)
             },
             Atom::StructConstruction { name, assignments } => {
                 let struc = self.lookup_struct(name)?;
