@@ -76,7 +76,7 @@ impl Environment {
 
     pub fn add_var(&mut self, name: String, typ: CortexType, value: CortexValue) -> Result<(), EnvError> {
         // Check that value doesn't exist yet
-        if let Some(_) = self.get_variable(&name) {
+        if let Some(_) = self.variables.get(&name) {
             Err(EnvError::VariableAlreadyExists(name.clone()))
         } else {
             let var = Variable::var(name.clone(), typ, value);

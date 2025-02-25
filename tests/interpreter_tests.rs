@@ -122,6 +122,9 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
     run_test("simple::add(5.5,2.2)", "7.7", &mut interpreter)?;
     run_test("simple::add(-5,2)", "-3", &mut interpreter)?;
 
+    interpreter.run_statement(&CortexParser::parse_statement("let a = 2;")?)?;
+    run_test("simple::add(a, 3)", "5", &mut interpreter)?;
+
     Ok(())
 }
 
