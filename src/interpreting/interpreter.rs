@@ -79,7 +79,7 @@ pub enum InterpreterError {
 pub struct CortexInterpreter {
     base_module: Module,
     current_env: Option<Box<Environment>>,
-    // current_context: PathIdent,
+    current_context: PathIdent,
 }
 
 impl CortexInterpreter {
@@ -89,7 +89,7 @@ impl CortexInterpreter {
             // since module Environments are immutable
             base_module: Module::new(),
             current_env: Some(Box::new(Environment::base())),
-            // current_context: PathIdent::empty(),
+            current_context: PathIdent::empty(),
         }
     }
 
@@ -668,7 +668,14 @@ impl CortexInterpreter {
             Atom::PathIdent(path) => Ok(self.lookup_value(path)?),
             Atom::Call(path_ident, expressions) => {
                 let func = self.lookup_function(path_ident)?;
-                Ok(self.run_function(&func, expressions)?)
+                println!("\n\nMy starting context: '{}' Expressions: {:?}", self.current_context.codegen(0), 
+                    expressions.iter().map(|e| e.codegen(0)).collect::<Vec<String>>().join(","));
+                let context_to_return_to = std::mem::replace(&mut self.current_context, path_ident.without_last());
+                println!("My Context: '{}'; To Return to: '{}'", self.current_context.codegen(0), context_to_return_to.codegen(0));
+                let func_result = self.run_function(&func, expressions)?;
+                self.current_context = context_to_return_to;
+                println!("My final context: '{}'\n\n", self.current_context.codegen(0));
+                Ok(func_result)
             },
             Atom::StructConstruction { name, assignments } => {
                 let struc = self.lookup_struct(name)?;
@@ -884,12 +891,13 @@ impl CortexInterpreter {
             Err(Box::new(InterpreterError::ValueNotFound(path.codegen(0))))
         }
     }
+
     fn lookup_function(&self, path: &PathIdent) -> Result<Rc<Function>, CortexError> {
         let last = path.get_back()?;
-        Ok(self.base_module.get_module(path)?.get_function(last)?)
+        Ok(self.base_module.get_module(&PathIdent::concat(&self.current_context, path))?.get_function(last)?)
     }
     fn lookup_struct(&self, path: &PathIdent) -> Result<Rc<Struct>, CortexError> {
         let last = path.get_back()?;
-        Ok(self.base_module.get_module(path)?.get_struct(last)?)
+        Ok(self.base_module.get_module(&PathIdent::concat(&self.current_context, path))?.get_struct(last)?)
     }
 }

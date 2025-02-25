@@ -10,37 +10,74 @@ enum TestError {
 }
 
 #[test]
-fn test_errors() -> Result<(), Box<dyn Error>> {
+fn test_misc_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("throw 5;", InterpreterError::ProgramThrow(CortexValue::Number(5f64)), &mut interpreter)?;
-    assert_err("simple::hi();", ModuleError::FunctionDoesNotExist(String::from("hi")), &mut interpreter)?;
+    assert_err("throw 5;", InterpreterError::ProgramThrow(CortexValue::Number(5f64)), &mut interpreter)?;    
+    Ok(())
+}
+
+#[test]
+fn test_variable_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+    assert_err("dneVar = 7;", EnvError::VariableDoesNotExist(String::from("dneVar")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("const x = 5;")?)?;
+    assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
     assert_err("x = 7;", EnvError::ModifyConstant(String::from("x")), &mut interpreter)?;
+    
     assert_err("let y: string = 5;", InterpreterError::MismatchedType(String::from("string"), String::from("number")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("let myNum = 7;")?)?;
     assert_err("myNum = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
+    // assert_err("dne::value;", ModuleError::ModuleDoesNotExist(String::from("dne")), &mut interpreter)?;
+    // assert_err("dne::constantValue = 5;", InterpreterError::CannotModifyModuleEnvironment(String::from("dne::constantValue")), &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn test_operator_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+    assert_err("5 - \"foo\";", InterpreterError::InvalidOperator("number", "number"), &mut interpreter)?;
+    assert_err("5.2 * \"foo\";", InterpreterError::ExpectedInteger(5.2f64), &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn test_function_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+    assert_err("simple::hi();", ModuleError::FunctionDoesNotExist(String::from("hi")), &mut interpreter)?;
     assert_err("simple::add(1);", InterpreterError::MismatchedArgumentCount(String::from("add"), 2, 1), &mut interpreter)?;
     assert_err("simple::add(1, 2, 3);", InterpreterError::MismatchedArgumentCount(String::from("add"), 2, 3), &mut interpreter)?;
     assert_err("simple::add(1, true);", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
-    // assert_err("dne::value;", ModuleError::ModuleDoesNotExist(String::from("dne")), &mut interpreter)?;
-    // assert_err("dne::constantValue = 5;", InterpreterError::CannotModifyModuleEnvironment(String::from("dne::constantValue")), &mut interpreter)?;
-    assert_err("dneVar = 7;", EnvError::VariableDoesNotExist(String::from("dneVar")), &mut interpreter)?;
-    assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
-    assert_err("null!;", InterpreterError::BangCalledOnNullValue, &mut interpreter)?;
-    assert_err("5.foo;", ValueError::CannotAccessMemberOfNonComposite, &mut interpreter)?;
-    assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
-    assert_err("5 - \"foo\";", InterpreterError::InvalidOperator("number", "number"), &mut interpreter)?;
-    assert_err("5.2 * \"foo\";", InterpreterError::ExpectedInteger(5.2f64), &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn test_struct_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
     assert_err("simple::Time { z: 5 };", InterpreterError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("let myTime = simple::Time { m: 5, s: 2 };")?)?;
     assert_err("myTime.z;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.m = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
-    assert_err("let notNullable: number = null;", InterpreterError::MismatchedType(String::from("number"), String::from("null?")), &mut interpreter)?;
-    assert_err("if true { 5 } else { \"hi\" };", InterpreterError::IfArmsDoNotMatch(String::from("number"), String::from("string")), &mut interpreter)?;
-    assert_err("if true { 5 } elif true { 1 };", InterpreterError::IfRequiresElseBlock, &mut interpreter)?;
+    assert_err("5.foo;", ValueError::CannotAccessMemberOfNonComposite, &mut interpreter)?;
+    assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", InterpreterError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
     assert_err("simple::Time { m: 2, m: 3 };", InterpreterError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn test_null_related_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+    assert_err("let notNullable: number = null;", InterpreterError::MismatchedType(String::from("number"), String::from("null?")), &mut interpreter)?;
+    assert_err("null!;", InterpreterError::BangCalledOnNullValue, &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn test_conditional_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+    assert_err("if true { 5 } else { \"hi\" };", InterpreterError::IfArmsDoNotMatch(String::from("number"), String::from("string")), &mut interpreter)?;
+    assert_err("if true { 5 } elif true { 1 };", InterpreterError::IfRequiresElseBlock, &mut interpreter)?;
     assert_err("while true { 5 }", InterpreterError::LoopCannotHaveReturnValue, &mut interpreter)?;
     Ok(())
 }
