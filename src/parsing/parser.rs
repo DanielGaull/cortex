@@ -62,6 +62,30 @@ pub enum ParseError {
     OperatorDoesNotExist(String),
     #[error("Failed to parse program")]
     FailProgram,
+    #[error("Failed to parse {0}: {1}")]
+    ParseFailure(String, String),
+}
+
+fn from_segment(input: &str, pos1: (usize, usize), pos2: (usize, usize)) -> String {
+    // line, column
+    let lines: Vec<_> = input.split("\n").collect();
+    if pos1.0 != pos2.0 {
+        let mut result = String::new();
+        for line_idx in pos1.0..pos2.0 {
+            result.push_str(lines.get(line_idx).unwrap());
+            result.push_str("\n");
+        }
+        result
+    } else {
+        let line = *lines.get(pos1.0).unwrap();
+        String::from(&line[pos1.1..pos2.1])
+    }
+}
+fn from_pos(input: &str, pos: (usize, usize)) -> String {
+    // line, column
+    let lines: Vec<_> = input.split("\n").collect();
+    let line = *lines.get(pos.0).unwrap();
+    String::from(line)
 }
 
 impl CortexParser {
@@ -69,56 +93,104 @@ impl CortexParser {
         let pair = PestCortexParser::parse(Rule::statement, input);
         match pair {
             Ok(mut v) => Self::parse_stmt_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailStatement(String::from(input))),
+            Err(e) => {
+                let msg = match e.line_col {
+                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
+                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
+                };
+                Err(ParseError::ParseFailure(String::from("statement"), msg))
+            },
         }
     }
     pub fn parse_expression(input: &str) -> Result<Expression, ParseError> {
         let pair = PestCortexParser::parse(Rule::expr, input);
         match pair {
             Ok(mut v) => Self::parse_expr_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailExpression(String::from(input))),
+            Err(e) => {
+                let msg = match e.line_col {
+                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
+                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
+                };
+                Err(ParseError::ParseFailure(String::from("expression"), msg))
+            },
         }
     }
     pub fn parse_type(input: &str) -> Result<CortexType, ParseError> {
         let pair = PestCortexParser::parse(Rule::typ, input);
         match pair {
             Ok(mut v) => Self::parse_type_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailType(String::from(input))),
+            Err(e) => {
+                let msg = match e.line_col {
+                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
+                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
+                };
+                Err(ParseError::ParseFailure(String::from("type"), msg))
+            },
         }
     }
     pub fn parse_function(input: &str) -> Result<Function, ParseError> {
         let pair = PestCortexParser::parse(Rule::function, input);
         match pair {
             Ok(mut v) => Self::parse_func_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailType(String::from(input))),
+            Err(e) => {
+                let msg = match e.line_col {
+                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
+                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
+                };
+                Err(ParseError::ParseFailure(String::from("function"), msg))
+            },
         }
     }
     pub fn parse_struct(input: &str) -> Result<Struct, ParseError> {
         let pair = PestCortexParser::parse(Rule::r#struct, input);
         match pair {
             Ok(mut v) => Self::parse_struct_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailType(String::from(input))),
+            Err(e) => {
+                let msg = match e.line_col {
+                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
+                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
+                };
+                Err(ParseError::ParseFailure(String::from("struct"), msg))
+            },
         }
     }
     pub fn parse_top_level(input: &str) -> Result<TopLevel, ParseError> {
         let pair = PestCortexParser::parse(Rule::topLevel, input);
         match pair {
             Ok(mut v) => Self::parse_toplevel_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailType(String::from(input))),
+            Err(e) => {
+                let msg = match e.line_col {
+                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
+                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
+                };
+                Err(ParseError::ParseFailure(String::from("top level"), msg))
+            },
         }
     }
     pub fn parse_path(input: &str) -> Result<PathIdent, ParseError> {
         let pair = PestCortexParser::parse(Rule::pathIdent, input);
         match pair {
             Ok(mut v) => Self::parse_path_ident(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailType(String::from(input))),
+            Err(e) => {
+                let msg = match e.line_col {
+                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
+                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
+                };
+                Err(ParseError::ParseFailure(String::from("path"), msg))
+            },
         }
     }
     pub fn parse_program(input: &str) -> Result<Program, ParseError> {
         let pair = PestCortexParser::parse(Rule::program, input);
         match pair {
             Ok(mut v) => Self::parse_program_pair(v.next().unwrap()),
-            Err(_) => Err(ParseError::FailProgram),
+            Err(e) => {
+                let msg = match e.line_col {
+                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
+                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
+                };
+                Err(ParseError::ParseFailure(String::from("program"), msg))
+            },
         }
     }
     
