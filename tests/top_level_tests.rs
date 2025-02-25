@@ -34,3 +34,21 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[ignore]
+#[test]
+fn test_module_pathing() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new();
+    let path = Path::new("./tests/res/module_pathing.txt");
+    let mut file = File::open(path).unwrap();
+    let mut content = String::new();
+    let _ = file.read_to_string(&mut content);
+    content = content.replace("\r\n", "\n");
+    let program = CortexParser::parse_program(&content)?;
+    for tl in program.into_iter() {
+        interpreter.run_top_level(tl)?;
+    }
+
+    assert_expression("testFn(0, 0, 10, 10)", "20", &mut interpreter)?;
+    Ok(())
+}

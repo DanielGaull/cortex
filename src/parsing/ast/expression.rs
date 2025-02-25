@@ -284,6 +284,26 @@ impl PathIdent {
             path: path,
         }
     }
+    pub fn empty() -> Self {
+        Self {
+            path: Vec::new(),
+        }
+    }
+    pub fn concat(first: &PathIdent, second: &PathIdent) -> Self {
+        let mut path = first.path.clone();
+        path.extend(second.path.clone());
+        Self {
+            path: path,
+        }
+    }
+
+    pub fn without_last(&self) -> Self {
+        let mut new_vec = self.path.clone();
+        new_vec.remove(new_vec.len() - 1);
+        Self {
+            path: new_vec,
+        }
+    }
 
     pub fn pop_front(&self) -> Result<PathIdent, PathError> {
         if self.path.len() <= 0 {

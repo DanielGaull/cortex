@@ -77,6 +77,7 @@ pub enum InterpreterError {
 pub struct CortexInterpreter {
     base_module: Module,
     current_env: Option<Box<Environment>>,
+    // current_context: PathIdent,
 }
 
 impl CortexInterpreter {
@@ -86,6 +87,7 @@ impl CortexInterpreter {
             // since module Environments are immutable
             base_module: Module::new(Environment::base()),
             current_env: Some(Box::new(Environment::base())),
+            // current_context: PathIdent::empty(),
         }
     }
 

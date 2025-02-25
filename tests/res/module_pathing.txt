@@ -1,0 +1,48 @@
+module Geometry {
+    struct Point {
+        x: number,
+        y: number,
+    }
+
+    fn getPoint(x: number, y: number): Point {
+        let result: Point = Point {
+            x: x,
+            y: y,
+        };
+        result
+    }
+
+    fn abs(n: number): number {
+        if n < 0 {
+            -n
+        } else {
+            n
+        }
+    }
+    fn taxiDist(p1: Point, p2: Point): number {
+        abs(p2.x - p1.x) + abs(p2.y - p1.y)
+    }
+
+    struct Rectangle {
+        c1: Point,
+        c2: Point,
+    }
+    fn rect(x1: number, y1: number, x2: number, y2: number): Rectangle {
+        Rectangle {
+            c1: Point {
+                x: x1,
+                y: y1,
+            },
+            c2: Point {
+                x: x2,
+                y: y2,
+            },
+        }
+    }
+}
+
+fn testFn(x1: number, y1: number, x2: number, y2: number): number {
+    let rect: Geometry::Rectangle = Geometry::rect(x1, y1, x2, y2);
+    let dist = Geometry::taxiDist(rect.c1, rect.c2);
+    dist
+}
