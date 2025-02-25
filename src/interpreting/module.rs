@@ -1,13 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use thiserror::Error;
 
-use crate::parsing::ast::expression::{PathError, PathIdent};
-
-use super::env::Environment;
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Function, Struct}};
 
 pub struct Module {
-    env: Environment,
+    functions: HashMap<String, Rc<Function>>,
+    types: HashMap<String, Rc<Struct>>,
     children: HashMap<String, Module>,
 }
 
@@ -19,27 +18,32 @@ pub enum ModuleError {
     ModuleDoesNotExist(String),
     #[error("Path error: \"{0}\"")]
     PathError(PathError),
+
+    #[error("Function \"{0}\" already exists")]
+    FunctionAlreadyExists(String),
+    #[error("Function \"{0}\" was not found")]
+    FunctionDoesNotExist(String),
+
+    #[error("Type \"{0}\" already exists")]
+    TypeAlreadyExists(String),
+    #[error("Type \"{0}\" was not found")]
+    TypeDoesNotExist(String),
 }
 
 impl Module {
-    pub fn new(env: Environment) -> Self {
+    pub fn new() -> Self {
         Module {
-            env: env,
+            functions: HashMap::new(),
+            types: HashMap::new(),
             children: HashMap::new(),
         }
     }
-    pub fn with_children(env: Environment, children: HashMap<String, Module>) -> Self {
+    pub fn with_children(children: HashMap<String, Module>) -> Self {
         Module {
-            env: env,
+            functions: HashMap::new(),
+            types: HashMap::new(),
             children: children,
         }
-    }
-
-    pub fn env(&self) -> &Environment {
-        &self.env
-    }
-    pub fn env_mut(&mut self) -> &mut Environment {
-        &mut self.env
     }
 
     pub fn add_child(&mut self, name: String, module: Module) -> Result<(), ModuleError> {
@@ -90,6 +94,64 @@ impl Module {
             child.add_module(&next_path, module)
         } else {
             Err(ModuleError::ModuleDoesNotExist(front.clone()))
+        }
+    }
+
+    fn get_function_internal(&self, name: &String) -> Option<Rc<Function>> {
+        if self.functions.contains_key(name) {
+            Some(self.functions.get(name).unwrap().clone())
+        } else {
+            None
+        }
+    }
+    pub fn get_function(&self, name: &String) -> Result<Rc<Function>, ModuleError> {
+        let search_result = self.get_function_internal(name);
+        if let Some(func) = search_result {
+            Ok(func)
+        } else {
+            Err(ModuleError::FunctionDoesNotExist(name.clone()))
+        }
+    }
+    pub fn add_function(&mut self, func: Function) -> Result<(), ModuleError> {
+        match &func.name {
+            OptionalIdentifier::Ident(name) => {
+                if let Some(_) = self.get_function_internal(&name) {
+                    Err(ModuleError::FunctionAlreadyExists(name.clone()))
+                } else {
+                    self.functions.insert(name.clone(), Rc::from(func));
+                    Ok(())
+                }
+            },
+            OptionalIdentifier::Ignore => Ok(()),
+        }
+    }
+
+    fn get_struct_internal(&self, name: &String) -> Option<Rc<Struct>> {
+        if self.types.contains_key(name) {
+            Some(self.types.get(name).unwrap().clone())
+        } else {
+            None
+        }
+    }
+    pub fn get_struct(&self, name: &String) -> Result<Rc<Struct>, ModuleError> {
+        let search_result = self.get_struct_internal(name);
+        if let Some(func) = search_result {
+            Ok(func)
+        } else {
+            Err(ModuleError::TypeDoesNotExist(name.clone()))
+        }
+    }
+    pub fn add_struct(&mut self, item: Struct) -> Result<(), ModuleError> {
+        match &item.name {
+            OptionalIdentifier::Ident(name) => {
+                if let Some(_) = self.get_struct_internal(&name) {
+                    Err(ModuleError::TypeAlreadyExists(name.clone()))
+                } else {
+                    self.types.insert(name.clone(), Rc::from(item));
+                    Ok(())
+                }
+            },
+            OptionalIdentifier::Ignore => Ok(()),
         }
     }
 }

@@ -46,10 +46,9 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         add_body
     );
     let mut interpreter = CortexInterpreter::new();
-    let mut mod_env = Environment::base();
-    mod_env.add_function(add_func)?;
+    let mut module = Module::new();
+    module.add_function(add_func)?;
     let path = CortexParser::parse_path("simple")?;
-    let module = Module::new(mod_env);
     interpreter.register_module(&path, module)?;
     Ok(interpreter)
 }

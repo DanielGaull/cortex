@@ -1,8 +1,8 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::OptionalIdentifier, top_level::{Function, Struct}, r#type::CortexType};
+use crate::parsing::ast::r#type::CortexType;
 
 use super::value::CortexValue;
 
@@ -15,16 +15,6 @@ pub enum EnvError {
     #[error("Variable \"{0}\" was not found")]
     VariableDoesNotExist(String),
 
-    #[error("Function \"{0}\" already exists")]
-    FunctionAlreadyExists(String),
-    #[error("Function \"{0}\" was not found")]
-    FunctionDoesNotExist(String),
-
-    #[error("Type \"{0}\" already exists")]
-    TypeAlreadyExists(String),
-    #[error("Type \"{0}\" was not found")]
-    TypeDoesNotExist(String),
-
     #[error("Cannot return from a base environment")]
     AlreadyBase,
 }
@@ -32,16 +22,12 @@ pub enum EnvError {
 pub struct Environment {
     parent: Option<Box<Environment>>,
     variables: HashMap<String, Variable>,
-    functions: HashMap<String, Rc<Function>>,
-    types: HashMap<String, Rc<Struct>>,
 }
 impl Environment {
     fn full_new(parent: Option<Box<Environment>>) -> Self {
         Environment {
             parent: parent,
             variables: HashMap::new(),
-            functions: HashMap::new(),
-            types: HashMap::new(),
         }
     }
     pub fn new(parent: Environment) -> Self {
@@ -126,64 +112,6 @@ impl Environment {
             var.set(value)
         } else {
             Err(EnvError::VariableDoesNotExist(String::from(name)))
-        }
-    }
-
-    fn get_function_internal(&self, name: &String) -> Option<Rc<Function>> {
-        if self.functions.contains_key(name) {
-            Some(self.functions.get(name).unwrap().clone())
-        } else {
-            self.parent.as_ref().and_then(|env| env.get_function_internal(name))
-        }
-    }
-    pub fn get_function(&self, name: &String) -> Result<Rc<Function>, EnvError> {
-        let search_result = self.get_function_internal(name);
-        if let Some(func) = search_result {
-            Ok(func)
-        } else {
-            Err(EnvError::FunctionDoesNotExist(name.clone()))
-        }
-    }
-    pub fn add_function(&mut self, func: Function) -> Result<(), EnvError> {
-        match &func.name {
-            OptionalIdentifier::Ident(name) => {
-                if let Some(_) = self.get_function_internal(&name) {
-                    Err(EnvError::FunctionAlreadyExists(name.clone()))
-                } else {
-                    self.functions.insert(name.clone(), Rc::from(func));
-                    Ok(())
-                }
-            },
-            OptionalIdentifier::Ignore => Ok(()),
-        }
-    }
-
-    fn get_struct_internal(&self, name: &String) -> Option<Rc<Struct>> {
-        if self.types.contains_key(name) {
-            Some(self.types.get(name).unwrap().clone())
-        } else {
-            self.parent.as_ref().and_then(|env| env.get_struct_internal(name))
-        }
-    }
-    pub fn get_struct(&self, name: &String) -> Result<Rc<Struct>, EnvError> {
-        let search_result = self.get_struct_internal(name);
-        if let Some(func) = search_result {
-            Ok(func)
-        } else {
-            Err(EnvError::TypeDoesNotExist(name.clone()))
-        }
-    }
-    pub fn add_struct(&mut self, item: Struct) -> Result<(), EnvError> {
-        match &item.name {
-            OptionalIdentifier::Ident(name) => {
-                if let Some(_) = self.get_struct_internal(&name) {
-                    Err(EnvError::TypeAlreadyExists(name.clone()))
-                } else {
-                    self.types.insert(name.clone(), Rc::from(item));
-                    Ok(())
-                }
-            },
-            OptionalIdentifier::Ignore => Ok(()),
         }
     }
 }

@@ -72,6 +72,8 @@ pub enum InterpreterError {
     IfRequiresElseBlock,
     #[error("Loop body cannot have a return value")]
     LoopCannotHaveReturnValue,
+    #[error("Value not found: {0} (module constants are currently not supported)")]
+    ValueNotFound(String),
 }
 
 pub struct CortexInterpreter {
@@ -85,7 +87,7 @@ impl CortexInterpreter {
         CortexInterpreter {
             // NOTE: We will never use the base module's environment
             // since module Environments are immutable
-            base_module: Module::new(Environment::base()),
+            base_module: Module::new(),
             current_env: Some(Box::new(Environment::base())),
             // current_context: PathIdent::empty(),
         }
@@ -107,30 +109,29 @@ impl CortexInterpreter {
                 Ok(())
             },
             TopLevel::Function(function) => {
-                self.current_env.as_mut().unwrap().add_function(function)?;
+                self.base_module.add_function(function)?;
                 Ok(())
             },
             TopLevel::Struct(struc) => {
-                self.current_env.as_mut().unwrap().add_struct(struc)?;
+                self.base_module.add_struct(struc)?;
                 Ok(())
             },
         }
     }
 
     fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
-        let mut env = Environment::base();
-        let mut children = HashMap::<String, Module>::new();
+        let mut module = Module::new();
         for item in contents.into_iter() {
             match item {
                 TopLevel::Import { name: _, is_string_import: _ } => todo!(),
                 TopLevel::Module { name: submod_name, contents } => {
                     let new_module = Self::construct_module(contents)?;
-                    children.insert(submod_name, new_module);
+                    module.add_child(submod_name, new_module)?;
                 },
                 TopLevel::Function(function) => {
                     match &function.name {
                         OptionalIdentifier::Ident(_) => {
-                            env.add_function(function)?;
+                            module.add_function(function)?;
                         },
                         OptionalIdentifier::Ignore => (),
                     }
@@ -138,15 +139,14 @@ impl CortexInterpreter {
                 TopLevel::Struct(item) => {
                     match &item.name {
                         OptionalIdentifier::Ident(_) => {
-                            env.add_struct(item)?;
+                            module.add_struct(item)?;
                         },
                         OptionalIdentifier::Ignore => (),
                     }
                 },
             }
         }
-
-        Ok(Module::with_children(env, children))
+        Ok(module)
     }
 
     pub fn run_statement(&mut self, statement: &Statement) -> Result<(), CortexError> {
@@ -873,8 +873,7 @@ impl CortexInterpreter {
             // Search in our environment for it
             Ok(self.current_env.as_ref().unwrap().get_type_of(path.get_front()?)?.clone())
         } else {
-            let last = path.get_back()?;
-            Ok(self.base_module.get_module(path)?.env().get_type_of(last)?.clone())
+            Err(Box::new(InterpreterError::ValueNotFound(path.codegen(0))))
         }
     }
     fn lookup_value(&self, path: &PathIdent) -> Result<CortexValue, CortexError> {
@@ -882,25 +881,15 @@ impl CortexInterpreter {
             // Search in our environment for it
             Ok(self.current_env.as_ref().unwrap().get_value(path.get_front()?)?.clone())
         } else {
-            let last = path.get_back()?;
-            Ok(self.base_module.get_module(path)?.env().get_value(last)?.clone())
+            Err(Box::new(InterpreterError::ValueNotFound(path.codegen(0))))
         }
     }
     fn lookup_function(&self, path: &PathIdent) -> Result<Rc<Function>, CortexError> {
-        if path.is_final()? {
-            // Search in our environment for it
-            Ok(self.current_env.as_ref().unwrap().get_function(path.get_front()?)?)
-        } else {
-            let last = path.get_back()?;
-            Ok(self.base_module.get_module(path)?.env().get_function(last)?)
-        }
+        let last = path.get_back()?;
+        Ok(self.base_module.get_module(path)?.get_function(last)?)
     }
     fn lookup_struct(&self, path: &PathIdent) -> Result<Rc<Struct>, CortexError> {
-        if path.is_final()? {
-            Ok(self.current_env.as_ref().unwrap().get_struct(path.get_front()?)?)
-        } else {
-            let last = path.get_back()?;
-            Ok(self.base_module.get_module(path)?.env().get_struct(last)?)
-        }
+        let last = path.get_back()?;
+        Ok(self.base_module.get_module(path)?.get_struct(last)?)
     }
 }
