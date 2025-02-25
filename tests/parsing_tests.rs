@@ -99,6 +99,8 @@ fn test_functions() -> Result<(), Box<dyn Error>> {
     run_function_test("fn test(x: number): void {\n    const x: number = 5;\n    x;\n}")?;
     run_function_test("fn test(x: number): number {\n    const x: number = 5;\n    x\n}")?;
     run_function_test("fn ~(x: number): void {\n    stop;\n}")?;
+    run_function_test("fn test(): void {\n    stop;\n}")?;
+    run_function_test("fn ~(): void {\n    stop;\n}")?;
     Ok(())
 }
 
