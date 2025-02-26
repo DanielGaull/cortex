@@ -159,7 +159,7 @@ fn struct_tests() -> Result<(), Box<dyn Error>> {
         ("s", CortexType::number(false)),
     ]);
     let date_struct = Struct::new("Date", vec![
-        ("t", CortexType::new(PathIdent::new(vec!["simple", "Time"]), false)),
+        ("t", CortexType::new(PathIdent::new(vec!["Time"]), false)),
     ]);
     let mut interpreter = CortexInterpreter::new();
     let mut module = Module::new();

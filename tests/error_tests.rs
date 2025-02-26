@@ -60,7 +60,7 @@ fn test_struct_errors() -> Result<(), Box<dyn Error>> {
     assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.m = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool"), String::from("m")), &mut interpreter)?;
     assert_err("5.foo;", ValueError::CannotAccessMemberOfNonComposite, &mut interpreter)?;
-    assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
+    assert_err("dneStruct { foo: 5 };", ModuleError::StructDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", InterpreterError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
     assert_err("simple::Time { m: 2, m: 3 };", InterpreterError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
     Ok(())
@@ -101,7 +101,7 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     interpreter.run_top_level(CortexParser::parse_top_level("fn f(): void {}")?)?;
     assert_err_toplevel("fn f(): void {}", ModuleError::FunctionAlreadyExists(String::from("f")), &mut interpreter)?;
     interpreter.run_top_level(CortexParser::parse_top_level("struct s{}")?)?;
-    assert_err_toplevel("struct s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
+    assert_err_toplevel("struct s{}", ModuleError::StructAlreadyExists(String::from("s")), &mut interpreter)?;
     interpreter.run_top_level(CortexParser::parse_top_level("module m{}")?)?;
     assert_err_toplevel("module m{}", ModuleError::ModuleAlreadyExists(String::from("m")), &mut interpreter)?;
     Ok(())

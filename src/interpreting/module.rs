@@ -24,10 +24,10 @@ pub enum ModuleError {
     #[error("Function \"{0}\" was not found")]
     FunctionDoesNotExist(String),
 
-    #[error("Type \"{0}\" already exists")]
-    TypeAlreadyExists(String),
-    #[error("Type \"{0}\" was not found")]
-    TypeDoesNotExist(String),
+    #[error("Struct \"{0}\" already exists")]
+    StructAlreadyExists(String),
+    #[error("Struct \"{0}\" was not found")]
+    StructDoesNotExist(String),
 }
 
 impl Module {
@@ -138,14 +138,14 @@ impl Module {
         if let Some(func) = search_result {
             Ok(func)
         } else {
-            Err(ModuleError::TypeDoesNotExist(name.clone()))
+            Err(ModuleError::StructDoesNotExist(name.clone()))
         }
     }
     pub fn add_struct(&mut self, item: Struct) -> Result<(), ModuleError> {
         match &item.name {
             OptionalIdentifier::Ident(name) => {
                 if let Some(_) = self.get_struct_internal(&name) {
-                    Err(ModuleError::TypeAlreadyExists(name.clone()))
+                    Err(ModuleError::StructAlreadyExists(name.clone()))
                 } else {
                     self.types.insert(name.clone(), Rc::from(item));
                     Ok(())
