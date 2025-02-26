@@ -75,6 +75,10 @@ impl CortexType {
         }
     }
 
+    pub fn prefix(&self) -> PathIdent {
+        self.name.without_last()
+    }
+
     pub fn is_core(&self) -> bool {
         self.name.is_final().unwrap() && 
             matches!(self.name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "null" | "any")

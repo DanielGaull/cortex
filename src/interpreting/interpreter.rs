@@ -433,7 +433,11 @@ impl CortexInterpreter {
             Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
             Atom::Call(path_ident, _) => {
                 let func = self.lookup_function(path_ident)?;
-                let return_type = func.return_type.clone().with_prefix_if_not_core(&self.current_context);
+                let return_type = func
+                    .return_type
+                    .clone()
+                    .with_prefix_if_not_core(&self.current_context)
+                    .with_prefix_if_not_core(&path_ident.without_last());
                 Ok(return_type)
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
@@ -550,7 +554,9 @@ impl CortexInterpreter {
                     Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), atom.name.codegen(0))))
                 } else {
                     let member_type = struc.fields.get(member).unwrap().clone();
-                    Ok(self.determine_type_tail(member_type, next)?)
+                    let member_type = self.determine_type_tail(member_type, next)?;
+                    let member_type = member_type.with_prefix_if_not_core(&atom.prefix());
+                    Ok(member_type)
                 }
             },
         }
@@ -756,10 +762,12 @@ impl CortexInterpreter {
                 }
                 let mut values = HashMap::<String, CortexValue>::new();
                 for (fname, value) in assignments {
-                    let opt_typ = struc.fields.get(fname);
+                    let opt_typ = struc.fields
+                        .get(fname)
+                        .map(|t| t.clone().with_prefix_if_not_core(&self.current_context));
                     if let Some(typ) = opt_typ {
                         let assigned_type = self.determine_type(value)?;
-                        if !assigned_type.is_subtype_of(typ) {
+                        if !assigned_type.is_subtype_of(&typ) {
                             return Err(
                                 Box::new(
                                     InterpreterError::MismatchedType(
@@ -783,7 +791,7 @@ impl CortexInterpreter {
                     }
                 }
                 if fields_to_assign.is_empty() {
-                    Ok(CortexValue::Composite { struct_name: name.clone(), field_values: values, })
+                    Ok(CortexValue::Composite { struct_name: PathIdent::concat(&self.current_context, name), field_values: values, })
                 } else {
                     Err(Box::new(InterpreterError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
                 }
