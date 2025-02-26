@@ -27,6 +27,7 @@ pub enum CortexValue {
         struct_name: PathIdent,
         field_values: HashMap<String, CortexValue>,
     },
+    Pointer(usize),
 }
 
 impl Display for CortexValue {
@@ -47,6 +48,7 @@ impl Display for CortexValue {
                 }
                 write!(f, "{}({})", struct_name.codegen(0), s)
             },
+            CortexValue::Pointer(_) => todo!(),
         }
     }
 }
@@ -59,6 +61,7 @@ impl CortexValue {
             CortexValue::Void => CortexType::void(false),
             CortexValue::Null => CortexType::null(),
             CortexValue::Composite { struct_name, field_values: _ } => CortexType::new(struct_name.clone(), false),
+            CortexValue::Pointer(_) => todo!(),
         }
     }
 
