@@ -24,9 +24,9 @@ fn test_variable_errors() -> Result<(), Box<dyn Error>> {
     assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
     assert_err("x = 7;", EnvError::ModifyConstant(String::from("x")), &mut interpreter)?;
 
-    assert_err("let y: string = 5;", InterpreterError::MismatchedType(String::from("string"), String::from("number")), &mut interpreter)?;
+    assert_err("let y: string = 5;", InterpreterError::MismatchedType(String::from("string"), String::from("number"), String::from("y")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("let myNum = 7;")?)?;
-    assert_err("myNum = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
+    assert_err("myNum = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool"), String::from("myNum")), &mut interpreter)?;
     // assert_err("dne::value;", ModuleError::ModuleDoesNotExist(String::from("dne")), &mut interpreter)?;
     // assert_err("dne::constantValue = 5;", InterpreterError::CannotModifyModuleEnvironment(String::from("dne::constantValue")), &mut interpreter)?;
     Ok(())
@@ -47,7 +47,7 @@ fn test_function_errors() -> Result<(), Box<dyn Error>> {
     assert_err("simple::add(1);", InterpreterError::MismatchedArgumentCount(String::from("add"), 2, 1), &mut interpreter)?;
 
     assert_err("simple::add(1, 2, 3);", InterpreterError::MismatchedArgumentCount(String::from("add"), 2, 3), &mut interpreter)?;
-    assert_err("simple::add(1, true);", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
+    assert_err("simple::add(1, true);", InterpreterError::MismatchedType(String::from("number"), String::from("bool"), String::from("b")), &mut interpreter)?;
     Ok(())
 }
 
@@ -58,7 +58,7 @@ fn test_struct_errors() -> Result<(), Box<dyn Error>> {
     interpreter.run_statement(&CortexParser::parse_statement("let myTime = simple::Time { m: 5, s: 2 };")?)?;
     assert_err("myTime.z;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
-    assert_err("myTime.m = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool")), &mut interpreter)?;
+    assert_err("myTime.m = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool"), String::from("m")), &mut interpreter)?;
     assert_err("5.foo;", ValueError::CannotAccessMemberOfNonComposite, &mut interpreter)?;
     assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", InterpreterError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
@@ -69,7 +69,7 @@ fn test_struct_errors() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_null_related_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("let notNullable: number = null;", InterpreterError::MismatchedType(String::from("number"), String::from("null?")), &mut interpreter)?;
+    assert_err("let notNullable: number = null;", InterpreterError::MismatchedType(String::from("number"), String::from("null?"), String::from("notNullable")), &mut interpreter)?;
     assert_err("null!;", InterpreterError::BangCalledOnNullValue, &mut interpreter)?;
     Ok(())
 }

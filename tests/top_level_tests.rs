@@ -35,7 +35,7 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[ignore]
+// #[ignore]
 #[test]
 fn test_module_pathing() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new();

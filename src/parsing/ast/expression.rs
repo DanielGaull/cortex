@@ -290,10 +290,16 @@ impl PathIdent {
         }
     }
     pub fn concat(first: &PathIdent, second: &PathIdent) -> Self {
-        let mut path = first.path.clone();
-        path.extend(second.path.clone());
-        Self {
-            path: path,
+        if first.is_empty() {
+            second.clone()
+        } else if second.is_empty() {
+            first.clone()
+        } else {
+            let mut path = first.path.clone();
+            path.extend(second.path.clone());
+            Self {
+                path: path,
+            }
         }
     }
 

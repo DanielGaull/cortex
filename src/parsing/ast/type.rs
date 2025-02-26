@@ -60,6 +60,25 @@ impl CortexType {
             is_any: true,
         }
     }
+    pub fn with_prefix(&self, path: &PathIdent) -> Self {
+        CortexType {
+            name: PathIdent::concat(path, &self.name),
+            nullable: self.nullable,
+            is_any: self.is_any,
+        }
+    }
+    pub fn with_prefix_if_not_core(self, prefix: &PathIdent) -> Self {
+        if !self.is_core() {
+            self.with_prefix(prefix)
+        } else {
+            self
+        }
+    }
+
+    pub fn is_core(&self) -> bool {
+        self.name.is_final().unwrap() && 
+            matches!(self.name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "null" | "any")
+    }
 
     pub fn to_nullable(self) -> Self {
         CortexType {

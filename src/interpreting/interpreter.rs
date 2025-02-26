@@ -50,8 +50,8 @@ pub enum InterpreterError {
     MismatchedArgumentCount(String, usize, usize),
     #[error("Parent environment does not exist")]
     NoParentEnv,
-    #[error("Expected type {0} but expression of type {1} was found")]
-    MismatchedType(String, String),
+    #[error("Expected type {0} for {2} but expression of type {1} was found")]
+    MismatchedType(String, String, String),
     #[error("Invalid binary operator values: only the type(s) {0} and {1} are allowed")]
     InvalidOperator(&'static str, &'static str),
     #[error("Invalid unary operator values: only the type(s) {0} are allowed")]
@@ -169,7 +169,15 @@ impl CortexInterpreter {
                             // Check that the declared type and type of the result match
                             let value_type = self.determine_type(initial_value)?;
                             if !value_type.is_subtype_of(the_type) {
-                                return Err(Box::new(InterpreterError::MismatchedType(the_type.codegen(0), value_type.codegen(0))));
+                                return Err(
+                                    Box::new(
+                                        InterpreterError::MismatchedType(
+                                            the_type.codegen(0),
+                                            value_type.codegen(0),
+                                            ident.clone(),
+                                        )
+                                    )
+                                );
                             }
                             the_type.clone()
                         } else {
@@ -201,7 +209,15 @@ impl CortexInterpreter {
                         if let Some(binop) = op {
                             let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
                             if !type_op.is_subtype_of(var_type) {
-                                return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), type_op.codegen(0))));
+                                return Err(
+                                    Box::new(
+                                        InterpreterError::MismatchedType(
+                                            var_type.codegen(0),
+                                            type_op.codegen(0),
+                                            var_name.clone(),
+                                        )
+                                    )
+                                );
                             }
                             let second = self.evaluate_expression(value)?;
                             let first = self.current_env.as_ref().unwrap().get_value(var_name)?;
@@ -209,7 +225,15 @@ impl CortexInterpreter {
                             self.current_env.as_mut().unwrap().set_value(var_name, value)?;
                         } else {
                             if !assigned_type.is_subtype_of(var_type) {
-                                return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), assigned_type.codegen(0))));
+                                return Err(
+                                    Box::new(
+                                        InterpreterError::MismatchedType(
+                                            var_type.codegen(0),
+                                            assigned_type.codegen(0),
+                                            var_name.clone(),
+                                        )
+                                    )
+                                );
                             }
                             let value = self.evaluate_expression(value)?;
                             self.current_env.as_mut().unwrap().set_value(var_name, value)?;
@@ -228,14 +252,30 @@ impl CortexInterpreter {
                         if let Some(binop) = op {
                             let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
                             if !type_op.is_subtype_of(&var_type) {
-                                return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), type_op.codegen(0))));
+                                return Err(
+                                    Box::new(
+                                        InterpreterError::MismatchedType(
+                                            var_type.codegen(0),
+                                            type_op.codegen(0),
+                                            chain.last().unwrap().clone(),
+                                        )
+                                    )
+                                );
                             }
                             let second = self.evaluate_expression(value)?;
                             let value = self.evaluate_op(current_value, binop, second)?;
                             self.current_env.as_mut().unwrap().get_value_mut(var_name)?.set_field_path(chain, value)?;
                         } else {
                             if !assigned_type.is_subtype_of(&var_type) {
-                                return Err(Box::new(InterpreterError::MismatchedType(var_type.codegen(0), assigned_type.codegen(0))));
+                                return Err(
+                                    Box::new(
+                                        InterpreterError::MismatchedType(
+                                            var_type.codegen(0),
+                                            assigned_type.codegen(0),
+                                            chain.last().unwrap().clone(),
+                                        )
+                                    )
+                                );
                             }
                             let value = self.evaluate_expression(value)?;
                             self.current_env.as_mut().unwrap().get_value_mut(var_name)?.set_field_path(chain, value)?;
@@ -259,7 +299,15 @@ impl CortexInterpreter {
                             break;
                         }
                     } else {
-                        return Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), cond.get_type().codegen(0))));
+                        return Err(
+                            Box::new(
+                                InterpreterError::MismatchedType(
+                                    String::from("bool"),
+                                    cond.get_type().codegen(0),
+                                    String::from("if condition")
+                                )
+                            )
+                        );
                     }
                 }
                 Ok(())
@@ -385,35 +433,62 @@ impl CortexInterpreter {
             Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
             Atom::Call(path_ident, _) => {
                 let func = self.lookup_function(path_ident)?;
-                Ok(func.return_type.clone())
+                let return_type = func.return_type.clone().with_prefix_if_not_core(&self.current_context);
+                Ok(return_type)
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
             Atom::StructConstruction { name, assignments } => {
                 let struc = self.lookup_struct(name)?;
                 for (fname, value) in assignments {
-                    let opt_typ = struc.fields.get(fname);
+                    let opt_typ = struc.fields
+                        .get(fname)
+                        .map(|t| t.clone().with_prefix_if_not_core(&self.current_context));
                     if let Some(typ) = opt_typ {
                         let assigned_type = self.determine_type(value)?;
-                        if !assigned_type.is_subtype_of(typ) {
-                            return Err(Box::new(InterpreterError::MismatchedType(typ.codegen(0), assigned_type.codegen(0))));
+                        if !assigned_type.is_subtype_of(&typ) {
+                            return Err(
+                                Box::new(
+                                    InterpreterError::MismatchedType(
+                                        typ.codegen(0),
+                                        assigned_type.codegen(0),
+                                        fname.clone(),
+                                    )
+                                )
+                            );
                         }
                     } else {
                         return Err(Box::new(InterpreterError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
                     }
                 }
-                Ok(CortexType::new(name.clone(), false))
+                Ok(CortexType::new(name.clone(), false).with_prefix_if_not_core(&self.current_context))
             },
             Atom::IfStatement { first, conds, last } => {
                 let cond_typ = self.determine_type(&first.condition)?;
                 if cond_typ != CortexType::boolean(false) {
-                    return Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), cond_typ.codegen(0))));
+                    return Err(
+                        Box::new(
+                            InterpreterError::MismatchedType(
+                                String::from("bool"),
+                                cond_typ.codegen(0),
+                                String::from("if condition"),
+                            )
+                        )
+                    );
                 }
                 let mut the_type = self.determine_type_body(&first.body)?;
                 
                 for c in conds {
                     let cond_typ = self.determine_type(&c.condition)?;
                     if cond_typ != CortexType::boolean(false) {
-                        return Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), cond_typ.codegen(0))));
+                        return Err(
+                            Box::new(
+                                InterpreterError::MismatchedType(
+                                    String::from("bool"),
+                                    cond_typ.codegen(0),
+                                    String::from("while condition"),
+                                )
+                            )
+                        );
                     }
                     let typ = self.determine_type_body(&c.body)?;
                     let the_type_str = the_type.codegen(0);
@@ -685,7 +760,15 @@ impl CortexInterpreter {
                     if let Some(typ) = opt_typ {
                         let assigned_type = self.determine_type(value)?;
                         if !assigned_type.is_subtype_of(typ) {
-                            return Err(Box::new(InterpreterError::MismatchedType(typ.codegen(0), assigned_type.codegen(0))));
+                            return Err(
+                                Box::new(
+                                    InterpreterError::MismatchedType(
+                                        typ.codegen(0),
+                                        assigned_type.codegen(0),
+                                        fname.clone(),
+                                    )
+                                )
+                            );
                         }
                         let assigned_value = self.evaluate_expression(value)?;
                         values.insert(fname.clone(), assigned_value);
@@ -718,7 +801,15 @@ impl CortexInterpreter {
                                     return Ok(self.evaluate_body(&Body::Basic(c.body.clone()))?);
                                 }
                             } else {
-                                return Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), self.determine_type(&c.condition)?.codegen(0))))
+                                return Err(
+                                    Box::new(
+                                        InterpreterError::MismatchedType(
+                                            String::from("bool"),
+                                            self.determine_type(&first.condition)?.codegen(0),
+                                            String::from("if condition")
+                                        )
+                                    )
+                                );
                             }
                         }
                         if let Some(c) = last {
@@ -740,7 +831,15 @@ impl CortexInterpreter {
                         }
                     }
                 } else {
-                    Err(Box::new(InterpreterError::MismatchedType(String::from("bool"), self.determine_type(&first.condition)?.codegen(0))))
+                    Err(
+                        Box::new(
+                            InterpreterError::MismatchedType(
+                                String::from("bool"),
+                                self.determine_type(&first.condition)?.codegen(0),
+                                String::from("if condition")
+                            )
+                        )
+                    )
                 }
             },
             Atom::UnaryOperation { op, exp } => {
@@ -807,9 +906,17 @@ impl CortexInterpreter {
 
         for (i, arg) in args.iter().enumerate() {
             let arg_type = arg.get_type();
-            let param_type = param_types.get(i).unwrap();
-            if !arg_type.is_subtype_of(param_type) {
-                return Err(Box::new(InterpreterError::MismatchedType(param_type.codegen(0), arg_type.codegen(0))));
+            let param_type = param_types.get(i).unwrap().clone().with_prefix_if_not_core(&self.current_context);
+            if !arg_type.is_subtype_of(&param_type) {
+                return Err(
+                    Box::new(
+                        InterpreterError::MismatchedType(
+                            param_type.codegen(0),
+                            arg_type.codegen(0),
+                            param_names.get(i).unwrap().clone(),
+                        )
+                    )
+                );
             }
         }
 
