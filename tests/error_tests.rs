@@ -104,6 +104,10 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     assert_err_toplevel("struct s{}", ModuleError::StructAlreadyExists(String::from("s")), &mut interpreter)?;
     interpreter.run_top_level(CortexParser::parse_top_level("module m{}")?)?;
     assert_err_toplevel("module m{}", ModuleError::ModuleAlreadyExists(String::from("m")), &mut interpreter)?;
+
+    assert_err_toplevel("struct A{a:A}", ModuleError::StructContainsCircularFields(String::from("A")), &mut interpreter)?;
+    // interpreter.run_top_level(CortexParser::parse_top_level("struct B{c:C}")?)?;
+    // assert_err_toplevel("struct C{b:B}", ModuleError::StructContainsCircularFields(String::from("C")), &mut interpreter)?;
     Ok(())
 }
 

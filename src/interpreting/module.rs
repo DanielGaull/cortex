@@ -1,8 +1,8 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::{HashMap, VecDeque}, rc::Rc};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Function, Struct}};
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Function, Struct}, r#type::CortexType};
 
 pub struct Module {
     functions: HashMap<String, Rc<Function>>,
@@ -28,6 +28,8 @@ pub enum ModuleError {
     StructAlreadyExists(String),
     #[error("Struct \"{0}\" was not found")]
     StructDoesNotExist(String),
+    #[error("Struct \"{0}\" contains at least one field that references back to itself")]
+    StructContainsCircularFields(String),
 }
 
 impl Module {
@@ -55,7 +57,7 @@ impl Module {
         }
     }
 
-    pub fn get_module(&self, path: &PathIdent) -> Result<&Module, ModuleError> {
+    pub fn get_module_for(&self, path: &PathIdent) -> Result<&Module, ModuleError> {
         if path.is_final().map_err(|e| ModuleError::PathError(e))? {
             return Ok(self);
         }
@@ -63,12 +65,12 @@ impl Module {
         if self.children.contains_key(front) {
             let child = self.children.get(front).unwrap();
             let next_path = path.pop_front().map_err(|e| ModuleError::PathError(e))?;
-            child.get_module(&next_path)
+            child.get_module_for(&next_path)
         } else {
             Err(ModuleError::ModuleDoesNotExist(front.clone()))
         }
     }
-    pub fn get_module_mut(&mut self, path: &PathIdent) -> Result<&mut Module, ModuleError> {
+    pub fn get_module_for_mut(&mut self, path: &PathIdent) -> Result<&mut Module, ModuleError> {
         if path.is_final().map_err(|e| ModuleError::PathError(e))? {
             return Ok(self);
         }
@@ -76,7 +78,7 @@ impl Module {
         if self.children.contains_key(front) {
             let child = self.children.get_mut(front).unwrap();
             let next_path = path.pop_front().map_err(|e| ModuleError::PathError(e))?;
-            child.get_module_mut(&next_path)
+            child.get_module_for_mut(&next_path)
         } else {
             Err(ModuleError::ModuleDoesNotExist(front.clone()))
         }
@@ -147,11 +149,47 @@ impl Module {
                 if let Some(_) = self.get_struct_internal(&name) {
                     Err(ModuleError::StructAlreadyExists(name.clone()))
                 } else {
-                    self.types.insert(name.clone(), Rc::from(item));
-                    Ok(())
+                    let has_loop = self.search_struct_for_loops(&item)?;
+                    if has_loop {
+                        Err(ModuleError::StructContainsCircularFields(name.clone()))
+                    } else {
+                        self.types.insert(name.clone(), Rc::from(item));
+                        Ok(())
+                    }
                 }
             },
             OptionalIdentifier::Ignore => Ok(()),
+        }
+    }
+
+    fn search_struct_for_loops(&self, s: &Struct) -> Result<bool, ModuleError> {
+        match &s.name {
+            OptionalIdentifier::Ident(name) => {
+                let stype = CortexType::new(PathIdent::simple(name.clone()), false);
+                let mut q = VecDeque::new();
+                for field in &s.fields {
+                    q.push_back(field.1.clone());
+                }
+                // Only need to search for references to this struct, everything else should be fine
+                while !q.is_empty() {
+                    let typ = q.pop_front().unwrap();
+                    if typ == stype {
+                        return Ok(true);
+                    }
+                    if !typ.is_core() {
+                        // Enqueue all fields of this type
+                        let struc = self
+                            .get_module_for(&typ.name)?
+                            .get_struct(typ.name.get_back().map_err(|e| ModuleError::PathError(e))?)?;
+                        
+                        for field in &struc.fields {
+                            q.push_back(field.1.clone());
+                        }
+                    }
+                }
+                Ok(false)
+            },
+            OptionalIdentifier::Ignore => Ok(false),
         }
     }
 }

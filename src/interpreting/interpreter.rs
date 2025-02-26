@@ -987,10 +987,10 @@ impl CortexInterpreter {
 
     fn lookup_function(&self, path: &PathIdent) -> Result<Rc<Function>, CortexError> {
         let last = path.get_back()?;
-        Ok(self.base_module.get_module(&PathIdent::concat(&self.current_context, path))?.get_function(last)?)
+        Ok(self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?.get_function(last)?)
     }
     fn lookup_struct(&self, path: &PathIdent) -> Result<Rc<Struct>, CortexError> {
         let last = path.get_back()?;
-        Ok(self.base_module.get_module(&PathIdent::concat(&self.current_context, path))?.get_struct(last)?)
+        Ok(self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?.get_struct(last)?)
     }
 }
