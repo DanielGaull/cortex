@@ -441,29 +441,7 @@ impl CortexInterpreter {
                 Ok(return_type)
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
-            Atom::StructConstruction { name, assignments } => {
-                let struc = self.lookup_struct(name)?;
-                for (fname, value) in assignments {
-                    let opt_typ = struc.fields
-                        .get(fname)
-                        .map(|t| t.clone().with_prefix_if_not_core(&self.current_context));
-                    if let Some(typ) = opt_typ {
-                        let assigned_type = self.determine_type(value)?;
-                        if !assigned_type.is_subtype_of(&typ) {
-                            return Err(
-                                Box::new(
-                                    InterpreterError::MismatchedType(
-                                        typ.codegen(0),
-                                        assigned_type.codegen(0),
-                                        fname.clone(),
-                                    )
-                                )
-                            );
-                        }
-                    } else {
-                        return Err(Box::new(InterpreterError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
-                    }
-                }
+            Atom::StructConstruction { name, assignments: _ } => {
                 Ok(CortexType::new(name.clone(), false).with_prefix_if_not_core(&self.current_context))
             },
             Atom::IfStatement { first, conds, last } => {
@@ -764,7 +742,11 @@ impl CortexInterpreter {
                 for (fname, value) in assignments {
                     let opt_typ = struc.fields
                         .get(fname)
-                        .map(|t| t.clone().with_prefix_if_not_core(&self.current_context));
+                        .map(|t| t
+                            .clone()
+                            .with_prefix_if_not_core(&self.current_context)
+                            .with_prefix_if_not_core(&name.without_last())
+                        );
                     if let Some(typ) = opt_typ {
                         let assigned_type = self.determine_type(value)?;
                         if !assigned_type.is_subtype_of(&typ) {

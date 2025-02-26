@@ -44,5 +44,17 @@ module Geometry {
 fn testFn(x1: number, y1: number, x2: number, y2: number): number {
     let rect: Geometry::Rectangle = Geometry::rect(x1, y1, x2, y2);
     let dist = Geometry::taxiDist(rect.c1, rect.c2);
+    let rect2 = Geometry::Rectangle {
+        c1: Geometry::Point {
+            x: 0, y: 0,
+        },
+        c2: Geometry::Point {
+            x: 0, y: 0
+        },
+    };
+    rect2.c1 = Geometry::Point {
+        x: 0, y: 0,
+    };
+    rect2.c1.x = 5;
     dist
 }
