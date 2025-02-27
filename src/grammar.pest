@@ -4,11 +4,12 @@ WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
 program = { SOI ~ topLevel* ~ EOI }
 
 // Top-level
-topLevel = { import | function | struct | module }
+topLevel = { import | function | struct | bundle | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ ":" ~ typ ~ "{" ~ body ~ "}" }
 struct = { "struct" ~ optIdentifier ~ "{" ~ paramList ~ "}" }
+bundle = { "bundle" ~ optIdentifier ~ "{" ~ paramList ~ "}" }
 
 // Statements
 statementNeedingSemicolon = _{ (throw | varDec | varAssign | expr) }

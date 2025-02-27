@@ -6,7 +6,7 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
     ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
@@ -154,6 +154,19 @@ impl CortexParser {
             },
         }
     }
+    pub fn parse_bundle(input: &str) -> Result<Bundle, ParseError> {
+        let pair = PestCortexParser::parse(Rule::bundle, input);
+        match pair {
+            Ok(mut v) => Self::parse_bundle_pair(v.next().unwrap()),
+            Err(e) => {
+                let msg = match e.line_col {
+                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
+                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
+                };
+                Err(ParseError::ParseFailure(String::from("bundle"), msg))
+            },
+        }
+    }
     pub fn parse_top_level(input: &str) -> Result<TopLevel, ParseError> {
         let pair = PestCortexParser::parse(Rule::topLevel, input);
         match pair {
@@ -214,6 +227,9 @@ impl CortexParser {
             },
             Rule::r#struct => {
                 Ok(TopLevel::Struct(Self::parse_struct_pair(pair)?))
+            },
+            Rule::bundle => {
+                Ok(TopLevel::Bundle(Self::parse_bundle_pair(pair)?))
             },
             Rule::import => {
                 let name: &str;
@@ -524,6 +540,22 @@ impl CortexParser {
         
         Ok(
             Struct { 
+                name: name,
+                fields: fields,
+            }
+        )
+    }
+    fn parse_bundle_pair(pair: Pair<Rule>) -> Result<Bundle, ParseError> {
+        let mut pairs = pair.into_inner();
+        let name = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let field_params = Self::parse_param_list(pairs.next().unwrap())?;
+        let mut fields = HashMap::new();
+        for p in field_params {
+            fields.insert(p.name, p.typ);
+        }
+        
+        Ok(
+            Bundle { 
                 name: name,
                 fields: fields,
             }

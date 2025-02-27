@@ -15,6 +15,13 @@ macro_rules! parse_test {
                 assert_eq!(expected, code);
                 Ok(())
             }
+            #[allow(dead_code)]
+            fn [<run_ $name _test_or>](input: &str, other: &str) -> Result<(), Box<dyn Error>> {
+                let ast = CortexParser::[<parse_ $name>](input)?;
+                let code = ast.codegen(0);
+                assert!(input == code || other == code);
+                Ok(())
+            }
         }
     }
 }
@@ -110,5 +117,13 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     run_top_level_test("module myMod {\n    fn test(x: number): void {\n        stop;\n    }\n}")?;
     run_top_level_test("import hello;")?;
     run_top_level_test("import \"hello\";")?;
+    run_top_level_test_or(
+        "struct Point {\n    x: number,\n    y: number,\n}\n",
+        "struct Point {\n    y: number,\n    x: number,\n}\n"
+    )?;
+    run_top_level_test_or(
+        "bundle Point {\n    x: number,\n    y: number,\n}\n",
+        "bundle Point {\n    y: number,\n    x: number,\n}\n"
+    )?;
     Ok(())
 }

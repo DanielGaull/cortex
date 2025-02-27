@@ -174,6 +174,8 @@ impl SimpleCodeGen for Struct {
         s.push_str(" {\n");
 
         for (field, typ) in &self.fields {
+            s.push_str(&indent_prefix);
+            s.push_str("    ");
             s.push_str(field);
             s.push_str(": ");
             s.push_str(&typ.codegen(indent));
@@ -214,6 +216,8 @@ impl SimpleCodeGen for Bundle {
         s.push_str(" {\n");
 
         for (field, typ) in &self.fields {
+            s.push_str(&indent_prefix);
+            s.push_str("    ");
             s.push_str(field);
             s.push_str(": ");
             s.push_str(&typ.codegen(indent));
