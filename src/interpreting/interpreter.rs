@@ -755,8 +755,9 @@ impl CortexInterpreter {
                     Ok(self.construct_struct(name, assignments, &r#struct.fields)?)
                 } else {
                     let bundle = self.lookup_bundle(name)?;
-                    todo!()
-                    //Ok(self.construct_struct(name, assignments, &bundle.fields)?)
+                    let value = self.construct_struct(name, assignments, &bundle.fields)?;
+                    let addr = self.allocate(value);
+                    Ok(CortexValue::Pointer(addr))
                 }
             },
             Atom::IfStatement { first, conds, last } => {
@@ -851,6 +852,13 @@ impl CortexInterpreter {
         }
     }
 
+    fn allocate(&mut self, value: CortexValue) -> usize {
+        let ptr = self.heap.allocate(value);
+        if self.heap.is_at_gc_threshold() {
+            self.gc();
+        }
+        ptr
+    }
     fn construct_struct(
         &mut self,
         name: &PathIdent,
