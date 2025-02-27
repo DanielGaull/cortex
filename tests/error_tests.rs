@@ -52,7 +52,7 @@ fn test_function_errors() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn test_struct_errors() -> Result<(), Box<dyn Error>> {
+fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_err("simple::Time { z: 5 };", InterpreterError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("let myTime = simple::Time { m: 5, s: 2 };")?)?;
@@ -108,6 +108,10 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     assert_err_toplevel("struct A{a:A}", ModuleError::StructContainsCircularFields(String::from("A")), &mut interpreter)?;
     // interpreter.run_top_level(CortexParser::parse_top_level("struct B{c:C}")?)?;
     // assert_err_toplevel("struct C{b:B}", ModuleError::StructContainsCircularFields(String::from("C")), &mut interpreter)?;
+
+    assert_err_toplevel("bundle s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
+    interpreter.run_top_level(CortexParser::parse_top_level("bundle b{}")?)?;
+    assert_err_toplevel("struct b{}", ModuleError::TypeAlreadyExists(String::from("b")), &mut interpreter)?;
     Ok(())
 }
 
