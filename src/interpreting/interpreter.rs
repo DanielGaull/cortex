@@ -136,6 +136,10 @@ impl CortexInterpreter {
                 self.base_module.add_struct(struc)?;
                 Ok(())
             },
+            TopLevel::Bundle(bundle) => {
+                self.base_module.add_bundle(bundle)?;
+                Ok(())
+            },
         }
     }
 
@@ -149,20 +153,13 @@ impl CortexInterpreter {
                     module.add_child(submod_name, new_module)?;
                 },
                 TopLevel::Function(function) => {
-                    match &function.name {
-                        OptionalIdentifier::Ident(_) => {
-                            module.add_function(function)?;
-                        },
-                        OptionalIdentifier::Ignore => (),
-                    }
+                    module.add_function(function)?;
                 },
                 TopLevel::Struct(item) => {
-                    match &item.name {
-                        OptionalIdentifier::Ident(_) => {
-                            module.add_struct(item)?;
-                        },
-                        OptionalIdentifier::Ignore => (),
-                    }
+                    module.add_struct(item)?;
+                },
+                TopLevel::Bundle(item) => {
+                    module.add_bundle(item)?;
                 },
             }
         }

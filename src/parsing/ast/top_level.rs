@@ -15,6 +15,7 @@ pub enum TopLevel {
     },
     Function(Function),
     Struct(Struct),
+    Bundle(Bundle),
 }
 impl SimpleCodeGen for TopLevel {
     fn codegen(&self, indent: usize) -> String {
@@ -45,6 +46,7 @@ impl SimpleCodeGen for TopLevel {
             },
             Self::Function(func) => func.codegen(indent),
             Self::Struct(struc) => struc.codegen(indent),
+            Self::Bundle(bundle) => bundle.codegen(indent),
         }
     }
 }
@@ -191,6 +193,46 @@ impl Struct {
             map.insert(String::from(f.0), f.1);
         }
         Struct {
+            name: OptionalIdentifier::Ident(String::from(name)),
+            fields: map,
+        }
+    }
+}
+
+pub struct Bundle {
+    pub(crate) name: OptionalIdentifier,
+    pub(crate) fields: HashMap<String, CortexType>,
+}
+impl SimpleCodeGen for Bundle {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        let indent_prefix = "    ".repeat(indent);
+
+        s.push_str(&indent_prefix);
+        s.push_str("bundle ");
+        s.push_str(&self.name.codegen(indent));
+        s.push_str(" {\n");
+
+        for (field, typ) in &self.fields {
+            s.push_str(field);
+            s.push_str(": ");
+            s.push_str(&typ.codegen(indent));
+            s.push_str(",");
+            s.push_str("\n");
+        }
+
+        s.push_str(&indent_prefix);
+        s.push_str("}\n");
+        s
+    }
+}
+impl Bundle {
+    pub fn new(name: &str, fields: Vec<(&str, CortexType)>) -> Self {
+        let mut map = HashMap::new();
+        for f in fields {
+            map.insert(String::from(f.0), f.1);
+        }
+        Bundle {
             name: OptionalIdentifier::Ident(String::from(name)),
             fields: map,
         }

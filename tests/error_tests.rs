@@ -101,7 +101,7 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     interpreter.run_top_level(CortexParser::parse_top_level("fn f(): void {}")?)?;
     assert_err_toplevel("fn f(): void {}", ModuleError::FunctionAlreadyExists(String::from("f")), &mut interpreter)?;
     interpreter.run_top_level(CortexParser::parse_top_level("struct s{}")?)?;
-    assert_err_toplevel("struct s{}", ModuleError::StructAlreadyExists(String::from("s")), &mut interpreter)?;
+    assert_err_toplevel("struct s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
     interpreter.run_top_level(CortexParser::parse_top_level("module m{}")?)?;
     assert_err_toplevel("module m{}", ModuleError::ModuleAlreadyExists(String::from("m")), &mut interpreter)?;
 

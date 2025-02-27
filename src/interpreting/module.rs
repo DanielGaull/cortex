@@ -2,13 +2,7 @@ use std::{collections::{HashMap, VecDeque}, rc::Rc};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Function, Struct}, r#type::CortexType};
-
-pub struct Module {
-    functions: HashMap<String, Rc<Function>>,
-    types: HashMap<String, Rc<Struct>>,
-    children: HashMap<String, Module>,
-}
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Function, Struct}, r#type::CortexType};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -24,27 +18,35 @@ pub enum ModuleError {
     #[error("Function \"{0}\" was not found")]
     FunctionDoesNotExist(String),
 
-    #[error("Struct \"{0}\" already exists")]
-    StructAlreadyExists(String),
+    #[error("Type \"{0}\" already exists")]
+    TypeAlreadyExists(String),
+
     #[error("Struct \"{0}\" was not found")]
     StructDoesNotExist(String),
     #[error("Struct \"{0}\" contains at least one field that references back to itself")]
     StructContainsCircularFields(String),
+
+    #[error("Bundle \"{0}\" was not found")]
+    BundleDoesNotExist(String),
+}
+
+pub struct Module {
+    children: HashMap<String, Module>,
+    functions: HashMap<String, Rc<Function>>,
+    structs: HashMap<String, Rc<Struct>>,
+    bundles: HashMap<String, Rc<Bundle>>,
 }
 
 impl Module {
     pub fn new() -> Self {
-        Module {
-            functions: HashMap::new(),
-            types: HashMap::new(),
-            children: HashMap::new(),
-        }
+        Self::with_children(HashMap::new())
     }
     pub fn with_children(children: HashMap<String, Module>) -> Self {
         Module {
-            functions: HashMap::new(),
-            types: HashMap::new(),
             children: children,
+            functions: HashMap::new(),
+            structs: HashMap::new(),
+            bundles: HashMap::new(),
         }
     }
 
@@ -129,8 +131,8 @@ impl Module {
     }
 
     fn get_struct_internal(&self, name: &String) -> Option<Rc<Struct>> {
-        if self.types.contains_key(name) {
-            Some(self.types.get(name).unwrap().clone())
+        if self.structs.contains_key(name) {
+            Some(self.structs.get(name).unwrap().clone())
         } else {
             None
         }
@@ -147,15 +149,48 @@ impl Module {
         match &item.name {
             OptionalIdentifier::Ident(name) => {
                 if let Some(_) = self.get_struct_internal(&name) {
-                    Err(ModuleError::StructAlreadyExists(name.clone()))
+                    Err(ModuleError::TypeAlreadyExists(name.clone()))
+                } else if let Some(_) = self.get_bundle_internal(&name) {
+                    Err(ModuleError::TypeAlreadyExists(name.clone()))
                 } else {
                     let has_loop = self.search_struct_for_loops(&item)?;
                     if has_loop {
                         Err(ModuleError::StructContainsCircularFields(name.clone()))
                     } else {
-                        self.types.insert(name.clone(), Rc::from(item));
+                        self.structs.insert(name.clone(), Rc::from(item));
                         Ok(())
                     }
+                }
+            },
+            OptionalIdentifier::Ignore => Ok(()),
+        }
+    }
+
+    fn get_bundle_internal(&self, name: &String) -> Option<Rc<Bundle>> {
+        if self.bundles.contains_key(name) {
+            Some(self.bundles.get(name).unwrap().clone())
+        } else {
+            None
+        }
+    }
+    pub fn get_bundle(&self, name: &String) -> Result<Rc<Bundle>, ModuleError> {
+        let search_result = self.get_bundle_internal(name);
+        if let Some(item) = search_result {
+            Ok(item)
+        } else {
+            Err(ModuleError::BundleDoesNotExist(name.clone()))
+        }
+    }
+    pub fn add_bundle(&mut self, item: Bundle) -> Result<(), ModuleError> {
+        match &item.name {
+            OptionalIdentifier::Ident(name) => {
+                if let Some(_) = self.get_struct_internal(&name) {
+                    Err(ModuleError::TypeAlreadyExists(name.clone()))
+                } else if let Some(_) = self.get_bundle_internal(&name) {
+                    Err(ModuleError::TypeAlreadyExists(name.clone()))
+                } else {
+                    self.bundles.insert(name.clone(), Rc::from(item));
+                    Ok(())
                 }
             },
             OptionalIdentifier::Ignore => Ok(()),
