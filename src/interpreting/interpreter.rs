@@ -108,7 +108,7 @@ impl CortexInterpreter {
             for (_, fvalue) in field_values {
                 self.find_reachables(current, fvalue);
             }
-        } else if let CortexValue::Pointer(addr) = value {
+        } else if let CortexValue::Pointer(addr, _) = value {
             current.insert(*addr);
         }
     }
@@ -756,8 +756,9 @@ impl CortexInterpreter {
                 } else {
                     let bundle = self.lookup_bundle(name)?;
                     let value = self.construct_struct(name, assignments, &bundle.fields)?;
+                    let typ = value.get_type();
                     let addr = self.allocate(value);
-                    Ok(CortexValue::Pointer(addr))
+                    Ok(CortexValue::Pointer(addr, typ))
                 }
             },
             Atom::IfStatement { first, conds, last } => {

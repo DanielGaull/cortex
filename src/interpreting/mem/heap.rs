@@ -55,7 +55,7 @@ impl Heap {
     fn mark_children(&self, marked: &mut HashSet<usize>, value: &CortexValue) {
         if let CortexValue::Composite { struct_name: _, field_values } = value {
             for (_, fvalue) in field_values {
-                if let CortexValue::Pointer(addr) = fvalue {
+                if let CortexValue::Pointer(addr, _) = fvalue {
                     self.mark(marked, *addr);
                 } else if let CortexValue::Composite { struct_name: _, field_values: _ } = fvalue {
                     self.mark_children(marked, fvalue);
