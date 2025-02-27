@@ -1,10 +1,10 @@
-use std::{collections::HashMap, error::Error, rc::Rc};
+use std::{collections::{HashMap, HashSet}, error::Error, rc::Rc};
 
 use thiserror::Error;
 use paste::paste;
 
 use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
-use super::{env::Environment, module::Module, value::CortexValue};
+use super::{env::Environment, mem::heap::Heap, module::Module, value::CortexValue};
 
 macro_rules! determine_op_type_fn {
     ($name:ident, $typ:ty, $prev_name:ident) => {
@@ -80,16 +80,36 @@ pub struct CortexInterpreter {
     base_module: Module,
     current_env: Option<Box<Environment>>,
     current_context: PathIdent,
+    heap: Heap,
 }
 
 impl CortexInterpreter {
     pub fn new() -> Self {
         CortexInterpreter {
-            // NOTE: We will never use the base module's environment
-            // since module Environments are immutable
             base_module: Module::new(),
             current_env: Some(Box::new(Environment::base())),
             current_context: PathIdent::empty(),
+            heap: Heap::new(),
+        }
+    }
+
+    pub fn gc(&mut self) {
+        // Note: "roots" are the addresses of all pointers currently in memory
+        // It also includes pointers that reside within struct fields currently in memory,
+        // and those struct's fields, etc.
+        let mut roots = HashSet::<usize>::new();
+        if let Some(env) = &self.current_env {
+            env.foreach(|_name, value| self.find_reachables(&mut roots, value));
+        }
+        self.heap.gc(roots);
+    }
+    fn find_reachables(&self, current: &mut HashSet<usize>, value: &CortexValue) {
+        if let CortexValue::Composite { struct_name: _, field_values } = value {
+            for (_, fvalue) in field_values {
+                self.find_reachables(current, fvalue);
+            }
+        } else if let CortexValue::Pointer(addr) = value {
+            current.insert(*addr);
         }
     }
 
@@ -101,7 +121,7 @@ impl CortexInterpreter {
     pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {
         match top_level {
             TopLevel::Import { name: _, is_string_import: _ } => {
-                todo!()
+                todo!("Imports are currently not supported!")
             },
             TopLevel::Module { name, contents } => {
                 let module = Self::construct_module(contents)?;
@@ -123,7 +143,7 @@ impl CortexInterpreter {
         let mut module = Module::new();
         for item in contents.into_iter() {
             match item {
-                TopLevel::Import { name: _, is_string_import: _ } => todo!(),
+                TopLevel::Import { name: _, is_string_import: _ } => todo!("Imports are currently not supported!"),
                 TopLevel::Module { name: submod_name, contents } => {
                     let new_module = Self::construct_module(contents)?;
                     module.add_child(submod_name, new_module)?;

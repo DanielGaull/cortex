@@ -37,6 +37,16 @@ impl Environment {
         Self::full_new(None)
     }
 
+    pub fn foreach<F>(&self, mut func: F)
+    where F: FnMut(&str, &CortexValue) -> () {
+        for (name, var) in &self.variables {
+            func(name.as_str(), var.value());
+        }
+        if let Some(p) = &self.parent {
+            p.foreach(func);
+        }
+    }
+
     pub fn exit(self) -> Result<Environment, EnvError> {
         if let Some(parent) = self.parent {
             Ok(*parent)

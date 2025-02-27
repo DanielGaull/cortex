@@ -8,21 +8,21 @@ pub(crate) struct Heap {
 }
 
 impl Heap {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Heap {
             store: HashMap::new(),
             next_id: 0,
         }
     }
 
-    fn allocate(&mut self, value: CortexValue) -> usize {
+    pub fn allocate(&mut self, value: CortexValue) -> usize {
         let id = self.next_id;
         self.next_id += 1;
         self.store.insert(id, value);
         id
     }
 
-    fn gc(&mut self, roots: HashSet<usize>) {
+    pub fn gc(&mut self, roots: HashSet<usize>) {
         let reachables = self.find_reachables(roots);
         self.sweep(reachables);
     }
