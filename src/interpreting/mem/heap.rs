@@ -5,6 +5,7 @@ use crate::interpreting::value::CortexValue;
 pub(crate) struct Heap {
     store: HashMap<usize, CortexValue>,
     next_id: usize,
+    gc_threshold: usize,
 }
 
 impl Heap {
@@ -12,6 +13,7 @@ impl Heap {
         Heap {
             store: HashMap::new(),
             next_id: 0,
+            gc_threshold: 1000,
         }
     }
 
@@ -24,7 +26,20 @@ impl Heap {
 
     pub fn gc(&mut self, roots: HashSet<usize>) {
         let reachables = self.find_reachables(roots);
+
+        let sz_before = self.store.len();
         self.sweep(reachables);
+        let sz_after = self.store.len();
+
+        if sz_after > sz_before / 2 {
+            self.gc_threshold *= 2;
+        } else {
+            self.gc_threshold = (self.gc_threshold / 2).max(1000);
+        }
+    }
+
+    pub fn is_at_gc_threshold(&self) -> bool {
+        self.store.len() > self.gc_threshold
     }
 
     fn mark(&self, marked: &mut HashSet<usize>, addr: usize) {
