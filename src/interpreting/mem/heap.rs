@@ -42,6 +42,8 @@ impl Heap {
             for (_, fvalue) in field_values {
                 if let CortexValue::Pointer(addr) = fvalue {
                     self.mark(marked, *addr);
+                } else if let CortexValue::Composite { struct_name: _, field_values: _ } = fvalue {
+                    self.mark_children(marked, fvalue);
                 }
             }
         }
