@@ -73,7 +73,7 @@ pub enum Atom {
     String(String),
     PathIdent(PathIdent),
     Call(PathIdent, Vec<Expression>),
-    StructConstruction {
+    Construction {
         name: PathIdent, 
         assignments: Vec<(String, Expression)>
     },
@@ -111,7 +111,7 @@ impl SimpleCodeGen for Atom {
                 s.push_str(")");
                 s
             },
-            Atom::StructConstruction { name, assignments } => {
+            Atom::Construction { name, assignments } => {
                 let mut s = String::new();
                 s.push_str(&name.codegen(0));
                 s.push_str(" { ");

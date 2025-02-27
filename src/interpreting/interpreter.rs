@@ -3,7 +3,7 @@ use std::{collections::{HashMap, HashSet}, error::Error, rc::Rc};
 use thiserror::Error;
 use paste::paste;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Function, Struct, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, mem::heap::Heap, module::Module, value::CortexValue};
 
 macro_rules! determine_op_type_fn {
@@ -458,7 +458,7 @@ impl CortexInterpreter {
                 Ok(return_type)
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
-            Atom::StructConstruction { name, assignments: _ } => {
+            Atom::Construction { name, assignments: _ } => {
                 Ok(CortexType::new(name.clone(), false).with_prefix_if_not_core(&self.current_context))
             },
             Atom::IfStatement { first, conds, last } => {
@@ -749,50 +749,14 @@ impl CortexInterpreter {
                 self.current_context = context_to_return_to;
                 Ok(func_result?)
             },
-            Atom::StructConstruction { name, assignments } => {
-                let struc = self.lookup_struct(name)?;
-                let mut fields_to_assign = Vec::new();
-                for k in struc.fields.keys() {
-                    fields_to_assign.push(k.clone());
-                }
-                let mut values = HashMap::<String, CortexValue>::new();
-                for (fname, value) in assignments {
-                    let opt_typ = struc.fields
-                        .get(fname)
-                        .map(|t| t
-                            .clone()
-                            .with_prefix_if_not_core(&self.current_context)
-                            .with_prefix_if_not_core(&name.without_last())
-                        );
-                    if let Some(typ) = opt_typ {
-                        let assigned_type = self.determine_type(value)?;
-                        if !assigned_type.is_subtype_of(&typ) {
-                            return Err(
-                                Box::new(
-                                    InterpreterError::MismatchedType(
-                                        typ.codegen(0),
-                                        assigned_type.codegen(0),
-                                        fname.clone(),
-                                    )
-                                )
-                            );
-                        }
-                        let assigned_value = self.evaluate_expression(value)?;
-                        values.insert(fname.clone(), assigned_value);
-                        let index_opt = fields_to_assign.iter().position(|x| *x == *fname);
-                        if let Some(index) = index_opt {
-                            fields_to_assign.remove(index);
-                        } else {
-                            return Err(Box::new(InterpreterError::MultipleFieldAssignment(fname.clone())));
-                        }
-                    } else {
-                        return Err(Box::new(InterpreterError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
-                    }
-                }
-                if fields_to_assign.is_empty() {
-                    Ok(CortexValue::Composite { struct_name: PathIdent::concat(&self.current_context, name), field_values: values, })
+            Atom::Construction { name, assignments } => {
+                let try_struct = self.try_lookup_struct(name);
+                if let Some(r#struct) = try_struct {
+                    Ok(self.construct_struct(name, assignments, &r#struct.fields)?)
                 } else {
-                    Err(Box::new(InterpreterError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
+                    let bundle = self.lookup_bundle(name)?;
+                    todo!()
+                    //Ok(self.construct_struct(name, assignments, &bundle.fields)?)
                 }
             },
             Atom::IfStatement { first, conds, last } => {
@@ -884,6 +848,57 @@ impl CortexInterpreter {
                 let val = atom.get_field(member)?;
                 Ok(self.handle_expr_tail(val, next)?)
             },
+        }
+    }
+
+    fn construct_struct(
+        &mut self,
+        name: &PathIdent,
+        assignments: &Vec<(String, Expression)>,
+        fields: &HashMap<String, CortexType>
+    ) -> Result<CortexValue, CortexError> {
+        let mut fields_to_assign = Vec::new();
+        for k in fields.keys() {
+            fields_to_assign.push(k.clone());
+        }
+        let mut values = HashMap::<String, CortexValue>::new();
+        for (fname, value) in assignments {
+            let opt_typ = fields
+                .get(fname)
+                .map(|t| t
+                    .clone()
+                    .with_prefix_if_not_core(&self.current_context)
+                    .with_prefix_if_not_core(&name.without_last())
+                );
+            if let Some(typ) = opt_typ {
+                let assigned_type = self.determine_type(value)?;
+                if !assigned_type.is_subtype_of(&typ) {
+                    return Err(
+                        Box::new(
+                            InterpreterError::MismatchedType(
+                                typ.codegen(0),
+                                assigned_type.codegen(0),
+                                fname.clone(),
+                            )
+                        )
+                    );
+                }
+                let assigned_value = self.evaluate_expression(value)?;
+                values.insert(fname.clone(), assigned_value);
+                let index_opt = fields_to_assign.iter().position(|x| *x == *fname);
+                if let Some(index) = index_opt {
+                    fields_to_assign.remove(index);
+                } else {
+                    return Err(Box::new(InterpreterError::MultipleFieldAssignment(fname.clone())));
+                }
+            } else {
+                return Err(Box::new(InterpreterError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
+            }
+        }
+        if fields_to_assign.is_empty() {
+            Ok(CortexValue::Composite { struct_name: PathIdent::concat(&self.current_context, name), field_values: values, })
+        } else {
+            Err(Box::new(InterpreterError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
         }
     }
 
@@ -1009,5 +1024,17 @@ impl CortexInterpreter {
     fn lookup_struct(&self, path: &PathIdent) -> Result<Rc<Struct>, CortexError> {
         let last = path.get_back()?;
         Ok(self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?.get_struct(last)?)
+    }
+    fn lookup_bundle(&self, path: &PathIdent) -> Result<Rc<Bundle>, CortexError> {
+        let last = path.get_back()?;
+        Ok(self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?.get_bundle(last)?)
+    }
+    fn try_lookup_struct(&self, path: &PathIdent) -> Option<Rc<Struct>> {
+        let result = self.lookup_struct(path);
+        if let Ok(v) = result {
+            Some(v)
+        } else {
+            None
+        }
     }
 }

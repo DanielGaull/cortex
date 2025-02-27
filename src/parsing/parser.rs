@@ -388,7 +388,7 @@ impl CortexParser {
                     let expr = Self::parse_expr_pair(member_init.next().unwrap())?;
                     assignments.push((String::from(name), expr));
                 }
-                Ok(Atom::StructConstruction { name: name, assignments: assignments })
+                Ok(Atom::Construction { name: name, assignments: assignments })
             },
             Rule::r#if => {
                 let mut pairs = pair.into_inner();
