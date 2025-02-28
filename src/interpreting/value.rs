@@ -65,39 +65,10 @@ impl CortexValue {
         }
     }
 
-    pub fn get_field_path(&self, mut path: Vec<String>) -> Result<CortexValue, ValueError> {
-        let first_option = path.get(0);
-        if let Some(first) = first_option {
-            if path.len() == 1{
-                self.get_field(first)
-            } else {
-                let fname = first.clone();
-                path.remove(0);
-                self.get_field(&fname)?.get_field_path(path)
-            }
-        } else {
-            Ok(self.clone())
-        }
-    }
-    pub fn set_field_path(&mut self, mut path: Vec<String>, value: CortexValue) -> Result<(), ValueError> {
-        let first_option = path.get(0);
-        if let Some(first) = first_option {
-            if path.len() == 1{
-                self.set_field(first, value)
-            } else {
-                let fname = first.clone();
-                path.remove(0);
-                self.get_field_mut(&fname)?.set_field_path(path, value)
-            }
-        } else {
-            Err(ValueError::MemberPathCannotBeEmpty)
-        }
-    }
-
-    fn get_field_mut(&mut self, field: &String) -> Result<&mut CortexValue, ValueError> {
+    pub fn get_field(&self, field: &String) -> Result<CortexValue, ValueError> {
         if let CortexValue::Composite { struct_name, field_values } = self {
             if field_values.contains_key(field) {
-                let val = field_values.get_mut(field).unwrap();
+                let val = field_values.get(field).unwrap().clone();
                 Ok(val)
             } else {
                 Err(ValueError::FieldDoesNotExist(field.clone(), struct_name.codegen(0)))
@@ -106,11 +77,10 @@ impl CortexValue {
             Err(ValueError::CannotAccessMemberOfNonComposite)
         }
     }
-
-    pub fn get_field(&self, field: &String) -> Result<CortexValue, ValueError> {
+    pub fn get_field_mut(&mut self, field: &String) -> Result<&mut CortexValue, ValueError> {
         if let CortexValue::Composite { struct_name, field_values } = self {
             if field_values.contains_key(field) {
-                let val = field_values.get(field).unwrap().clone();
+                let val = field_values.get_mut(field).unwrap();
                 Ok(val)
             } else {
                 Err(ValueError::FieldDoesNotExist(field.clone(), struct_name.codegen(0)))

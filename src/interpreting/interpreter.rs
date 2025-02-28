@@ -1,10 +1,10 @@
-use std::{collections::{HashMap, HashSet}, error::Error, rc::Rc};
+use std::{cell::RefCell, collections::{HashMap, HashSet}, error::Error, rc::Rc};
 
 use thiserror::Error;
 use paste::paste;
 
 use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
-use super::{env::Environment, mem::heap::Heap, module::Module, value::CortexValue};
+use super::{env::Environment, mem::heap::Heap, module::Module, value::{CortexValue, ValueError}};
 
 macro_rules! determine_op_type_fn {
     ($name:ident, $typ:ty, $prev_name:ident) => {
@@ -264,7 +264,7 @@ impl CortexInterpreter {
                         let var_name = name.base.get_front()?;
                         let chain = name.chain.clone();
                         let assigned_type = self.determine_type(value)?;
-                        let current_value = self.current_env.as_ref().unwrap().get_value(var_name)?.get_field_path(chain.clone())?;
+                        let current_value = self.get_field_path(self.current_env.as_ref().unwrap().get_value(var_name)?, chain.clone())?;
                         let var_type = current_value.get_type();
                         if let Some(binop) = op {
                             let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
@@ -281,7 +281,7 @@ impl CortexInterpreter {
                             }
                             let second = self.evaluate_expression(value)?;
                             let value = self.evaluate_op(current_value, binop, second)?;
-                            self.current_env.as_mut().unwrap().get_value_mut(var_name)?.set_field_path(chain, value)?;
+                            Self::set_field_path(self.current_env.as_mut().unwrap().get_value_mut(var_name)?, chain, value, &mut self.heap)?;
                         } else {
                             if !assigned_type.is_subtype_of(&var_type) {
                                 return Err(
@@ -295,7 +295,7 @@ impl CortexInterpreter {
                                 );
                             }
                             let value = self.evaluate_expression(value)?;
-                            self.current_env.as_mut().unwrap().get_value_mut(var_name)?.set_field_path(chain, value)?;
+                            Self::set_field_path(self.current_env.as_mut().unwrap().get_value_mut(var_name)?, chain, value, &mut self.heap)?;
                         }
                         Ok(())
                     }
@@ -847,6 +847,10 @@ impl CortexInterpreter {
                 }
             },
             ExpressionTail::MemberAccess { member, next } => {
+                let mut atom = &atom;
+                if let CortexValue::Pointer(addr, _) = atom {
+                    atom = self.heap.get(*addr);
+                }
                 let val = atom.get_field(member)?;
                 Ok(self.handle_expr_tail(val, next)?)
             },
@@ -908,6 +912,43 @@ impl CortexInterpreter {
             Ok(CortexValue::Composite { struct_name: PathIdent::concat(&self.current_context, name), field_values: values, })
         } else {
             Err(Box::new(InterpreterError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
+        }
+    }
+    
+    fn set_field_path(base: &mut CortexValue, mut path: Vec<String>, value: CortexValue, heap: &mut Heap) -> Result<(), ValueError> {
+        let first_option = path.get(0);
+        if let Some(first) = first_option {
+            if path.len() == 1{
+                base.set_field(first, value)
+            } else {
+                let fname = first.clone();
+                path.remove(0);
+                let mut field = base.get_field_mut(&fname)?;
+                if let CortexValue::Pointer(addr, _) = field {
+                    field = heap.get_mut(*addr);
+                }
+                Self::set_field_path(field, path, value, heap)
+            }
+        } else {
+            Err(ValueError::MemberPathCannotBeEmpty)
+        }
+    }
+    fn get_field_path(&self, value: &CortexValue, mut path: Vec<String>) -> Result<CortexValue, ValueError> {
+        let first_option = path.get(0);
+        if let Some(first) = first_option {
+            if path.len() == 1{
+                value.get_field(first)
+            } else {
+                let fname = first.clone();
+                path.remove(0);
+                let mut field = &value.get_field(&fname)?;
+                if let CortexValue::Pointer(addr, _) = field {
+                    field = self.heap.get(*addr);
+                }
+                self.get_field_path(field, path)
+            }
+        } else {
+            Err(ValueError::MemberPathCannotBeEmpty)
         }
     }
 

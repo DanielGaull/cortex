@@ -20,14 +20,11 @@ pub enum ModuleError {
 
     #[error("Type \"{0}\" already exists")]
     TypeAlreadyExists(String),
+    #[error("Type \"{0}\" does not exist")]
+    TypeDoesNotExist(String),
 
-    #[error("Struct \"{0}\" was not found")]
-    StructDoesNotExist(String),
     #[error("Struct \"{0}\" contains at least one field that references back to itself")]
     StructContainsCircularFields(String),
-
-    #[error("Bundle \"{0}\" was not found")]
-    BundleDoesNotExist(String),
 }
 
 pub struct Module {
@@ -142,7 +139,7 @@ impl Module {
         if let Some(func) = search_result {
             Ok(func)
         } else {
-            Err(ModuleError::StructDoesNotExist(name.clone()))
+            Err(ModuleError::TypeDoesNotExist(name.clone()))
         }
     }
     pub fn add_struct(&mut self, item: Struct) -> Result<(), ModuleError> {
@@ -178,7 +175,7 @@ impl Module {
         if let Some(item) = search_result {
             Ok(item)
         } else {
-            Err(ModuleError::BundleDoesNotExist(name.clone()))
+            Err(ModuleError::TypeDoesNotExist(name.clone()))
         }
     }
     pub fn add_bundle(&mut self, item: Bundle) -> Result<(), ModuleError> {

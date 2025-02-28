@@ -17,6 +17,13 @@ impl Heap {
         }
     }
 
+    pub fn get(&self, addr: usize) -> &CortexValue {
+        self.store.get(&addr).unwrap()
+    }
+    pub fn get_mut(&mut self, addr: usize) -> &mut CortexValue {
+        self.store.get_mut(&addr).unwrap()
+    }
+
     pub fn allocate(&mut self, value: CortexValue) -> usize {
         let id = self.next_id;
         self.next_id += 1;
