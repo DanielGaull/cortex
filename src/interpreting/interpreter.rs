@@ -3,8 +3,8 @@ use std::{cell::RefCell, collections::{HashMap, HashSet}, error::Error, rc::Rc};
 use thiserror::Error;
 use paste::paste;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
-use super::{env::Environment, mem::heap::Heap, module::Module, value::{CortexValue, ValueError}};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use super::{env::Environment, mem::heap::Heap, module::{CompositeType, Module}, value::{CortexValue, ValueError}};
 
 macro_rules! determine_op_type_fn {
     ($name:ident, $typ:ty, $prev_name:ident) => {
@@ -551,11 +551,11 @@ impl CortexInterpreter {
                 Ok(self.determine_type_tail(new_type, next)?)
             },
             ExpressionTail::MemberAccess { member, next } => {
-                let struc = self.lookup_struct(&atom.name)?;
-                if !struc.fields.contains_key(member) {
+                let composite = self.lookup_composite(&atom.name)?;
+                if !composite.fields.contains_key(member) {
                     Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), atom.name.codegen(0))))
                 } else {
-                    let member_type = struc.fields.get(member).unwrap().clone();
+                    let member_type = composite.fields.get(member).unwrap().clone();
                     let member_type = self.determine_type_tail(member_type, next)?;
                     let member_type = member_type.with_prefix_if_not_core(&atom.prefix());
                     Ok(member_type)
@@ -757,12 +757,11 @@ impl CortexInterpreter {
                 Ok(func_result?)
             },
             Atom::Construction { name, assignments } => {
-                let try_struct = self.try_lookup_struct(name);
-                if let Some(r#struct) = try_struct {
-                    Ok(self.construct_struct(name, assignments, &r#struct.fields)?)
+                let composite = self.lookup_composite(name)?;
+                if !composite.is_heap_allocated {
+                    Ok(self.construct_struct(name, assignments, &composite.fields)?)
                 } else {
-                    let bundle = self.lookup_bundle(name)?;
-                    let value = self.construct_struct(name, assignments, &bundle.fields)?;
+                    let value = self.construct_struct(name, assignments, &composite.fields)?;
                     let typ = value.get_type();
                     let addr = self.allocate(value);
                     Ok(CortexValue::Pointer(addr, typ))
@@ -1084,20 +1083,8 @@ impl CortexInterpreter {
         let last = path.get_back()?;
         Ok(self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?.get_function(last)?)
     }
-    fn lookup_struct(&self, path: &PathIdent) -> Result<Rc<Struct>, CortexError> {
+    fn lookup_composite(&self, path: &PathIdent) -> Result<Rc<CompositeType>, CortexError> {
         let last = path.get_back()?;
-        Ok(self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?.get_struct(last)?)
-    }
-    fn lookup_bundle(&self, path: &PathIdent) -> Result<Rc<Bundle>, CortexError> {
-        let last = path.get_back()?;
-        Ok(self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?.get_bundle(last)?)
-    }
-    fn try_lookup_struct(&self, path: &PathIdent) -> Option<Rc<Struct>> {
-        let result = self.lookup_struct(path);
-        if let Ok(v) = result {
-            Some(v)
-        } else {
-            None
-        }
+        Ok(self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?.get_composite(last)?)
     }
 }

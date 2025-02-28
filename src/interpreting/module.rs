@@ -27,11 +27,15 @@ pub enum ModuleError {
     StructContainsCircularFields(String),
 }
 
+pub struct CompositeType {
+    pub(crate) fields: HashMap<String, CortexType>,
+    pub(crate) is_heap_allocated: bool,
+}
+
 pub struct Module {
     children: HashMap<String, Module>,
     functions: HashMap<String, Rc<Function>>,
-    structs: HashMap<String, Rc<Struct>>,
-    bundles: HashMap<String, Rc<Bundle>>,
+    composites: HashMap<String, Rc<CompositeType>>,
 }
 
 impl Module {
@@ -42,8 +46,7 @@ impl Module {
         Module {
             children: children,
             functions: HashMap::new(),
-            structs: HashMap::new(),
-            bundles: HashMap::new(),
+            composites: HashMap::new(),
         }
     }
 
@@ -127,15 +130,15 @@ impl Module {
         }
     }
 
-    fn get_struct_internal(&self, name: &String) -> Option<Rc<Struct>> {
-        if self.structs.contains_key(name) {
-            Some(self.structs.get(name).unwrap().clone())
+    fn get_composite_internal(&self, name: &String) -> Option<Rc<CompositeType>> {
+        if self.composites.contains_key(name) {
+            Some(self.composites.get(name).unwrap().clone())
         } else {
             None
         }
     }
-    pub fn get_struct(&self, name: &String) -> Result<Rc<Struct>, ModuleError> {
-        let search_result = self.get_struct_internal(name);
+    pub fn get_composite(&self, name: &String) -> Result<Rc<CompositeType>, ModuleError> {
+        let search_result = self.get_composite_internal(name);
         if let Some(func) = search_result {
             Ok(func)
         } else {
@@ -145,16 +148,17 @@ impl Module {
     pub fn add_struct(&mut self, item: Struct) -> Result<(), ModuleError> {
         match &item.name {
             OptionalIdentifier::Ident(name) => {
-                if let Some(_) = self.get_struct_internal(&name) {
-                    Err(ModuleError::TypeAlreadyExists(name.clone()))
-                } else if let Some(_) = self.get_bundle_internal(&name) {
+                if let Some(_) = self.get_composite_internal(&name) {
                     Err(ModuleError::TypeAlreadyExists(name.clone()))
                 } else {
                     let has_loop = self.search_struct_for_loops(&item)?;
                     if has_loop {
                         Err(ModuleError::StructContainsCircularFields(name.clone()))
                     } else {
-                        self.structs.insert(name.clone(), Rc::from(item));
+                        self.composites.insert(name.clone(), Rc::from(CompositeType {
+                            fields: item.fields,
+                            is_heap_allocated: false,
+                        }));
                         Ok(())
                     }
                 }
@@ -162,31 +166,16 @@ impl Module {
             OptionalIdentifier::Ignore => Ok(()),
         }
     }
-
-    fn get_bundle_internal(&self, name: &String) -> Option<Rc<Bundle>> {
-        if self.bundles.contains_key(name) {
-            Some(self.bundles.get(name).unwrap().clone())
-        } else {
-            None
-        }
-    }
-    pub fn get_bundle(&self, name: &String) -> Result<Rc<Bundle>, ModuleError> {
-        let search_result = self.get_bundle_internal(name);
-        if let Some(item) = search_result {
-            Ok(item)
-        } else {
-            Err(ModuleError::TypeDoesNotExist(name.clone()))
-        }
-    }
     pub fn add_bundle(&mut self, item: Bundle) -> Result<(), ModuleError> {
         match &item.name {
             OptionalIdentifier::Ident(name) => {
-                if let Some(_) = self.get_struct_internal(&name) {
-                    Err(ModuleError::TypeAlreadyExists(name.clone()))
-                } else if let Some(_) = self.get_bundle_internal(&name) {
+                if let Some(_) = self.get_composite_internal(&name) {
                     Err(ModuleError::TypeAlreadyExists(name.clone()))
                 } else {
-                    self.bundles.insert(name.clone(), Rc::from(item));
+                    self.composites.insert(name.clone(), Rc::from(CompositeType {
+                        fields: item.fields,
+                        is_heap_allocated: true,
+                    }));
                     Ok(())
                 }
             },
@@ -212,7 +201,7 @@ impl Module {
                         // Enqueue all fields of this type
                         let struc = self
                             .get_module_for(&typ.name)?
-                            .get_struct(typ.name.get_back().map_err(|e| ModuleError::PathError(e))?)?;
+                            .get_composite(typ.name.get_back().map_err(|e| ModuleError::PathError(e))?)?;
                         
                         for field in &struc.fields {
                             q.push_back(field.1.clone());
