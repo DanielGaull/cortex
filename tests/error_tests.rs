@@ -59,7 +59,7 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     assert_err("myTime.z;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.m = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool"), String::from("m")), &mut interpreter)?;
-    assert_err("5.foo;", ValueError::CannotAccessMemberOfNonComposite, &mut interpreter)?;
+    assert_err("5.foo;", ValueError::CannotAccessMemberOfNonComposite("number"), &mut interpreter)?;
     assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", InterpreterError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
     assert_err("simple::Time { m: 2, m: 3 };", InterpreterError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;

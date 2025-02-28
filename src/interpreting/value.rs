@@ -10,8 +10,8 @@ pub enum ValueError {
     FieldDoesNotExist(String, String),
     #[error("You cannot modify fields on a non-composite value")]
     CannotModifyFieldOnNonComposite,
-    #[error("You cannot access fields on a non-composite value")]
-    CannotAccessMemberOfNonComposite,
+    #[error("You cannot access fields on a non-composite value (variant: {0})")]
+    CannotAccessMemberOfNonComposite(&'static str),
     #[error("Member path cannot be empty")]
     MemberPathCannotBeEmpty,
 }
@@ -64,6 +64,17 @@ impl CortexValue {
             CortexValue::Pointer(_, typ) => typ.clone(),
         }
     }
+    fn get_variant_name(&self) -> &'static str {
+        match self {
+            CortexValue::Number(_) => "number",
+            CortexValue::Boolean(_) => "bool",
+            CortexValue::String(_) => "string",
+            CortexValue::Void => "void",
+            CortexValue::Null => "null",
+            CortexValue::Composite { struct_name: _, field_values: _ } => "composite",
+            CortexValue::Pointer(_, _) => "pointer",
+        }
+    }
 
     pub fn get_field(&self, field: &String) -> Result<Rc<RefCell<CortexValue>>, ValueError> {
         if let CortexValue::Composite { struct_name, field_values } = self {
@@ -74,7 +85,7 @@ impl CortexValue {
                 Err(ValueError::FieldDoesNotExist(field.clone(), struct_name.codegen(0)))
             }
         } else {
-            Err(ValueError::CannotAccessMemberOfNonComposite)
+            Err(ValueError::CannotAccessMemberOfNonComposite(self.get_variant_name()))
         }
     }
     pub fn set_field(&mut self, field: &String, value: CortexValue) -> Result<(), ValueError> {
