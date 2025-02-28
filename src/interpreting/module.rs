@@ -2,7 +2,7 @@ use std::{collections::{HashMap, VecDeque}, rc::Rc};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Function, Struct}, r#type::CortexType};
+use crate::parsing::ast::{expression::{OptionalIdentifier, Parameter, PathError, PathIdent}, top_level::{Bundle, Function, Struct}, r#type::CortexType};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -176,6 +176,23 @@ impl Module {
                         fields: item.fields,
                         is_heap_allocated: true,
                     }));
+                    for func in item.functions {
+                        match func.name {
+                            OptionalIdentifier::Ident(func_name) => {
+                                let new_param = Parameter::named("this", CortexType::new(PathIdent::simple(name.clone()), false));
+                                let mut param_list = vec![new_param];
+                                param_list.extend(func.params);
+                                let new_func = Function::new(
+                                    OptionalIdentifier::Ident(Bundle::get_bundle_func_name(name, &func_name)),
+                                    param_list,
+                                    func.return_type,
+                                    func.body,
+                                );
+                                self.add_function(new_func)?;
+                            },
+                            OptionalIdentifier::Ignore => (),
+                        }
+                    }
                     Ok(())
                 }
             },

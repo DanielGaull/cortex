@@ -6,7 +6,7 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, PathOrIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
     ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
@@ -84,8 +84,11 @@ fn from_segment(input: &str, pos1: (usize, usize), pos2: (usize, usize)) -> Stri
 fn from_pos(input: &str, pos: (usize, usize)) -> String {
     // line, column
     let lines: Vec<_> = input.split("\n").collect();
-    let line = *lines.get(pos.0).unwrap();
-    String::from(line)
+    let line = lines.get(pos.0);
+    match line {
+        Some(s) => String::from(*s),
+        None => String::from("<Could not select substring!>")
+    }
 }
 
 impl CortexParser {
@@ -370,7 +373,13 @@ impl CortexParser {
             },
             Rule::call => {
                 let mut pairs = pair.into_inner();
-                let name = Self::parse_path_ident(pairs.next().unwrap())?;
+                let first_pair = pairs.next().unwrap();
+                let name =
+                    if matches!(first_pair.as_rule(), Rule::identExpr) {
+                        PathOrIdent::Ident(Self::parse_ident_expr(first_pair)?)
+                    } else {
+                        PathOrIdent::Path(Self::parse_path_ident(first_pair)?)
+                    };
                 let mut args: Vec<Expression> = Vec::new();
                 for arg in pairs {
                     let parsed_arg = Self::parse_expr_pair(arg)?;
@@ -498,13 +507,13 @@ impl CortexParser {
 
     fn parse_ident_expr(pair: Pair<Rule>) -> Result<IdentExpression, ParseError> {
         let mut pairs = pair.into_inner();
-        let path = Self::parse_path_ident(pairs.next().unwrap())?;
+        let first = pairs.next().unwrap().as_str();
         let mut chain = Vec::new();
         for p in pairs {
             chain.push(String::from(p.as_str()));
         }
         Ok(IdentExpression {
-            base: path,
+            base: String::from(first),
             chain: chain,
         })
     }

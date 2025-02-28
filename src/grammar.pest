@@ -19,7 +19,7 @@ throw = { "throw" ~ expr }
 
 varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { identExpr ~ arithLogicBinOp? ~ "=" ~ expr }
-identExpr = { pathIdent ~ ("." ~ ident)* }
+identExpr = { ident ~ ("." ~ ident)* }
 
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
@@ -34,7 +34,7 @@ eqResult = { sumResult ~ ((eq | neq | lte | gte | lt | gt) ~ sumResult)* }
 logicResult = _{ eqResult ~ ((and | or) ~ eqResult)* }
 expr = { logicResult }
 
-call = { pathIdent ~ "(" ~ exprList ~ ")" }
+call = { (pathIdent | identExpr) ~ "(" ~ exprList ~ ")" }
 structConstruction = { pathIdent ~ "{" ~ (structMemberInit ~ ",")* ~ structMemberInit? ~ "}" }
 structMemberInit = { ident ~ ":" ~ expr }
 

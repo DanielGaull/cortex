@@ -248,4 +248,8 @@ impl Bundle {
             functions: funcs,
         }
     }
+
+    pub(crate) fn get_bundle_func_name(bundle_name: &String, func_name: &String) -> String {
+        format!("{}`{}", bundle_name, func_name)
+    }
 }

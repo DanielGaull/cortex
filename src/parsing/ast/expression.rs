@@ -65,6 +65,20 @@ impl SimpleCodeGen for ConditionBody {
 }
 
 #[derive(Clone)]
+pub enum PathOrIdent {
+    Ident(IdentExpression),
+    Path(PathIdent),
+}
+impl SimpleCodeGen for PathOrIdent {
+    fn codegen(&self, indent: usize) -> String {
+        match self {
+            PathOrIdent::Ident(ident_expression) => ident_expression.codegen(indent),
+            PathOrIdent::Path(path_ident) => path_ident.codegen(indent),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub enum Atom {
     Number(f64),
     Boolean(bool),
@@ -72,7 +86,7 @@ pub enum Atom {
     Null,
     String(String),
     PathIdent(PathIdent),
-    Call(PathIdent, Vec<Expression>),
+    Call(PathOrIdent, Vec<Expression>),
     Construction {
         name: PathIdent, 
         assignments: Vec<(String, Expression)>
@@ -211,13 +225,13 @@ impl Parameter {
 
 #[derive(Clone)]
 pub struct IdentExpression {
-    pub(crate) base: PathIdent,
+    pub(crate) base: String,
     pub(crate) chain: Vec<String>,
 }
 impl SimpleCodeGen for IdentExpression {
-    fn codegen(&self, indent: usize) -> String {
+    fn codegen(&self, _indent: usize) -> String {
         let mut s = String::new();
-        s.push_str(&self.base.codegen(indent));
+        s.push_str(&self.base);
         for c in &self.chain {
             s.push_str(".");
             s.push_str(c);

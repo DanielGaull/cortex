@@ -99,7 +99,6 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("const x: number = 5;")?;
     run_statement_test("let ~ = 5;")?;
     run_statement_test("x = 5;")?;
-    run_statement_test("x::y = 5;")?;
     run_statement_test("while true {\n    x += 1;\n}")?;
     Ok(())
 }

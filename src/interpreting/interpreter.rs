@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::{HashMap, HashSet}, error::Error, rc::Rc};
 use thiserror::Error;
 use paste::paste;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, PathOrIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, mem::heap::Heap, module::{CompositeType, Module}, value::{CortexValue, ValueError}};
 
 macro_rules! determine_op_type_fn {
@@ -220,92 +220,83 @@ impl CortexInterpreter {
             },
             Statement::VariableAssignment { name, value, op } => {
                 if name.is_simple() {
-                    let path = &name.base;
-                    if !path.is_final()? {
-                        Err(Box::new(InterpreterError::CannotModifyModuleEnvironment(path.codegen(0))))
-                    } else {
-                        let var_name = path.get_front()?;
-                        let assigned_type = self.determine_type(value)?;
-                        let var_type = self.current_env.as_ref().unwrap().get_type_of(var_name)?;
-                        if let Some(binop) = op {
-                            let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
-                            if !type_op.is_subtype_of(var_type) {
-                                return Err(
-                                    Box::new(
-                                        InterpreterError::MismatchedType(
-                                            var_type.codegen(0),
-                                            type_op.codegen(0),
-                                            var_name.clone(),
-                                        )
+                    let var_name = &name.base;
+                    let assigned_type = self.determine_type(value)?;
+                    let var_type = self.current_env.as_ref().unwrap().get_type_of(var_name)?;
+                    if let Some(binop) = op {
+                        let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
+                        if !type_op.is_subtype_of(var_type) {
+                            return Err(
+                                Box::new(
+                                    InterpreterError::MismatchedType(
+                                        var_type.codegen(0),
+                                        type_op.codegen(0),
+                                        var_name.clone(),
                                     )
-                                );
-                            }
-                            let second = self.evaluate_expression(value)?;
-                            let first = self.current_env.as_ref().unwrap().get_value(var_name)?;
-                            let value = self.evaluate_op(first.clone(), binop, second)?;
-                            self.current_env.as_mut().unwrap().set_value(var_name, value)?;
-                        } else {
-                            if !assigned_type.is_subtype_of(var_type) {
-                                return Err(
-                                    Box::new(
-                                        InterpreterError::MismatchedType(
-                                            var_type.codegen(0),
-                                            assigned_type.codegen(0),
-                                            var_name.clone(),
-                                        )
-                                    )
-                                );
-                            }
-                            let value = self.evaluate_expression(value)?;
-                            self.current_env.as_mut().unwrap().set_value(var_name, value)?;
+                                )
+                            );
                         }
-                        Ok(())
+                        let second = self.evaluate_expression(value)?;
+                        let first = self.current_env.as_ref().unwrap().get_value(var_name)?;
+                        let value = self.evaluate_op(first.clone(), binop, second)?;
+                        self.current_env.as_mut().unwrap().set_value(var_name, value)?;
+                    } else {
+                        if !assigned_type.is_subtype_of(var_type) {
+                            return Err(
+                                Box::new(
+                                    InterpreterError::MismatchedType(
+                                        var_type.codegen(0),
+                                        assigned_type.codegen(0),
+                                        var_name.clone(),
+                                    )
+                                )
+                            );
+                        }
+                        let value = self.evaluate_expression(value)?;
+                        self.current_env.as_mut().unwrap().set_value(var_name, value)?;
                     }
+                    Ok(())
                 } else {
-                    if !name.base.is_final()? {
-                        Err(Box::new(InterpreterError::CannotModifyModuleEnvironment(name.base.codegen(0))))
-                    } else {
-                        let var_name = name.base.get_front()?;
-                        let chain = name.chain.clone();
-                        let assigned_type = self.determine_type(value)?;
-                        let base = Rc::new(RefCell::new(self.current_env.as_ref().unwrap().get_value(var_name)?.clone()));
-                        let current_value = self.get_field_path(base, chain.clone())?;
-                        let var_type = current_value.get_type();
-                        if let Some(binop) = op {
-                            let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
-                            if !type_op.is_subtype_of(&var_type) {
-                                return Err(
-                                    Box::new(
-                                        InterpreterError::MismatchedType(
-                                            var_type.codegen(0),
-                                            type_op.codegen(0),
-                                            chain.last().unwrap().clone(),
-                                        )
+                    let var_name = &name.base;
+                    let chain = name.chain.clone();
+                    let assigned_type = self.determine_type(value)?;
+                    let base = Rc::new(RefCell::new(self.current_env.as_ref().unwrap().get_value(var_name)?.clone()));
+                    let current_value = self.get_field_path(base, chain.clone())?;
+                    let var_type = current_value.get_type();
+                    if let Some(binop) = op {
+                        let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
+                        if !type_op.is_subtype_of(&var_type) {
+                            return Err(
+                                Box::new(
+                                    InterpreterError::MismatchedType(
+                                        var_type.codegen(0),
+                                        type_op.codegen(0),
+                                        chain.last().unwrap().clone(),
                                     )
-                                );
-                            }
-                            let second = self.evaluate_expression(value)?;
-                            let value = self.evaluate_op(current_value, binop, second)?;
-                            let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
-                            self.set_field_path(base, chain, value)?;
-                        } else {
-                            if !assigned_type.is_subtype_of(&var_type) {
-                                return Err(
-                                    Box::new(
-                                        InterpreterError::MismatchedType(
-                                            var_type.codegen(0),
-                                            assigned_type.codegen(0),
-                                            chain.last().unwrap().clone(),
-                                        )
-                                    )
-                                );
-                            }
-                            let value = self.evaluate_expression(value)?;
-                            let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
-                            self.set_field_path(base, chain, value)?;
+                                )
+                            );
                         }
-                        Ok(())
+                        let second = self.evaluate_expression(value)?;
+                        let value = self.evaluate_op(current_value, binop, second)?;
+                        let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
+                        self.set_field_path(base, chain, value)?;
+                    } else {
+                        if !assigned_type.is_subtype_of(&var_type) {
+                            return Err(
+                                Box::new(
+                                    InterpreterError::MismatchedType(
+                                        var_type.codegen(0),
+                                        assigned_type.codegen(0),
+                                        chain.last().unwrap().clone(),
+                                    )
+                                )
+                            );
+                        }
+                        let value = self.evaluate_expression(value)?;
+                        let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
+                        self.set_field_path(base, chain, value)?;
                     }
+                    Ok(())
                 }
             },
             Statement::WhileLoop(condition_body) => {
@@ -455,14 +446,38 @@ impl CortexInterpreter {
             Atom::Null => Ok(CortexType::null()),
             Atom::String(_) => Ok(CortexType::string(false)),
             Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
-            Atom::Call(path_ident, _) => {
-                let func = self.lookup_function(path_ident)?;
-                let return_type = func
-                    .return_type
-                    .clone()
-                    .with_prefix_if_not_core(&self.current_context)
-                    .with_prefix_if_not_core(&path_ident.without_last());
-                Ok(return_type)
+            Atom::Call(path, _) => {
+                match path {
+                    PathOrIdent::Ident(ident_expression) => {
+                        let base = Rc::new(RefCell::new(self.current_env.as_ref().unwrap().get_value(&ident_expression.base)?));
+                        let mut chain = ident_expression.chain.clone();
+                        let last = chain.remove(chain.len() - 1);
+                        let caller = self.get_field_path(base, chain)?;
+                        let caller_type = caller.get_type()
+                            .with_prefix_if_not_core(&self.current_context)
+                            .name;
+                        let caller_func_prefix = caller_type.without_last();
+                        let caller_func_base = caller_type.get_back()?;
+                        let member_func_name = Bundle::get_bundle_func_name(caller_func_base, &last);
+                        let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name);
+                        let func = self.lookup_function(&member_func_path)?;
+                        let return_type = func
+                            .return_type
+                            .clone()
+                            .with_prefix_if_not_core(&self.current_context)
+                            .with_prefix_if_not_core(&caller_func_prefix);
+                        Ok(return_type)
+                    },
+                    PathOrIdent::Path(path_ident) => {
+                        let func = self.lookup_function(path_ident)?;
+                        let return_type = func
+                            .return_type
+                            .clone()
+                            .with_prefix_if_not_core(&self.current_context)
+                            .with_prefix_if_not_core(&path_ident.without_last());
+                        Ok(return_type)
+                    },
+                }
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
             Atom::Construction { name, assignments: _ } => {
@@ -750,11 +765,33 @@ impl CortexInterpreter {
             Atom::Expression(expr) => Ok(self.evaluate_expression(expr)?),
             Atom::PathIdent(path) => Ok(self.lookup_value(path)?),
             Atom::Call(path_ident, expressions) => {
-                let func = self.lookup_function(path_ident)?;
-                let context_to_return_to = std::mem::replace(&mut self.current_context, path_ident.without_last());
-                let func_result = self.run_function(&func, expressions);
-                self.current_context = context_to_return_to;
-                Ok(func_result?)
+                match path_ident {
+                    PathOrIdent::Ident(ident_expression) => {
+                        let base = Rc::new(RefCell::new(self.current_env.as_ref().unwrap().get_value(&ident_expression.base)?));
+                        let mut chain = ident_expression.chain.clone();
+                        let last = chain.remove(chain.len() - 1);
+                        let caller = self.get_field_path(base, chain)?;
+                        let caller_type = caller.get_type()
+                            .with_prefix_if_not_core(&self.current_context)
+                            .name;
+                        let caller_func_prefix = caller_type.without_last();
+                        let caller_func_base = caller_type.get_back()?;
+                        let member_func_name = Bundle::get_bundle_func_name(caller_func_base, &last);
+                        let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name);
+                        let func = self.lookup_function(&member_func_path)?;
+                        let context_to_return_to = std::mem::replace(&mut self.current_context, caller_func_prefix);
+                        let func_result = self.run_function(&func, expressions);
+                        self.current_context = context_to_return_to;
+                        Ok(func_result?)
+                    },
+                    PathOrIdent::Path(path_ident) => {
+                        let func = self.lookup_function(path_ident)?;
+                        let context_to_return_to = std::mem::replace(&mut self.current_context, path_ident.without_last());
+                        let func_result = self.run_function(&func, expressions);
+                        self.current_context = context_to_return_to;
+                        Ok(func_result?)
+                    },
+                }
             },
             Atom::Construction { name, assignments } => {
                 let composite = self.lookup_composite(name)?;
