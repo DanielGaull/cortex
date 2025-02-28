@@ -1,9 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
 use crate::interpreting::value::CortexValue;
 
 pub(crate) struct Heap {
-    store: HashMap<usize, CortexValue>,
+    store: HashMap<usize, Rc<RefCell<CortexValue>>>,
     next_id: usize,
     gc_threshold: usize,
 }
@@ -17,17 +17,14 @@ impl Heap {
         }
     }
 
-    pub fn get(&self, addr: usize) -> &CortexValue {
-        self.store.get(&addr).unwrap()
-    }
-    pub fn get_mut(&mut self, addr: usize) -> &mut CortexValue {
-        self.store.get_mut(&addr).unwrap()
+    pub fn get(&self, addr: usize) -> Rc<RefCell<CortexValue>> {
+        self.store.get(&addr).unwrap().clone()
     }
 
     pub fn allocate(&mut self, value: CortexValue) -> usize {
         let id = self.next_id;
         self.next_id += 1;
-        self.store.insert(id, value);
+        self.store.insert(id, Rc::new(RefCell::new(value)));
         id
     }
 
@@ -55,17 +52,20 @@ impl Heap {
         }
         if let Some(value) = self.store.get(&addr) {
             marked.insert(addr);
-            self.mark_children(marked, value);
+            self.mark_children(marked, value.clone());
         }
     }
 
-    fn mark_children(&self, marked: &mut HashSet<usize>, value: &CortexValue) {
-        if let CortexValue::Composite { struct_name: _, field_values } = value {
-            for (_, fvalue) in field_values {
-                if let CortexValue::Pointer(addr, _) = fvalue {
-                    self.mark(marked, *addr);
-                } else if let CortexValue::Composite { struct_name: _, field_values: _ } = fvalue {
-                    self.mark_children(marked, fvalue);
+    fn mark_children(&self, marked: &mut HashSet<usize>, value: Rc<RefCell<CortexValue>>) {
+        if let CortexValue::Composite { struct_name: _, field_values } = &*value.borrow() {
+            for (_, fvalue_ref) in field_values {
+                let fvalue = fvalue_ref.borrow();
+                if let CortexValue::Pointer(addr, _) = *fvalue {
+                    self.mark(marked, addr);
+                } else if let CortexValue::Composite { struct_name: _, field_values: _ } = *fvalue {
+                    // NOTE: we are allowed to clone fields of composites
+                    // We are only not allowed to clone values that directly appear on the heap
+                    self.mark_children(marked, Rc::new(RefCell::new(fvalue.clone())));
                 }
             }
         }

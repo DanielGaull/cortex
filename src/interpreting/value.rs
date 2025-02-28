@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use thiserror::Error;
 
@@ -25,7 +25,7 @@ pub enum CortexValue {
     Null,
     Composite {
         struct_name: PathIdent,
-        field_values: HashMap<String, CortexValue>,
+        field_values: HashMap<String, Rc<RefCell<CortexValue>>>,
     },
     Pointer(usize, CortexType),
 }
@@ -43,7 +43,7 @@ impl Display for CortexValue {
                 for (name, val) in field_values {
                     s.push_str(name);
                     s.push_str(":");
-                    s.push_str(&format!("{}", val));
+                    s.push_str(&format!("{}", val.borrow()));
                     s.push_str(";");
                 }
                 write!(f, "{}({})", struct_name.codegen(0), s)
@@ -65,22 +65,10 @@ impl CortexValue {
         }
     }
 
-    pub fn get_field(&self, field: &String) -> Result<CortexValue, ValueError> {
+    pub fn get_field(&self, field: &String) -> Result<Rc<RefCell<CortexValue>>, ValueError> {
         if let CortexValue::Composite { struct_name, field_values } = self {
             if field_values.contains_key(field) {
                 let val = field_values.get(field).unwrap().clone();
-                Ok(val)
-            } else {
-                Err(ValueError::FieldDoesNotExist(field.clone(), struct_name.codegen(0)))
-            }
-        } else {
-            Err(ValueError::CannotAccessMemberOfNonComposite)
-        }
-    }
-    pub fn get_field_mut(&mut self, field: &String) -> Result<&mut CortexValue, ValueError> {
-        if let CortexValue::Composite { struct_name, field_values } = self {
-            if field_values.contains_key(field) {
-                let val = field_values.get_mut(field).unwrap();
                 Ok(val)
             } else {
                 Err(ValueError::FieldDoesNotExist(field.clone(), struct_name.codegen(0)))
@@ -93,7 +81,7 @@ impl CortexValue {
         match self {
             CortexValue::Composite { struct_name, field_values } => {
                 if field_values.contains_key(field) {
-                    field_values.insert(field.clone(), value);
+                    field_values.insert(field.clone(), Rc::new(RefCell::new(value)));
                     Ok(())
                 } else {
                     Err(ValueError::FieldDoesNotExist(field.clone(), struct_name.codegen(0)))

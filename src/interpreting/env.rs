@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use thiserror::Error;
 
@@ -40,7 +40,7 @@ impl Environment {
     pub fn foreach<F>(&self, mut func: F)
     where F: FnMut(&str, &CortexValue) -> () {
         for (name, var) in &self.variables {
-            func(name.as_str(), var.value());
+            func(name.as_str(), &var.value().borrow().clone());
         }
         if let Some(p) = &self.parent {
             p.foreach(func);
@@ -100,18 +100,18 @@ impl Environment {
         }
     }
 
-    pub fn get_value(&self, name: &str) -> Result<&CortexValue, EnvError> {
+    pub fn get_value(&self, name: &str) -> Result<CortexValue, EnvError> {
         let search_result = self.get_variable(&String::from(name));
         if let Some(var) = search_result {
-            Ok(var.value())
+            Ok(var.value().borrow().clone())
         } else {
             Err(EnvError::VariableDoesNotExist(String::from(name)))
         }
     }
-    pub fn get_value_mut(&mut self, name: &str) -> Result<&mut CortexValue, EnvError> {
-        let search_result = self.get_variable_mut(&String::from(name));
+    pub fn get_cell(&self, name: &str) -> Result<Rc<RefCell<CortexValue>>, EnvError> {
+        let search_result = self.get_variable(&String::from(name));
         if let Some(var) = search_result {
-            Ok(var.value_mut())
+            Ok(var.value().clone())
         } else {
             Err(EnvError::VariableDoesNotExist(String::from(name)))
         }
@@ -126,49 +126,43 @@ impl Environment {
     }
 }
 
-pub struct Variable {
+struct Variable {
     is_const: bool,
     declared_type: CortexType,
-    value: CortexValue,
+    value: Rc<RefCell<CortexValue>>,
     name: String,
 }
 impl Variable {
-    pub fn var(name: String, typ: CortexType, value: CortexValue) -> Self {
+    fn var(name: String, typ: CortexType, value: CortexValue) -> Self {
         Variable {
             name: name,
             is_const: false,
             declared_type: typ,
-            value: value,
+            value: Rc::new(RefCell::new(value)),
         }
     }
-    pub fn constant(name: String, typ: CortexType, value: CortexValue) -> Self {
+    fn constant(name: String, typ: CortexType, value: CortexValue) -> Self {
         Variable {
             name: name,
             is_const: true,
             declared_type: typ,
-            value: value,
+            value: Rc::new(RefCell::new(value)),
         }
     }
 
-    pub fn value(&self) -> &CortexValue {
+    fn value(&self) -> &Rc<RefCell<CortexValue>> {
         &self.value
     }
-    pub fn value_mut(&mut self) -> &mut CortexValue {
-        &mut self.value
-    }
-    pub fn typ(&self) -> &CortexType {
+    fn typ(&self) -> &CortexType {
         &self.declared_type
     }
-    pub fn name(&self) -> &String {
-        &self.name
-    }
-    pub fn set(&mut self, value: CortexValue) -> Result<(), EnvError> {
+    fn set(&mut self, value: CortexValue) -> Result<(), EnvError> {
         // Does not check the type, that is the interpreter's job before
         // calling this function
         if self.is_const {
             Err(EnvError::ModifyConstant(self.name.clone()))
         } else {
-            self.value = value;
+            self.value = Rc::new(RefCell::new(value));
             Ok(())
         }
     }

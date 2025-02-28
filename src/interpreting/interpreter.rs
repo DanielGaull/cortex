@@ -99,17 +99,18 @@ impl CortexInterpreter {
         // and those struct's fields, etc.
         let mut roots = HashSet::<usize>::new();
         if let Some(env) = &self.current_env {
-            env.foreach(|_name, value| self.find_reachables(&mut roots, value));
+            env.foreach(|_name, value| self.find_reachables(&mut roots, Rc::new(RefCell::new(value.clone()))));
         }
         self.heap.gc(roots);
     }
-    fn find_reachables(&self, current: &mut HashSet<usize>, value: &CortexValue) {
-        if let CortexValue::Composite { struct_name: _, field_values } = value {
+    fn find_reachables(&self, current: &mut HashSet<usize>, value: Rc<RefCell<CortexValue>>) {
+        let value_ref = value.borrow();
+        if let CortexValue::Composite { struct_name: _, field_values } = &*value_ref {
             for (_, fvalue) in field_values {
-                self.find_reachables(current, fvalue);
+                self.find_reachables(current, fvalue.clone());
             }
-        } else if let CortexValue::Pointer(addr, _) = value {
-            current.insert(*addr);
+        } else if let CortexValue::Pointer(addr, _) = *value_ref {
+            current.insert(addr);
         }
     }
 
@@ -264,7 +265,8 @@ impl CortexInterpreter {
                         let var_name = name.base.get_front()?;
                         let chain = name.chain.clone();
                         let assigned_type = self.determine_type(value)?;
-                        let current_value = self.get_field_path(self.current_env.as_ref().unwrap().get_value(var_name)?, chain.clone())?;
+                        let base = Rc::new(RefCell::new(self.current_env.as_ref().unwrap().get_value(var_name)?.clone()));
+                        let current_value = self.get_field_path(base, chain.clone())?;
                         let var_type = current_value.get_type();
                         if let Some(binop) = op {
                             let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
@@ -281,7 +283,8 @@ impl CortexInterpreter {
                             }
                             let second = self.evaluate_expression(value)?;
                             let value = self.evaluate_op(current_value, binop, second)?;
-                            Self::set_field_path(self.current_env.as_mut().unwrap().get_value_mut(var_name)?, chain, value, &mut self.heap)?;
+                            let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
+                            self.set_field_path(base, chain, value)?;
                         } else {
                             if !assigned_type.is_subtype_of(&var_type) {
                                 return Err(
@@ -295,7 +298,8 @@ impl CortexInterpreter {
                                 );
                             }
                             let value = self.evaluate_expression(value)?;
-                            Self::set_field_path(self.current_env.as_mut().unwrap().get_value_mut(var_name)?, chain, value, &mut self.heap)?;
+                            let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
+                            self.set_field_path(base, chain, value)?;
                         }
                         Ok(())
                     }
@@ -847,12 +851,12 @@ impl CortexInterpreter {
                 }
             },
             ExpressionTail::MemberAccess { member, next } => {
-                let mut atom = &atom;
                 if let CortexValue::Pointer(addr, _) = atom {
-                    atom = self.heap.get(*addr);
+                    let val = self.heap.get(addr).borrow().get_field(member)?.borrow().clone();
+                    Ok(self.handle_expr_tail(val, next)?)
+                } else {
+                    Ok(self.handle_expr_tail(atom.get_field(member)?.borrow().clone(), next)?)
                 }
-                let val = atom.get_field(member)?;
-                Ok(self.handle_expr_tail(val, next)?)
             },
         }
     }
@@ -874,7 +878,7 @@ impl CortexInterpreter {
         for k in fields.keys() {
             fields_to_assign.push(k.clone());
         }
-        let mut values = HashMap::<String, CortexValue>::new();
+        let mut values = HashMap::<String, Rc<RefCell<CortexValue>>>::new();
         for (fname, value) in assignments {
             let opt_typ = fields
                 .get(fname)
@@ -897,7 +901,7 @@ impl CortexInterpreter {
                     );
                 }
                 let assigned_value = self.evaluate_expression(value)?;
-                values.insert(fname.clone(), assigned_value);
+                values.insert(fname.clone(), Rc::new(RefCell::new(assigned_value)));
                 let index_opt = fields_to_assign.iter().position(|x| *x == *fname);
                 if let Some(index) = index_opt {
                     fields_to_assign.remove(index);
@@ -909,43 +913,54 @@ impl CortexInterpreter {
             }
         }
         if fields_to_assign.is_empty() {
-            Ok(CortexValue::Composite { struct_name: PathIdent::concat(&self.current_context, name), field_values: values, })
+            Ok(
+                CortexValue::Composite {
+                    struct_name: PathIdent::concat(&self.current_context, name),
+                    field_values: values,
+                }
+            )
         } else {
             Err(Box::new(InterpreterError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
         }
     }
     
-    fn set_field_path(base: &mut CortexValue, mut path: Vec<String>, value: CortexValue, heap: &mut Heap) -> Result<(), ValueError> {
+    fn set_field_path(&mut self, base: Rc<RefCell<CortexValue>>, mut path: Vec<String>, value: CortexValue) -> Result<(), ValueError> {
         let first_option = path.get(0);
         if let Some(first) = first_option {
             if path.len() == 1{
-                base.set_field(first, value)
+                base.borrow_mut().set_field(first, value)
             } else {
                 let fname = first.clone();
                 path.remove(0);
-                let mut field = base.get_field_mut(&fname)?;
-                if let CortexValue::Pointer(addr, _) = field {
-                    field = heap.get_mut(*addr);
+                let field = base.borrow().get_field(&fname)?;
+                let field_to_search;
+                if let CortexValue::Pointer(addr, _) = &*field.borrow() {
+                    field_to_search = self.heap.get(*addr);
+                } else {
+                    field_to_search = field.clone();
                 }
-                Self::set_field_path(field, path, value, heap)
+                self.set_field_path(field_to_search, path, value)
             }
         } else {
             Err(ValueError::MemberPathCannotBeEmpty)
         }
     }
-    fn get_field_path(&self, value: &CortexValue, mut path: Vec<String>) -> Result<CortexValue, ValueError> {
+    fn get_field_path(&self, value: Rc<RefCell<CortexValue>>, mut path: Vec<String>) -> Result<CortexValue, ValueError> {
         let first_option = path.get(0);
         if let Some(first) = first_option {
             if path.len() == 1{
-                value.get_field(first)
+                Ok(value.borrow().get_field(first)?.borrow().clone())
             } else {
                 let fname = first.clone();
                 path.remove(0);
-                let mut field = &value.get_field(&fname)?;
-                if let CortexValue::Pointer(addr, _) = field {
-                    field = self.heap.get(*addr);
+                let field = value.borrow().get_field(&fname)?;
+                let field_to_search;
+                if let CortexValue::Pointer(addr, _) = &*field.borrow() {
+                    field_to_search = self.heap.get(*addr);
+                } else {
+                    field_to_search = field.clone();
                 }
-                self.get_field_path(field, path)
+                self.get_field_path(field_to_search, path)
             }
         } else {
             Err(ValueError::MemberPathCannotBeEmpty)
