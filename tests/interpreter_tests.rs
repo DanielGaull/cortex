@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
+use cortex_lang::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -183,6 +183,41 @@ fn struct_tests() -> Result<(), Box<dyn Error>> {
     run_test("date.t.s", "100", &mut interpreter)?;
     // Structs are pass-by-value; important to keep them small so copying them is cheap
     run_test("time.s", "10", &mut interpreter)?;
+
+    Ok(())
+}
+
+#[test]
+fn bundle_tests() -> Result<(), Box<dyn Error>> {
+    let test_bundle = Bundle::new("Time", vec![
+        ("m", CortexType::number(false)),
+        ("s", CortexType::number(false)),
+    ]);
+    let date_bundle = Bundle::new("Date", vec![
+        ("t", CortexType::new(PathIdent::new(vec!["Time"]), false)),
+    ]);
+    let mut interpreter = CortexInterpreter::new();
+    let mut module = Module::new();
+    module.add_bundle(test_bundle)?;
+    module.add_bundle(date_bundle)?;
+    let path = CortexParser::parse_path("simple")?;
+    interpreter.register_module(&path, module)?;
+
+    interpreter.run_statement(&CortexParser::parse_statement("let time = simple::Time{m:5,s:10};")?)?;
+    run_test("time.m", "5", &mut interpreter)?;
+    run_test("time.s", "10", &mut interpreter)?;
+
+    interpreter.run_statement(&CortexParser::parse_statement("time.m = 7;")?)?;
+    run_test("time.m", "7", &mut interpreter)?;
+    interpreter.run_statement(&CortexParser::parse_statement("time.m += 7;")?)?;
+    run_test("time.m", "14", &mut interpreter)?;
+
+    interpreter.run_statement(&CortexParser::parse_statement("let date = simple::Date{t:time};")?)?;
+    run_test("date.t.m", "14", &mut interpreter)?;
+    interpreter.run_statement(&CortexParser::parse_statement("date.t.s = 100;")?)?;
+    run_test("date.t.s", "100", &mut interpreter)?;
+    // BUndles are pass-by-reference
+    run_test("time.s", "100", &mut interpreter)?;
 
     Ok(())
 }
