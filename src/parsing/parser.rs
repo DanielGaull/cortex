@@ -563,10 +563,14 @@ impl CortexParser {
     }
 
     fn parse_func_pair(pair: Pair<Rule>) -> Result<Function, ParseError> {
-        let mut pairs = pair.into_inner();
+        let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
         let params = Self::parse_param_list(pairs.next().unwrap())?;
-        let return_type = Self::parse_type_pair(pairs.next().unwrap())?;
+        let return_type = if matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
+            Self::parse_type_pair(pairs.next().unwrap())?
+        } else {
+            CortexType::void(false)
+        };
         let body = Self::parse_body(pairs.next().unwrap())?;
         Ok(Function {
             name: name,
