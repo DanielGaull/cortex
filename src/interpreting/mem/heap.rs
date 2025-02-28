@@ -17,6 +17,10 @@ impl Heap {
         }
     }
 
+    pub fn sz(&self) -> usize {
+        self.store.len()
+    }
+
     pub fn get(&self, addr: usize) -> Rc<RefCell<CortexValue>> {
         self.store.get(&addr).unwrap().clone()
     }

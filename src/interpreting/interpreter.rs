@@ -113,6 +113,9 @@ impl CortexInterpreter {
             current.insert(addr);
         }
     }
+    pub fn hpsz(&self) -> usize {
+        self.heap.sz()
+    }
 
     pub fn register_module(&mut self, path: &PathIdent, module: Module) -> Result<(), CortexError> {
         self.base_module.add_module(path, module)?;
