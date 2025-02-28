@@ -19,7 +19,11 @@ macro_rules! parse_test {
             fn [<run_ $name _test_or>](input: &str, other: &str) -> Result<(), Box<dyn Error>> {
                 let ast = CortexParser::[<parse_ $name>](input)?;
                 let code = ast.codegen(0);
-                assert!(input == code || other == code);
+                if input == code {
+                    assert_eq!(input, code);
+                } else {
+                    assert_eq!(other, code);
+                }
                 Ok(())
             }
         }
@@ -126,6 +130,10 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     run_top_level_test_or(
         "bundle Point {\n    x: number,\n    y: number,\n}\n",
         "bundle Point {\n    y: number,\n    x: number,\n}\n"
+    )?;
+    run_top_level_test_or(
+        "bundle Point {\n    x: number,\n    y: number,\n    fn incX(amt: number): void {\n        this.x += amt;\n    }\n}\n",
+        "bundle Point {\n    y: number,\n    x: number,\n    fn incX(amt: number): void {\n        this.x += amt;\n    }\n}\n"
     )?;
     Ok(())
 }

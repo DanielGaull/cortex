@@ -549,6 +549,8 @@ impl CortexParser {
         let mut pairs = pair.into_inner();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
         let field_params = Self::parse_param_list(pairs.next().unwrap())?;
+        let functions = Self::parse_func_list(pairs.next().unwrap())?;
+
         let mut fields = HashMap::new();
         for p in field_params {
             fields.insert(p.name, p.typ);
@@ -558,6 +560,7 @@ impl CortexParser {
             Bundle { 
                 name: name,
                 fields: fields,
+                functions: functions,
             }
         )
     }
@@ -580,13 +583,22 @@ impl CortexParser {
         })
     }
 
+    fn parse_func_list(pair: Pair<Rule>) -> Result<Vec<Function>, ParseError> {
+        let pairs = pair.into_inner();
+        let mut result = Vec::new();
+        for p in pairs {
+            result.push(Self::parse_func_pair(p)?);
+        }
+        Ok(result)
+    }
+
     fn parse_param_list(pair: Pair<Rule>) -> Result<Vec<Parameter>, ParseError> {
         let pairs = pair.into_inner();
-        let mut params = Vec::<Parameter>::new();
+        let mut result = Vec::new();
         for p in pairs {
-            params.push(Self::parse_param(p)?);
+            result.push(Self::parse_param(p)?);
         }
-        Ok(params)
+        Ok(result)
     }
     fn parse_param(pair: Pair<Rule>) -> Result<Parameter, ParseError> {
         let mut pairs = pair.into_inner();

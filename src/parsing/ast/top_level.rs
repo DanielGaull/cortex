@@ -204,6 +204,7 @@ impl Struct {
 pub struct Bundle {
     pub(crate) name: OptionalIdentifier,
     pub(crate) fields: HashMap<String, CortexType>,
+    pub(crate) functions: Vec<Function>,
 }
 impl SimpleCodeGen for Bundle {
     fn codegen(&self, indent: usize) -> String {
@@ -225,13 +226,18 @@ impl SimpleCodeGen for Bundle {
             s.push_str("\n");
         }
 
+        for func in &self.functions {
+            s.push_str(func.codegen(indent + 1).as_str());
+            s.push_str("\n");
+        }
+
         s.push_str(&indent_prefix);
         s.push_str("}\n");
         s
     }
 }
 impl Bundle {
-    pub fn new(name: &str, fields: Vec<(&str, CortexType)>) -> Self {
+    pub fn new(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<Function>) -> Self {
         let mut map = HashMap::new();
         for f in fields {
             map.insert(String::from(f.0), f.1);
@@ -239,6 +245,7 @@ impl Bundle {
         Bundle {
             name: OptionalIdentifier::Ident(String::from(name)),
             fields: map,
+            functions: funcs,
         }
     }
 }
