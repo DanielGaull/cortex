@@ -1,0 +1,18 @@
+bundle Box {
+    value: number,
+}
+
+fn getBox(value: number) -> Box {
+    Box {
+        value: value,
+    }
+}
+fn incValue(box: Box, amt: number) {
+    box.value += amt;
+}
+
+fn runTest(v: number) -> number {
+    let box = getBox(v);
+    incValue(box, 10);
+    box.value
+}

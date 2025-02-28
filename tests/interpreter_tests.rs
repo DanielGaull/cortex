@@ -216,7 +216,7 @@ fn bundle_tests() -> Result<(), Box<dyn Error>> {
     run_test("date.t.m", "14", &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("date.t.s = 100;")?)?;
     run_test("date.t.s", "100", &mut interpreter)?;
-    // BUndles are pass-by-reference
+    // Bundles are pass-by-reference
     run_test("time.s", "100", &mut interpreter)?;
 
     Ok(())
