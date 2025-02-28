@@ -68,6 +68,7 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("!foo()")?;
     run_expression_test("-foo.bar")?;
     run_expression_test("!foo.bar")?;
+    run_expression_test("myNum.increment(3)")?;
     Ok(())
 }
 
@@ -100,6 +101,7 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("let ~ = 5;")?;
     run_statement_test("x = 5;")?;
     run_statement_test("while true {\n    x += 1;\n}")?;
+    run_statement_test("myNum.increment(3);")?;
     Ok(())
 }
 

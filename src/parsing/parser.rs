@@ -62,33 +62,8 @@ pub enum ParseError {
     OperatorDoesNotExist(String),
     #[error("Failed to parse program")]
     FailProgram,
-    #[error("Failed to parse {0}: {1} (line '{2}')")]
-    ParseFailure(String, String, String),
-}
-
-fn from_segment(input: &str, pos1: (usize, usize), pos2: (usize, usize)) -> String {
-    // line, column
-    let lines: Vec<_> = input.split("\n").collect();
-    if pos1.0 != pos2.0 {
-        let mut result = String::new();
-        for line_idx in pos1.0..pos2.0 {
-            result.push_str(lines.get(line_idx).unwrap());
-            result.push_str("\n");
-        }
-        result
-    } else {
-        let line = *lines.get(pos1.0).unwrap();
-        String::from(&line[pos1.1..pos2.1])
-    }
-}
-fn from_pos(input: &str, pos: (usize, usize)) -> String {
-    // line, column
-    let lines: Vec<_> = input.split("\n").collect();
-    let line = lines.get(pos.0);
-    match line {
-        Some(s) => String::from(*s),
-        None => String::from("<Could not select substring!>")
-    }
+    #[error("Failed to parse {0}: {1}")]
+    ParseFailure(String, String),
 }
 
 impl CortexParser {
@@ -97,11 +72,7 @@ impl CortexParser {
         match pair {
             Ok(mut v) => Self::parse_stmt_pair(v.next().unwrap()),
             Err(e) => {
-                let msg = match e.line_col {
-                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
-                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
-                };
-                Err(ParseError::ParseFailure(String::from("statement"), msg, String::from(e.line())))
+                Err(ParseError::ParseFailure(String::from("statement"), String::from(e.line())))
             },
         }
     }
@@ -110,11 +81,7 @@ impl CortexParser {
         match pair {
             Ok(mut v) => Self::parse_expr_pair(v.next().unwrap()),
             Err(e) => {
-                let msg = match e.line_col {
-                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
-                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
-                };
-                Err(ParseError::ParseFailure(String::from("expression"), msg, String::from(e.line())))
+                Err(ParseError::ParseFailure(String::from("expression"), String::from(e.line())))
             },
         }
     }
@@ -123,11 +90,7 @@ impl CortexParser {
         match pair {
             Ok(mut v) => Self::parse_type_pair(v.next().unwrap()),
             Err(e) => {
-                let msg = match e.line_col {
-                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
-                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
-                };
-                Err(ParseError::ParseFailure(String::from("type"), msg, String::from(e.line())))
+                Err(ParseError::ParseFailure(String::from("type"), String::from(e.line())))
             },
         }
     }
@@ -136,11 +99,7 @@ impl CortexParser {
         match pair {
             Ok(mut v) => Self::parse_func_pair(v.next().unwrap()),
             Err(e) => {
-                let msg = match e.line_col {
-                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
-                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
-                };
-                Err(ParseError::ParseFailure(String::from("function"), msg, String::from(e.line())))
+                Err(ParseError::ParseFailure(String::from("function"), String::from(e.line())))
             },
         }
     }
@@ -149,11 +108,7 @@ impl CortexParser {
         match pair {
             Ok(mut v) => Self::parse_struct_pair(v.next().unwrap()),
             Err(e) => {
-                let msg = match e.line_col {
-                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
-                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
-                };
-                Err(ParseError::ParseFailure(String::from("struct"), msg, String::from(e.line())))
+                Err(ParseError::ParseFailure(String::from("struct"), String::from(e.line())))
             },
         }
     }
@@ -162,11 +117,7 @@ impl CortexParser {
         match pair {
             Ok(mut v) => Self::parse_bundle_pair(v.next().unwrap()),
             Err(e) => {
-                let msg = match e.line_col {
-                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
-                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
-                };
-                Err(ParseError::ParseFailure(String::from("bundle"), msg, String::from(e.line())))
+                Err(ParseError::ParseFailure(String::from("bundle"), String::from(e.line())))
             },
         }
     }
@@ -175,11 +126,7 @@ impl CortexParser {
         match pair {
             Ok(mut v) => Self::parse_toplevel_pair(v.next().unwrap()),
             Err(e) => {
-                let msg = match e.line_col {
-                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
-                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
-                };
-                Err(ParseError::ParseFailure(String::from("top level"), msg, String::from(e.line())))
+                Err(ParseError::ParseFailure(String::from("top level"), String::from(e.line())))
             },
         }
     }
@@ -188,11 +135,7 @@ impl CortexParser {
         match pair {
             Ok(mut v) => Self::parse_path_ident(v.next().unwrap()),
             Err(e) => {
-                let msg = match e.line_col {
-                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
-                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
-                };
-                Err(ParseError::ParseFailure(String::from("path"), msg, String::from(e.line())))
+                Err(ParseError::ParseFailure(String::from("path"), String::from(e.line())))
             },
         }
     }
@@ -201,11 +144,7 @@ impl CortexParser {
         match pair {
             Ok(mut v) => Self::parse_program_pair(v.next().unwrap()),
             Err(e) => {
-                let msg = match e.line_col {
-                    pest::error::LineColLocation::Pos(p) => from_pos(input, p),
-                    pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
-                };
-                Err(ParseError::ParseFailure(String::from("program"), msg, String::from(e.line())))
+                Err(ParseError::ParseFailure(String::from("program"), String::from(e.line())))
             },
         }
     }

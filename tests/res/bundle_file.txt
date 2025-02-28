@@ -1,5 +1,9 @@
 bundle Box {
     value: number,
+
+    fn increment(amount: number) {
+        this.value += amount;
+    }
 }
 
 fn getBox(value: number): Box {
@@ -13,6 +17,7 @@ fn incValue(box: Box, amt: number): void {
 
 fn runTest(v: number): number {
     let box = getBox(v);
-    incValue(box, 10);
+    incValue(box, 7);
+    box.increment(3);
     box.value
 }
