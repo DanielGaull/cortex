@@ -62,8 +62,8 @@ pub enum ParseError {
     OperatorDoesNotExist(String),
     #[error("Failed to parse program")]
     FailProgram,
-    #[error("Failed to parse {0}: {1}")]
-    ParseFailure(String, String),
+    #[error("Failed to parse {0}: {1} (line '{2}')")]
+    ParseFailure(String, String, String),
 }
 
 fn from_segment(input: &str, pos1: (usize, usize), pos2: (usize, usize)) -> String {
@@ -98,7 +98,7 @@ impl CortexParser {
                     pest::error::LineColLocation::Pos(p) => from_pos(input, p),
                     pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
                 };
-                Err(ParseError::ParseFailure(String::from("statement"), msg))
+                Err(ParseError::ParseFailure(String::from("statement"), msg, String::from(e.line())))
             },
         }
     }
@@ -111,7 +111,7 @@ impl CortexParser {
                     pest::error::LineColLocation::Pos(p) => from_pos(input, p),
                     pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
                 };
-                Err(ParseError::ParseFailure(String::from("expression"), msg))
+                Err(ParseError::ParseFailure(String::from("expression"), msg, String::from(e.line())))
             },
         }
     }
@@ -124,7 +124,7 @@ impl CortexParser {
                     pest::error::LineColLocation::Pos(p) => from_pos(input, p),
                     pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
                 };
-                Err(ParseError::ParseFailure(String::from("type"), msg))
+                Err(ParseError::ParseFailure(String::from("type"), msg, String::from(e.line())))
             },
         }
     }
@@ -137,7 +137,7 @@ impl CortexParser {
                     pest::error::LineColLocation::Pos(p) => from_pos(input, p),
                     pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
                 };
-                Err(ParseError::ParseFailure(String::from("function"), msg))
+                Err(ParseError::ParseFailure(String::from("function"), msg, String::from(e.line())))
             },
         }
     }
@@ -150,7 +150,7 @@ impl CortexParser {
                     pest::error::LineColLocation::Pos(p) => from_pos(input, p),
                     pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
                 };
-                Err(ParseError::ParseFailure(String::from("struct"), msg))
+                Err(ParseError::ParseFailure(String::from("struct"), msg, String::from(e.line())))
             },
         }
     }
@@ -163,7 +163,7 @@ impl CortexParser {
                     pest::error::LineColLocation::Pos(p) => from_pos(input, p),
                     pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
                 };
-                Err(ParseError::ParseFailure(String::from("bundle"), msg))
+                Err(ParseError::ParseFailure(String::from("bundle"), msg, String::from(e.line())))
             },
         }
     }
@@ -176,7 +176,7 @@ impl CortexParser {
                     pest::error::LineColLocation::Pos(p) => from_pos(input, p),
                     pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
                 };
-                Err(ParseError::ParseFailure(String::from("top level"), msg))
+                Err(ParseError::ParseFailure(String::from("top level"), msg, String::from(e.line())))
             },
         }
     }
@@ -189,7 +189,7 @@ impl CortexParser {
                     pest::error::LineColLocation::Pos(p) => from_pos(input, p),
                     pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
                 };
-                Err(ParseError::ParseFailure(String::from("path"), msg))
+                Err(ParseError::ParseFailure(String::from("path"), msg, String::from(e.line())))
             },
         }
     }
@@ -202,7 +202,7 @@ impl CortexParser {
                     pest::error::LineColLocation::Pos(p) => from_pos(input, p),
                     pest::error::LineColLocation::Span(p1, p2) => from_segment(input, p1, p2),
                 };
-                Err(ParseError::ParseFailure(String::from("program"), msg))
+                Err(ParseError::ParseFailure(String::from("program"), msg, String::from(e.line())))
             },
         }
     }

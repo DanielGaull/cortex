@@ -924,46 +924,41 @@ impl CortexInterpreter {
         }
     }
     
-    fn set_field_path(&mut self, base: Rc<RefCell<CortexValue>>, mut path: Vec<String>, value: CortexValue) -> Result<(), ValueError> {
+    fn set_field_path(&mut self, mut base: Rc<RefCell<CortexValue>>, mut path: Vec<String>, value: CortexValue) -> Result<(), ValueError> {
         let first_option = path.get(0);
+        if let CortexValue::Pointer(addr, _) = &*base.clone().borrow() {
+            base = self.heap.get(*addr);
+        }
         if let Some(first) = first_option {
             if path.len() == 1{
                 base.borrow_mut().set_field(first, value)
             } else {
                 let fname = first.clone();
                 path.remove(0);
-                let field = base.borrow().get_field(&fname)?;
-                let field_to_search;
-                if let CortexValue::Pointer(addr, _) = &*field.borrow() {
-                    field_to_search = self.heap.get(*addr);
-                } else {
-                    field_to_search = field.clone();
-                }
-                self.set_field_path(field_to_search, path, value)
+                let field = base.borrow().get_field(&fname)?.clone();
+                self.set_field_path(field, path, value)
             }
         } else {
             Err(ValueError::MemberPathCannotBeEmpty)
         }
     }
-    fn get_field_path(&self, value: Rc<RefCell<CortexValue>>, mut path: Vec<String>) -> Result<CortexValue, ValueError> {
+    fn get_field_path(&self, mut value: Rc<RefCell<CortexValue>>, mut path: Vec<String>) -> Result<CortexValue, ValueError> {
         let first_option = path.get(0);
+        if let CortexValue::Pointer(addr, _) = &*value.clone().borrow() {
+            value = self.heap.get(*addr);
+        }
         if let Some(first) = first_option {
-            if path.len() == 1{
+            if path.len() == 1 {
                 Ok(value.borrow().get_field(first)?.borrow().clone())
             } else {
                 let fname = first.clone();
                 path.remove(0);
-                let field = value.borrow().get_field(&fname)?;
-                let field_to_search;
-                if let CortexValue::Pointer(addr, _) = &*field.borrow() {
-                    field_to_search = self.heap.get(*addr);
-                } else {
-                    field_to_search = field.clone();
-                }
-                self.get_field_path(field_to_search, path)
+                let field = value.borrow().get_field(&fname)?.clone();
+                self.get_field_path(field, path)
             }
         } else {
-            Err(ValueError::MemberPathCannotBeEmpty)
+            let val = value.borrow().clone();
+            Ok(val)
         }
     }
 
