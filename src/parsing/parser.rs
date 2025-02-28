@@ -6,7 +6,7 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, PathOrIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
     ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
@@ -313,17 +313,9 @@ impl CortexParser {
             Rule::call => {
                 let mut pairs = pair.into_inner();
                 let first_pair = pairs.next().unwrap();
-                let name =
-                    if matches!(first_pair.as_rule(), Rule::identExpr) {
-                        PathOrIdent::Ident(Self::parse_ident_expr(first_pair)?)
-                    } else {
-                        PathOrIdent::Path(Self::parse_path_ident(first_pair)?)
-                    };
-                let mut args: Vec<Expression> = Vec::new();
-                for arg in pairs {
-                    let parsed_arg = Self::parse_expr_pair(arg)?;
-                    args.push(parsed_arg);
-                }
+                let name = Self::parse_path_ident(first_pair)?;
+                let args_pair = pairs.next().unwrap();
+                let args = Self::parse_expr_list(args_pair)?;
                 Ok(Atom::Call(name, args))
             },
             Rule::structConstruction => {
@@ -386,6 +378,14 @@ impl CortexParser {
                             let member = pairs.next().unwrap().as_str();
                             let next = Self::parse_expr_tail_pair(pairs.next().unwrap())?;
                             Ok(ExpressionTail::MemberAccess { member: String::from(member), next: Box::new(next) })
+                        },
+                        Rule::memberCallTail => {
+                            let mut pairs = tail_pair.into_inner();
+                            let member = pairs.next().unwrap().as_str();
+                            let args_pair = pairs.next().unwrap();
+                            let args = Self::parse_expr_list(args_pair)?;
+                            let next = Self::parse_expr_tail_pair(pairs.next().unwrap())?;
+                            Ok(ExpressionTail::MemberCall { member: String::from(member), args: args, next: Box::new(next) })
                         },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }
@@ -536,6 +536,15 @@ impl CortexParser {
         let mut result = Vec::new();
         for p in pairs {
             result.push(Self::parse_func_pair(p)?);
+        }
+        Ok(result)
+    }
+
+    fn parse_expr_list(pair: Pair<Rule>) -> Result<Vec<Expression>, ParseError> {
+        let pairs = pair.into_inner();
+        let mut result = Vec::new();
+        for p in pairs {
+            result.push(Self::parse_expr_pair(p)?);
         }
         Ok(result)
     }

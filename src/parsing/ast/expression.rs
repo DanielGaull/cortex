@@ -65,20 +65,6 @@ impl SimpleCodeGen for ConditionBody {
 }
 
 #[derive(Clone)]
-pub enum PathOrIdent {
-    Ident(IdentExpression),
-    Path(PathIdent),
-}
-impl SimpleCodeGen for PathOrIdent {
-    fn codegen(&self, indent: usize) -> String {
-        match self {
-            PathOrIdent::Ident(ident_expression) => ident_expression.codegen(indent),
-            PathOrIdent::Path(path_ident) => path_ident.codegen(indent),
-        }
-    }
-}
-
-#[derive(Clone)]
 pub enum Atom {
     Number(f64),
     Boolean(bool),
@@ -86,7 +72,7 @@ pub enum Atom {
     Null,
     String(String),
     PathIdent(PathIdent),
-    Call(PathOrIdent, Vec<Expression>),
+    Call(PathIdent, Vec<Expression>),
     Construction {
         name: PathIdent, 
         assignments: Vec<(String, Expression)>
@@ -176,6 +162,11 @@ pub enum ExpressionTail {
         member: String,
         next: Box<ExpressionTail>,
     },
+    MemberCall {
+        member: String,
+        args: Vec<Expression>,
+        next: Box<ExpressionTail>,
+    },
 }
 impl SimpleCodeGen for ExpressionTail {
     fn codegen(&self, indent: usize) -> String {
@@ -188,6 +179,11 @@ impl SimpleCodeGen for ExpressionTail {
             ExpressionTail::MemberAccess { member, next } => {
                 let next = next.codegen(indent);
                 format!(".{}{}", member, next)
+            },
+            ExpressionTail::MemberCall { member, args, next } => {
+                let next = next.codegen(indent);
+                let args = args.iter().map(|x| x.codegen(0)).collect::<Vec<_>>().join(", ");
+                format!(".{}({}){}", member, args, next)
             },
         }
     }

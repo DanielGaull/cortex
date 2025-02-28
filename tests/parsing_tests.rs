@@ -69,6 +69,7 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("-foo.bar")?;
     run_expression_test("!foo.bar")?;
     run_expression_test("myNum.increment(3)")?;
+    run_expression_test("myNum.ref.ref().ref.increment(3)")?;
     Ok(())
 }
 

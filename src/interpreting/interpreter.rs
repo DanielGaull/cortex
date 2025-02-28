@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::{HashMap, HashSet}, error::Error, rc::Rc};
 use thiserror::Error;
 use paste::paste;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, PathOrIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, mem::heap::Heap, module::{CompositeType, Module}, value::{CortexValue, ValueError}};
 
 macro_rules! determine_op_type_fn {
@@ -446,38 +446,14 @@ impl CortexInterpreter {
             Atom::Null => Ok(CortexType::null()),
             Atom::String(_) => Ok(CortexType::string(false)),
             Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
-            Atom::Call(path, _) => {
-                match path {
-                    PathOrIdent::Ident(ident_expression) => {
-                        let base = Rc::new(RefCell::new(self.current_env.as_ref().unwrap().get_value(&ident_expression.base)?));
-                        let mut chain = ident_expression.chain.clone();
-                        let last = chain.remove(chain.len() - 1);
-                        let caller = self.get_field_path(base, chain)?;
-                        let caller_type = caller.get_type()
-                            .with_prefix_if_not_core(&self.current_context)
-                            .name;
-                        let caller_func_prefix = caller_type.without_last();
-                        let caller_func_base = caller_type.get_back()?;
-                        let member_func_name = Bundle::get_bundle_func_name(caller_func_base, &last);
-                        let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name);
-                        let func = self.lookup_function(&member_func_path)?;
-                        let return_type = func
-                            .return_type
-                            .clone()
-                            .with_prefix_if_not_core(&self.current_context)
-                            .with_prefix_if_not_core(&caller_func_prefix);
-                        Ok(return_type)
-                    },
-                    PathOrIdent::Path(path_ident) => {
-                        let func = self.lookup_function(path_ident)?;
-                        let return_type = func
-                            .return_type
-                            .clone()
-                            .with_prefix_if_not_core(&self.current_context)
-                            .with_prefix_if_not_core(&path_ident.without_last());
-                        Ok(return_type)
-                    },
-                }
+            Atom::Call(path_ident, _) => {
+                let func = self.lookup_function(path_ident)?;
+                let return_type = func
+                    .return_type
+                    .clone()
+                    .with_prefix_if_not_core(&self.current_context)
+                    .with_prefix_if_not_core(&path_ident.without_last());
+                Ok(return_type)
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
             Atom::Construction { name, assignments: _ } => {
@@ -575,6 +551,22 @@ impl CortexInterpreter {
                     let member_type = member_type.with_prefix_if_not_core(&atom.prefix());
                     Ok(member_type)
                 }
+            },
+            ExpressionTail::MemberCall { member, args: _, next } => {
+                let caller_type = atom
+                    .with_prefix_if_not_core(&self.current_context)
+                    .name;
+                let caller_func_prefix = caller_type.without_last();
+                let caller_func_base = caller_type.get_back()?;
+                let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
+                let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name);
+                let func = self.lookup_function(&member_func_path)?;
+                let return_type = func.return_type.clone();
+                let return_type = self.determine_type_tail(return_type, next)?;
+                let return_type = return_type
+                    .with_prefix_if_not_core(&self.current_context)
+                    .with_prefix_if_not_core(&caller_func_prefix);
+                Ok(return_type)
             },
         }
     }
@@ -765,33 +757,11 @@ impl CortexInterpreter {
             Atom::Expression(expr) => Ok(self.evaluate_expression(expr)?),
             Atom::PathIdent(path) => Ok(self.lookup_value(path)?),
             Atom::Call(path_ident, expressions) => {
-                match path_ident {
-                    PathOrIdent::Ident(ident_expression) => {
-                        let base = Rc::new(RefCell::new(self.current_env.as_ref().unwrap().get_value(&ident_expression.base)?));
-                        let mut chain = ident_expression.chain.clone();
-                        let last = chain.remove(chain.len() - 1);
-                        let caller = self.get_field_path(base, chain)?;
-                        let caller_type = caller.get_type()
-                            .with_prefix_if_not_core(&self.current_context)
-                            .name;
-                        let caller_func_prefix = caller_type.without_last();
-                        let caller_func_base = caller_type.get_back()?;
-                        let member_func_name = Bundle::get_bundle_func_name(caller_func_base, &last);
-                        let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name);
-                        let func = self.lookup_function(&member_func_path)?;
-                        let context_to_return_to = std::mem::replace(&mut self.current_context, caller_func_prefix);
-                        let func_result = self.run_function(&func, expressions);
-                        self.current_context = context_to_return_to;
-                        Ok(func_result?)
-                    },
-                    PathOrIdent::Path(path_ident) => {
-                        let func = self.lookup_function(path_ident)?;
-                        let context_to_return_to = std::mem::replace(&mut self.current_context, path_ident.without_last());
-                        let func_result = self.run_function(&func, expressions);
-                        self.current_context = context_to_return_to;
-                        Ok(func_result?)
-                    },
-                }
+                let func = self.lookup_function(path_ident)?;
+                let context_to_return_to = std::mem::replace(&mut self.current_context, path_ident.without_last());
+                let func_result = self.run_function(&func, expressions.iter().collect());
+                self.current_context = context_to_return_to;
+                Ok(func_result?)
             },
             Atom::Construction { name, assignments } => {
                 let composite = self.lookup_composite(name)?;
@@ -897,6 +867,23 @@ impl CortexInterpreter {
                     Ok(self.handle_expr_tail(atom.get_field(member)?.borrow().clone(), next)?)
                 }
             },
+            ExpressionTail::MemberCall { member, args, next } => {
+                let caller_type = atom.get_type()
+                    .with_prefix_if_not_core(&self.current_context)
+                    .name;
+                let caller_func_prefix = caller_type.without_last();
+                let caller_func_base = caller_type.get_back()?;
+                let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
+                let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name);
+                let func = self.lookup_function(&member_func_path)?;
+                let mut args = args
+                    .iter()
+                    .map(|e| self.evaluate_expression(e))
+                    .collect::<Result<Vec<CortexValue>, _>>()?;
+                args.insert(0, atom);
+                let result = self.call_function(&func, args)?;
+                Ok(self.handle_expr_tail(result, next)?)
+            }
         }
     }
 
@@ -1001,7 +988,7 @@ impl CortexInterpreter {
         }
     }
 
-    fn run_function(&mut self, func: &Rc<Function>, args: &Vec<Expression>) -> Result<CortexValue, CortexError> {
+    fn run_function(&mut self, func: &Rc<Function>, args: Vec<&Expression>) -> Result<CortexValue, CortexError> {
         let mut arg_values = Vec::<CortexValue>::new();
         for arg in args {
             arg_values.push(self.evaluate_expression(arg)?);

@@ -19,13 +19,12 @@ throw = { "throw" ~ expr }
 
 varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { identExpr ~ arithLogicBinOp? ~ "=" ~ expr }
-identExpr = { ident ~ ("." ~ ident)* }
 
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
 atom = { number | boolean | null | void | string | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
-exprTail = { postfixBangTail | memberAccessTail | "" }
+exprTail = { postfixBangTail | memberCallTail | memberAccessTail | "" }
 
 primary = { atom ~ exprTail }
 mulResult = { primary ~ ((mul | div | rem) ~ primary)* }
@@ -34,12 +33,13 @@ eqResult = { sumResult ~ ((eq | neq | lte | gte | lt | gt) ~ sumResult)* }
 logicResult = _{ eqResult ~ ((and | or) ~ eqResult)* }
 expr = { logicResult }
 
-call = { (pathIdent | identExpr) ~ "(" ~ exprList ~ ")" }
+call = { pathIdent ~ "(" ~ exprList ~ ")" }
 structConstruction = { pathIdent ~ "{" ~ (structMemberInit ~ ",")* ~ structMemberInit? ~ "}" }
 structMemberInit = { ident ~ ":" ~ expr }
 
 postfixBangTail = { ("!" ~ !"=") ~ exprTail }
 memberAccessTail = { "." ~ ident ~ exprTail }
+memberCallTail = { "." ~ ident ~ "(" ~ exprList ~ ")" ~ exprTail }
 
 if = { "if" ~ expr ~ "{" ~ body ~ "}" ~ elifs ~ else? }
 elifs = { elif* }
@@ -68,13 +68,14 @@ strchar = {
 optIdentifier = { ident | "~" }
 ident = ${ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
 pathIdent = { (ident ~ "::")* ~ ident }
+identExpr = { ident ~ ("." ~ ident)* }
 
 typ = { pathIdent ~ "?"? }
 
 // Useful utilities
 param = { ident ~ ":" ~ typ }
 paramList = { (param ~ ",")* ~ param? }
-exprList = _{ (expr ~ ",")* ~ expr? }
+exprList = { (expr ~ ",")* ~ expr? }
 body = { statement* ~ expr? }
 funcList = { function* }
 
