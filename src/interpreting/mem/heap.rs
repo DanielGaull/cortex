@@ -13,7 +13,7 @@ impl Heap {
         Heap {
             store: HashMap::new(),
             next_id: 0,
-            gc_threshold: 1000,
+            gc_threshold: 100,
         }
     }
 

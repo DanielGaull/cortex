@@ -65,6 +65,9 @@ module BGeometry {
         y: number,
 
         fn taxiDist(other: Point): number {
+            this.taxiDistHelper(other)
+        }
+        fn taxiDistHelper(other: Point): number {
             abs(other.x - this.x) + abs(other.y - this.y)
         }
     }

@@ -181,6 +181,8 @@ Functions can be defined in a top-level context. Functions, like variables, do n
         // Body...
     }
 
+You can omit the return type if the function returns void.
+
 The body consists of statements, but if you end the body with an expression (and no semicolon), the function will return that expression (otherwise, it returns void). There is no `return` statement in Cortex.
 
 You can call a function with `name(args...)`. For example:
@@ -204,9 +206,9 @@ You can define (or inject) data types using *structs*. Structs consist of fields
 Define structs like so:
 
     struct Time {
-        hour: number;
-        minute: number;
-        second: number;
+        hour: number,
+        minute: number,
+        second: number,
     }
 
 You can then create an instance like this:
@@ -225,14 +227,53 @@ You can access and change fields like this:
 
 The type name to refer to a struct is the struct name itself (or path if it is in a module).
 
+### Bundles
+Bundles are another type of composite type, similar to structs. Like structs, you can inject bundles into modules from outside of the interpreter. When instances of bundles are created, they are placed on a virtual heap, and all bundle values are pass-by-reference. This means that when you pass a bundle value into a function or assign it to another field, it will share the same instance. There is a garbage collector that runs in the background to ensure that memory doesn't get out of hand.
+
+Bundles are declared very similarly to structs (trailing comma is optional):
+
+    bundle Point {
+        x: number,
+        y: number,
+    }
+
+You can create instances the same way that you create struct instances:
+
+    let point: Point = Point {
+        x: 0,
+        y: 0,
+    };
+
+However, bundles can also have functions defined on them, below the list of fields. Within bundle functions, you have access to a special variable called `this`, which refers to the current instance. For example:
+
+    bundle Point {
+        x: number,
+        y: number
+
+        fn increment(x: number, y: number) {
+            this.x += x;
+            this.y += y;
+        }
+    }
+
+Now, you can call `increment` on any `Point` to modify its values:
+
+    let point: Point = Point {
+        x: 0,
+        y: 0,
+    };
+    point.increment(5, 2); // Point is now equal to {x=5, y=2}
+
+Due to pass-by-reference semantics and the benefits of bundle functions, it is recommended to use bundles in most cases. Structs should only be used for small, inexpensive types of data. Currently, defining functions on a struct does not exist.
+
 ### Modules
 Modules are a way to package types and functions (or even other modules) under a shared namespace. Items in modules require paths to access them. Here's an example of a module:
 
-    module time { // Convention is to use camelCase module names
+    module Time {
         struct Time {
-            hour: number;
-            minute: number;
-            second: number;
+            hour: number,
+            minute: number,
+            second: number,
         }
 
         fn addTimes(t1: Time, t2: Time): Time {
@@ -245,12 +286,12 @@ Modules are a way to package types and functions (or even other modules) under a
     }
 
     // From outside, we use the module like this:
-    let time = time::Time {
+    let time = Time::Time {
         hour: 1,
         minute: 0,
         second: 0,
     };
-    let doubled = time::addTimes(time, time);
+    let doubled = Time::addTimes(time, time);
 
 Modules can be constructed and injected from outside of the interpreter, which is the most common way to interface your Cortex code with Rust code. However, you can use the syntax above to create modules in Cortex code itself.
 
