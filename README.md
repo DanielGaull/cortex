@@ -199,7 +199,7 @@ Here is an unnamed function:
 This function cannot be called within Cortex, but you can use parse functions to read a `Function` object into the calling Rust code and use this function there.
 
 ### Structs
-You can define (or inject) data types using *structs*. Structs consist of fields of a certain type, and struct instances (or composite values) consist of the values of those fields. Keep in mind *all* values are currently pass-by-value, meaning that passing a value into a function or assigning it to a variable *duplicates* the fields of structs. Make sure structs are cheap to copy, and if not, give them a way to hook into your Rust implementation where the actual complex object is stored. In the future, copy-by-reference values are planned to be added.
+You can define (or inject) data types using *structs*. Structs consist of fields of a certain type, and struct instances (or composite values) consist of the values of those fields. Keep in mind *all* values are currently pass-by-value, meaning that passing a value into a function or assigning it to a variable *duplicates* the fields of structs. Make sure structs are cheap to copy, and if not, give them a way to hook into your Rust implementation where the actual complex object is stored, or use bundles instead (see below).
 
 Define structs like so:
 

@@ -49,6 +49,7 @@ fn test_module_pathing() -> Result<(), Box<dyn Error>> {
     }
 
     assert_expression("testFn(0, 0, 10, 10)", "20", &mut interpreter)?;
+    assert_expression("btestFn(0, 0, 10, 10)", "20", &mut interpreter)?;
     Ok(())
 }
 

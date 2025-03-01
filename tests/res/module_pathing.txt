@@ -58,3 +58,67 @@ fn testFn(x1: number, y1: number, x2: number, y2: number): number {
     rect2.c1.x = 5;
     dist
 }
+
+module BGeometry {
+    bundle Point {
+        x: number,
+        y: number,
+
+        fn taxiDist(other: Point): number {
+            abs(other.x - this.x) + abs(other.y - this.y)
+        }
+    }
+
+    fn getPoint(x: number, y: number): Point {
+        let result: Point = Point {
+            x: x,
+            y: y,
+        };
+        result
+    }
+
+    fn abs(n: number): number {
+        if n < 0 {
+            -n
+        } else {
+            n
+        }
+    }
+
+    bundle Rectangle {
+        c1: Point,
+        c2: Point,
+    }
+    fn rect(x1: number, y1: number, x2: number, y2: number): Rectangle {
+        Rectangle {
+            c1: Point {
+                x: x1,
+                y: y1,
+            },
+            c2: Point {
+                x: x2,
+                y: y2,
+            },
+        }
+    }
+}
+
+fn btestFn(x1: number, y1: number, x2: number, y2: number): number {
+    let rect: BGeometry::Rectangle = BGeometry::rect(x1, y1, x2, y2);
+    let rectc1: BGeometry::Point = rect.c1;
+    let dist = rect.c1.taxiDist(rect.c2);
+    let rect2 = BGeometry::Rectangle {
+        c1: BGeometry::Point {
+            x: 0, y: 0,
+        },
+        c2: BGeometry::Point {
+            x: 0, y: 0
+        },
+    };
+    rect2.c1 = BGeometry::Point {
+        x: 0, y: 0,
+    };
+    rect2.c1.x = 5;
+    dist
+}
+

@@ -547,15 +547,13 @@ impl CortexInterpreter {
                     Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), atom.name.codegen(0))))
                 } else {
                     let member_type = composite.fields.get(member).unwrap().clone();
-                    let member_type = self.determine_type_tail(member_type, next)?;
                     let member_type = member_type.with_prefix_if_not_core(&atom.prefix());
+                    let member_type = self.determine_type_tail(member_type, next)?;
                     Ok(member_type)
                 }
             },
             ExpressionTail::MemberCall { member, args: _, next } => {
-                let caller_type = atom
-                    .with_prefix_if_not_core(&self.current_context)
-                    .name;
+                let caller_type = atom.name;
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
                 let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
@@ -868,9 +866,7 @@ impl CortexInterpreter {
                 }
             },
             ExpressionTail::MemberCall { member, args, next } => {
-                let caller_type = atom.get_type()
-                    .with_prefix_if_not_core(&self.current_context)
-                    .name;
+                let caller_type = atom.get_type().name;
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
                 let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
@@ -881,8 +877,12 @@ impl CortexInterpreter {
                     .map(|e| self.evaluate_expression(e))
                     .collect::<Result<Vec<CortexValue>, _>>()?;
                 args.insert(0, atom);
-                let result = self.call_function(&func, args)?;
-                Ok(self.handle_expr_tail(result, next)?)
+                
+                let context_to_return_to = std::mem::replace(&mut self.current_context, caller_func_prefix);
+                let result = self.call_function(&func, args);
+                self.current_context = context_to_return_to;
+
+                Ok(self.handle_expr_tail(result?, next)?)
             }
         }
     }

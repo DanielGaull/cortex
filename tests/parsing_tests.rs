@@ -50,7 +50,7 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
-    run_expression_test("println(hello, \"hi\")")?;
+    run_expression_test("print(hello, \"hi\")")?;
     run_expression_test("(void)")?;
     run_expression_test("(((void)))")?;
     run_expression_test("5 + 2")?;
@@ -94,7 +94,7 @@ fn test_types() -> Result<(), Box<dyn Error>> {
 fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("stop;")?;
     run_statement_test("null;")?;
-    run_statement_test("println(hello, \"hi\");")?;
+    run_statement_test("print(hello, \"hi\");")?;
     run_statement_test("let x = 5;")?;
     run_statement_test("let x: number = 5;")?;
     run_statement_test("const x = 5;")?;
