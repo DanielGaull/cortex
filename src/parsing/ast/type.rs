@@ -9,8 +9,7 @@ pub enum CortexType {
         name: PathIdent,
     },
     PointerType {
-        nullable: bool,
-        name: PathIdent,
+        contained: Box<CortexType>,
         mutable: bool,
     },
 }
@@ -26,16 +25,12 @@ impl SimpleCodeGen for CortexType {
                 }
                 s
             },
-            CortexType::PointerType { nullable, name, mutable } => {
+            CortexType::PointerType { contained, mutable } => {
                 let mut s = String::new();
                 if *mutable {
                     s.push_str("mut ");
                 }
-                s.push_str(&
-                    name.codegen(0));
-                if *nullable {
-                    s.push_str("?");
-                }
+                s.push_str(&contained.codegen(0));
                 s
             },
         }
@@ -49,10 +44,9 @@ impl CortexType {
             nullable: nullable,
         }
     }
-    pub fn pointer(name: PathIdent, nullable: bool, mutable: bool) -> Self {
+    pub fn pointer(contained: CortexType, mutable: bool) -> Self {
         Self::PointerType {
-            name: name,
-            nullable: nullable,
+            contained: Box::new(contained),
             mutable: mutable,
         }
     }
@@ -82,10 +76,9 @@ impl CortexType {
                     nullable: *nullable,
                 }
             },
-            CortexType::PointerType { nullable, name, mutable } => {
+            CortexType::PointerType { contained, mutable } => {
                 CortexType::PointerType {
-                    name: PathIdent::concat(path, name),
-                    nullable: *nullable,
+                    contained: contained.clone(),
                     mutable: *mutable,
                 }
             },
@@ -104,8 +97,8 @@ impl CortexType {
             CortexType::BasicType { nullable: _, name } => {
                 name.without_last()
             },
-            CortexType::PointerType { nullable: _, name, mutable: _ } => {
-                name.without_last()
+            CortexType::PointerType { contained, mutable: _ } => {
+                contained.prefix()
             },
         }
     }
@@ -114,8 +107,8 @@ impl CortexType {
             CortexType::BasicType { nullable, name: _ } => {
                 *nullable
             },
-            CortexType::PointerType { nullable, name: _, mutable: _ } => {
-                *nullable
+            CortexType::PointerType { contained, mutable: _ } => {
+                contained.nullable()
             },
         }
     }
@@ -126,9 +119,8 @@ impl CortexType {
                 name.is_final().unwrap() && 
                     matches!(name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "null" | "any")
             },
-            CortexType::PointerType { nullable: _, name, mutable: _ } => {
-                name.is_final().unwrap() && 
-                    matches!(name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "null" | "any")
+            CortexType::PointerType { contained, mutable: _ } => {
+                contained.is_core()
             },
         }
     }
@@ -138,8 +130,8 @@ impl CortexType {
             CortexType::BasicType { nullable: _, name } => {
                 CortexType::BasicType { nullable: true, name: name }
             },
-            CortexType::PointerType { nullable: _, name, mutable } => {
-                CortexType::PointerType { nullable: true, name: name, mutable: mutable }
+            CortexType::PointerType { contained, mutable } => {
+                CortexType::PointerType { contained: Box::new(contained.to_nullable()), mutable: mutable }
             },
         }
     }
@@ -148,8 +140,8 @@ impl CortexType {
             CortexType::BasicType { nullable: _, name } => {
                 CortexType::BasicType { nullable: false, name: name }
             },
-            CortexType::PointerType { nullable: _, name, mutable } => {
-                CortexType::PointerType { nullable: false, name: name, mutable: mutable }
+            CortexType::PointerType { contained, mutable } => {
+                CortexType::PointerType { contained: Box::new(contained.to_non_nullable()), mutable: mutable }
             },
         }
     }
@@ -157,13 +149,13 @@ impl CortexType {
     pub fn types(&self) -> Vec<&PathIdent> {
         match self {
             CortexType::BasicType { nullable: _, name } => vec![name],
-            CortexType::PointerType { nullable: _, name, mutable: _ } => vec![name],
+            CortexType::PointerType { contained, mutable: _ } => contained.types(),
         }
     }
     pub fn name(&self) -> &PathIdent {
         match self {
             CortexType::BasicType { nullable: _, name } => name,
-            CortexType::PointerType { nullable: _, name, mutable: _ } => name,
+            CortexType::PointerType { contained, mutable: _ } => contained.name(),
         }
     }
 
@@ -184,11 +176,11 @@ impl CortexType {
                 None
             }
         } else if let (
-            CortexType::PointerType { nullable: n2, name: name1, mutable: m1 },
-            CortexType::PointerType { nullable: n1, name: name2, mutable: m2 }
+            CortexType::PointerType { contained: c1, mutable: m1 },
+            CortexType::PointerType { contained: c2, mutable: m2 }
         ) = (&self, &other) {
-            if name1 == name2 {
-                Some(Self::pointer(name1.clone(), *n1 || *n2, *m1 || *m2))
+            if let Some(res) = c1.clone().combine_with(*c2.clone()) {
+                Some(Self::pointer(res, *m1 || *m2))
             } else {
                 None
             }
@@ -218,13 +210,11 @@ impl CortexType {
                 false
             }
         } else if let (
-            CortexType::PointerType { nullable: n1, name: name1, mutable: m1 },
-            CortexType::PointerType { nullable: n2, name: name2, mutable: m2 }
+            CortexType::PointerType { contained: c1, mutable: m1 },
+            CortexType::PointerType { contained: c2, mutable: m2 }
         ) = (self, other) {
-            if name1 == name2 {
-                if *n1 && !*n2 {
-                    false
-                } else if *m1 && !*m2 {
+            if c1.is_subtype_of(c2) {
+                if *m1 && !*m2 {
                     false
                 } else {
                     true
