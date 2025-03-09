@@ -275,6 +275,8 @@ impl SimpleCodeGen for PathIdent {
 pub enum PathError {
     #[error("Path is empty")]
     PathEmpty,
+    #[error("Subtraction failed: item {0} does not match {1}")]
+    SubtractionFailed(String, String),
 }
 impl PathIdent {
     pub fn simple(name: String) -> Self {
@@ -310,6 +312,29 @@ impl PathIdent {
             Self {
                 path: path,
             }
+        }
+    }
+
+    pub fn subtract(self, second: &PathIdent) -> Result<Self, PathError> {
+        if second.is_empty() {
+            Ok(self)
+        } else {
+            let mut path = self.path.clone();
+            for item in &second.path {
+                if let Some(first) = path.get(0) {
+                    if first != item {
+                        return Err(PathError::SubtractionFailed(first.clone(), item.clone()));
+                    }
+                    path.remove(0);
+                } else {
+                    return Err(PathError::PathEmpty);
+                }
+            }
+            Ok(
+                Self {
+                    path: path
+                }
+            )
         }
     }
 

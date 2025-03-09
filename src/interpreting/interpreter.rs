@@ -557,7 +557,8 @@ impl CortexInterpreter {
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
                 let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
-                let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name);
+                let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
+                    .subtract(&self.current_context)?;
                 let func = self.lookup_function(&member_func_path)?;
                 let return_type = func.return_type.clone();
                 let return_type = self.determine_type_tail(return_type, next)?;
@@ -870,7 +871,8 @@ impl CortexInterpreter {
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
                 let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
-                let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name);
+                let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
+                    .subtract(&self.current_context)?;
                 let func = self.lookup_function(&member_func_path)?;
                 let mut args = args
                     .iter()
