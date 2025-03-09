@@ -460,13 +460,8 @@ impl CortexParser {
     fn parse_type_pair(pair: Pair<Rule>) -> Result<CortexType, ParseError> {
         let nullable = pair.as_str().contains("?");
         let path_pair = pair.into_inner().next().unwrap();
-        let path_str = String::from(path_pair.as_str());
         let ident = Self::parse_path_ident(path_pair)?;
-        if ident.get_back().map_err(|_e| ParseError::FailPath(path_str))? == "any" {
-            Ok(CortexType::any(nullable))
-        } else {
-            Ok(CortexType::new(ident, nullable))
-        }
+        Ok(CortexType::new(ident, nullable))
     }
 
     fn parse_opt_ident(pair: Pair<Rule>) -> Result<OptionalIdentifier, ParseError> {

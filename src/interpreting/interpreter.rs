@@ -542,9 +542,9 @@ impl CortexInterpreter {
                 Ok(self.determine_type_tail(new_type, next)?)
             },
             ExpressionTail::MemberAccess { member, next } => {
-                let composite = self.lookup_composite(&atom.name)?;
+                let composite = self.lookup_composite(&atom.name())?;
                 if !composite.fields.contains_key(member) {
-                    Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), atom.name.codegen(0))))
+                    Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), atom.name().codegen(0))))
                 } else {
                     let member_type = composite.fields.get(member).unwrap().clone();
                     let member_type = member_type.with_prefix_if_not_core(&atom.prefix());
@@ -553,7 +553,7 @@ impl CortexInterpreter {
                 }
             },
             ExpressionTail::MemberCall { member, args: _, next } => {
-                let caller_type = atom.name;
+                let caller_type = atom.name();
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
                 let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
@@ -867,7 +867,8 @@ impl CortexInterpreter {
                 }
             },
             ExpressionTail::MemberCall { member, args, next } => {
-                let caller_type = atom.get_type().name;
+                let atom_type = atom.get_type();
+                let caller_type = atom_type.name();
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
                 let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);

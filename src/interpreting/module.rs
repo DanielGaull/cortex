@@ -204,8 +204,8 @@ impl Module {
                     if !typ.is_core() {
                         // Enqueue all fields of this type
                         let struc = self
-                            .get_module_for(&typ.name)?
-                            .get_composite(typ.name.get_back().map_err(|e| ModuleError::PathError(e))?)?;
+                            .get_module_for(typ.name())?
+                            .get_composite(typ.name().get_back().map_err(|e| ModuleError::PathError(e))?)?;
                         
                         for field in &struc.fields {
                             q.push_back(field.1.clone());
