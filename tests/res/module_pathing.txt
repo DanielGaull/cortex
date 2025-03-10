@@ -64,16 +64,16 @@ module BGeometry {
         x: number,
         y: number,
 
-        fn taxiDist(other: Point): number {
+        fn taxiDist(other: &Point): number {
             this.taxiDistHelper(other)
         }
-        fn taxiDistHelper(other: Point): number {
+        fn taxiDistHelper(other: &Point): number {
             abs(other.x - this.x) + abs(other.y - this.y)
         }
     }
 
-    fn getPoint(x: number, y: number): Point {
-        let result: Point = Point {
+    fn getPoint(x: number, y: number): &mut Point {
+        let result: &mut Point = Point {
             x: x,
             y: y,
         };
@@ -89,10 +89,10 @@ module BGeometry {
     }
 
     bundle Rectangle {
-        c1: Point,
-        c2: Point,
+        c1: &mut Point,
+        c2: &mut Point,
     }
-    fn rect(x1: number, y1: number, x2: number, y2: number): Rectangle {
+    fn rect(x1: number, y1: number, x2: number, y2: number): &mut Rectangle {
         Rectangle {
             c1: Point {
                 x: x1,
@@ -107,8 +107,8 @@ module BGeometry {
 }
 
 fn btestFn(x1: number, y1: number, x2: number, y2: number): number {
-    let rect: BGeometry::Rectangle = BGeometry::rect(x1, y1, x2, y2);
-    let rectc1: BGeometry::Point = rect.c1;
+    let rect: &BGeometry::Rectangle = BGeometry::rect(x1, y1, x2, y2);
+    let rectc1: &BGeometry::Point = rect.c1;
     let dist = rect.c1.taxiDist(rect.c2);
     let rect2 = BGeometry::Rectangle {
         c1: BGeometry::Point {

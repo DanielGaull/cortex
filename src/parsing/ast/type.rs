@@ -26,7 +26,7 @@ impl SimpleCodeGen for CortexType {
                 s
             },
             CortexType::PointerType { contained, mutable } => {
-                let mut s = String::new();
+                let mut s = String::from("&");
                 if *mutable {
                     s.push_str("mut ");
                 }

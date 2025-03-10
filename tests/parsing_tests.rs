@@ -84,9 +84,9 @@ fn test_parse_paths() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_types() -> Result<(), Box<dyn Error>> {
     run_type_test("number")?;
-    run_type_test("any")?;
     run_type_test("number?")?;
-    run_type_test("any?")?;
+    run_type_test("&Point")?;
+    run_type_test("&mut Point")?;
     Ok(())
 }
 

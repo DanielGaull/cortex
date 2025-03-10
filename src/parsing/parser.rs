@@ -458,10 +458,21 @@ impl CortexParser {
     }
 
     fn parse_type_pair(pair: Pair<Rule>) -> Result<CortexType, ParseError> {
-        let nullable = pair.as_str().contains("?");
-        let path_pair = pair.into_inner().next().unwrap();
-        let ident = Self::parse_path_ident(path_pair)?;
-        Ok(CortexType::new(ident, nullable))
+        let pair_str = pair.as_str();
+        let nullable = pair_str.ends_with("?");
+        let main = pair.into_inner().next().unwrap();
+        match main.as_rule() {
+            Rule::pathIdent => {
+                let ident = Self::parse_path_ident(main)?;
+                Ok(CortexType::new(ident, nullable))
+            },
+            Rule::refType => {
+                let typ = Self::parse_type_pair(main.into_inner().next().unwrap())?;
+                let mutable = pair_str.starts_with("&mut");
+                Ok(CortexType::pointer(typ, mutable))
+            },
+            _ => Err(ParseError::FailType(String::from(pair_str)))
+        }
     }
 
     fn parse_opt_ident(pair: Pair<Rule>) -> Result<OptionalIdentifier, ParseError> {

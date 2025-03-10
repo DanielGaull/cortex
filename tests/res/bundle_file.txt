@@ -7,19 +7,19 @@ bundle Box {
 }
 
 bundle BoxedBox {
-    box: Box,
+    box: &mut Box,
 
-    fn getBox(): Box {
+    fn getBox(): &mut Box {
         this.box
     }
 }
 
-fn getBox(value: number): Box {
+fn getBox(value: number): &mut Box {
     Box {
         value: value,
     }
 }
-fn incValue(box: Box, amt: number): void {
+fn incValue(box: &mut Box, amt: number): void {
     box.value += amt;
 }
 
