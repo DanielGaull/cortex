@@ -6,7 +6,7 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, ThisArg, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
     ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
@@ -469,7 +469,7 @@ impl CortexParser {
             Rule::refType => {
                 let typ = Self::parse_type_pair(main.into_inner().next().unwrap())?;
                 let mutable = pair_str.starts_with("&mut");
-                Ok(CortexType::pointer(typ, mutable))
+                Ok(CortexType::reference(typ, mutable))
             },
             _ => Err(ParseError::FailType(String::from(pair_str)))
         }
@@ -503,7 +503,7 @@ impl CortexParser {
         let mut pairs = pair.into_inner();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
         let field_params = Self::parse_param_list(pairs.next().unwrap())?;
-        let functions = Self::parse_func_list(pairs.next().unwrap())?;
+        let functions = Self::parse_bundle_func_list(pairs.next().unwrap())?;
 
         let mut fields = HashMap::new();
         for p in field_params {
@@ -534,14 +534,41 @@ impl CortexParser {
             params: params,
             return_type: return_type,
             body: Body::Basic(body),
+            this_arg: ThisArg::None,
+        })
+    }
+    fn parse_bundle_function(pair: Pair<Rule>) -> Result<Function, ParseError> {
+        let mut pairs = pair.into_inner().peekable();
+        let name = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let this_arg_pair = pairs.next().unwrap();
+        let this_arg = 
+            if matches!(this_arg_pair.as_rule(), Rule::this) {
+                ThisArg::This
+            } else {
+                ThisArg::MutThis
+            };
+        
+        let params = Self::parse_param_list(pairs.next().unwrap())?;
+        let return_type = if matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
+            Self::parse_type_pair(pairs.next().unwrap())?
+        } else {
+            CortexType::void(false)
+        };
+        let body = Self::parse_body(pairs.next().unwrap())?;
+        Ok(Function {
+            name: name,
+            params: params,
+            return_type: return_type,
+            body: Body::Basic(body),
+            this_arg: this_arg,
         })
     }
 
-    fn parse_func_list(pair: Pair<Rule>) -> Result<Vec<Function>, ParseError> {
+    fn parse_bundle_func_list(pair: Pair<Rule>) -> Result<Vec<Function>, ParseError> {
         let pairs = pair.into_inner();
         let mut result = Vec::new();
         for p in pairs {
-            result.push(Self::parse_func_pair(p)?);
+            result.push(Self::parse_bundle_function(p)?);
         }
         Ok(result)
     }

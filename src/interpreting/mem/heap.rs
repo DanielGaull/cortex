@@ -64,7 +64,7 @@ impl Heap {
         if let CortexValue::Composite { struct_name: _, field_values } = &*value.borrow() {
             for (_, fvalue_ref) in field_values {
                 let fvalue = fvalue_ref.borrow();
-                if let CortexValue::Pointer(addr, _) = *fvalue {
+                if let CortexValue::Reference(addr, _, _) = *fvalue {
                     self.mark(marked, addr);
                 } else if let CortexValue::Composite { struct_name: _, field_values: _ } = *fvalue {
                     // NOTE: we are allowed to clone fields of composites

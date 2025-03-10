@@ -64,10 +64,10 @@ module BGeometry {
         x: number,
         y: number,
 
-        fn taxiDist(other: &Point): number {
+        fn taxiDist(&this, other: &Point): number {
             this.taxiDistHelper(other)
         }
-        fn taxiDistHelper(other: &Point): number {
+        fn taxiDistHelper(&this, other: &Point): number {
             abs(other.x - this.x) + abs(other.y - this.y)
         }
     }

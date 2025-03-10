@@ -134,8 +134,8 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
         "bundle Point {\n    y: number,\n    x: number,\n}\n"
     )?;
     run_top_level_test_or(
-        "bundle Point {\n    x: number,\n    y: number,\n    fn incX(amt: number): void {\n        this.x += amt;\n    }\n}\n",
-        "bundle Point {\n    y: number,\n    x: number,\n    fn incX(amt: number): void {\n        this.x += amt;\n    }\n}\n"
+        "bundle Point {\n    x: number,\n    y: number,\n    fn incX(&mut this, amt: number): void {\n        this.x += amt;\n    }\n}\n",
+        "bundle Point {\n    y: number,\n    x: number,\n    fn incX(&mut this, amt: number): void {\n        this.x += amt;\n    }\n}\n"
     )?;
     Ok(())
 }

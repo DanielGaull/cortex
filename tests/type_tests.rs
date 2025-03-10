@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::r#type::CortexType, parser::CortexParser}};
+use cortex_lang::{interpreting::{interpreter::CortexInterpreter, module::Module}, parsing::{ast::{expression::PathIdent, top_level::Bundle, r#type::CortexType}, parser::CortexParser}};
 
 fn run_test(input: &str, type_str: &str, interpreter: &CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
@@ -24,6 +24,23 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new();
+    let mut module = Module::new();
+    module.add_bundle(Bundle::new(
+        "Time", 
+        vec![
+            ("m", CortexType::number(false)),
+            ("s", CortexType::number(false)),
+        ],
+        vec![])
+    )?;
+    interpreter.register_module(&PathIdent::simple(String::from("Time")), module)?;
+    run_test("Time::Time{m:5,s:5}", "&mut Time::Time", &interpreter)?;
+    Ok(())
+}
+
 // #[test]
 // fn run_var_type_tests() -> Result<(), Box<dyn Error>> {
 //     let mut interpreter = CortexInterpreter::new();
@@ -42,5 +59,7 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
 #[test]
 fn subtype_tests() -> Result<(), Box<dyn Error>> {
     assert!(CortexType::null().is_subtype_of(&CortexType::number(true)));
+    assert!(CortexType::reference(CortexType::number(false), true).is_subtype_of(&CortexType::reference(CortexType::number(false), false)));
+    assert!(!CortexType::reference(CortexType::number(false), false).is_subtype_of(&CortexType::reference(CortexType::number(false), true)));
     Ok(())
 }

@@ -194,7 +194,7 @@ fn bundle_tests() -> Result<(), Box<dyn Error>> {
         ("s", CortexType::number(false)),
     ], vec![]);
     let date_bundle = Bundle::new("Date", vec![
-        ("t", CortexType::new(PathIdent::new(vec!["Time"]), false)),
+        ("t", CortexType::reference(CortexType::new(PathIdent::new(vec!["Time"]), false), true)),
     ], vec![]);
     let mut interpreter = CortexInterpreter::new();
     let mut module = Module::new();

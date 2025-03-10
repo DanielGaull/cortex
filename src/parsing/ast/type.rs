@@ -8,7 +8,7 @@ pub enum CortexType {
         nullable: bool,
         name: PathIdent,
     },
-    PointerType {
+    RefType {
         contained: Box<CortexType>,
         mutable: bool,
     },
@@ -25,7 +25,7 @@ impl SimpleCodeGen for CortexType {
                 }
                 s
             },
-            CortexType::PointerType { contained, mutable } => {
+            CortexType::RefType { contained, mutable } => {
                 let mut s = String::from("&");
                 if *mutable {
                     s.push_str("mut ");
@@ -44,8 +44,8 @@ impl CortexType {
             nullable: nullable,
         }
     }
-    pub fn pointer(contained: CortexType, mutable: bool) -> Self {
-        Self::PointerType {
+    pub fn reference(contained: CortexType, mutable: bool) -> Self {
+        Self::RefType {
             contained: Box::new(contained),
             mutable: mutable,
         }
@@ -76,9 +76,9 @@ impl CortexType {
                     nullable: *nullable,
                 }
             },
-            CortexType::PointerType { contained, mutable } => {
-                CortexType::PointerType {
-                    contained: contained.clone(),
+            CortexType::RefType { contained, mutable } => {
+                CortexType::RefType {
+                    contained: Box::new(contained.with_prefix(path)),
                     mutable: *mutable,
                 }
             },
@@ -97,7 +97,7 @@ impl CortexType {
             CortexType::BasicType { nullable: _, name } => {
                 name.without_last()
             },
-            CortexType::PointerType { contained, mutable: _ } => {
+            CortexType::RefType { contained, mutable: _ } => {
                 contained.prefix()
             },
         }
@@ -107,7 +107,7 @@ impl CortexType {
             CortexType::BasicType { nullable, name: _ } => {
                 *nullable
             },
-            CortexType::PointerType { contained, mutable: _ } => {
+            CortexType::RefType { contained, mutable: _ } => {
                 contained.nullable()
             },
         }
@@ -119,7 +119,7 @@ impl CortexType {
                 name.is_final().unwrap() && 
                     matches!(name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "null" | "any")
             },
-            CortexType::PointerType { contained, mutable: _ } => {
+            CortexType::RefType { contained, mutable: _ } => {
                 contained.is_core()
             },
         }
@@ -130,8 +130,8 @@ impl CortexType {
             CortexType::BasicType { nullable: _, name } => {
                 CortexType::BasicType { nullable: true, name: name }
             },
-            CortexType::PointerType { contained, mutable } => {
-                CortexType::PointerType { contained: Box::new(contained.to_nullable()), mutable: mutable }
+            CortexType::RefType { contained, mutable } => {
+                CortexType::RefType { contained: Box::new(contained.to_nullable()), mutable: mutable }
             },
         }
     }
@@ -140,8 +140,8 @@ impl CortexType {
             CortexType::BasicType { nullable: _, name } => {
                 CortexType::BasicType { nullable: false, name: name }
             },
-            CortexType::PointerType { contained, mutable } => {
-                CortexType::PointerType { contained: Box::new(contained.to_non_nullable()), mutable: mutable }
+            CortexType::RefType { contained, mutable } => {
+                CortexType::RefType { contained: Box::new(contained.to_non_nullable()), mutable: mutable }
             },
         }
     }
@@ -149,13 +149,13 @@ impl CortexType {
     pub fn types(&self) -> Vec<&PathIdent> {
         match self {
             CortexType::BasicType { nullable: _, name } => vec![name],
-            CortexType::PointerType { contained, mutable: _ } => contained.types(),
+            CortexType::RefType { contained, mutable: _ } => contained.types(),
         }
     }
     pub fn name(&self) -> &PathIdent {
         match self {
             CortexType::BasicType { nullable: _, name } => name,
-            CortexType::PointerType { contained, mutable: _ } => contained.name(),
+            CortexType::RefType { contained, mutable: _ } => contained.name(),
         }
     }
 
@@ -176,11 +176,11 @@ impl CortexType {
                 None
             }
         } else if let (
-            CortexType::PointerType { contained: c1, mutable: m1 },
-            CortexType::PointerType { contained: c2, mutable: m2 }
+            CortexType::RefType { contained: c1, mutable: m1 },
+            CortexType::RefType { contained: c2, mutable: m2 }
         ) = (&self, &other) {
             if let Some(res) = c1.clone().combine_with(*c2.clone()) {
-                Some(Self::pointer(res, *m1 || *m2))
+                Some(Self::reference(res, *m1 || *m2))
             } else {
                 None
             }
@@ -210,11 +210,11 @@ impl CortexType {
                 false
             }
         } else if let (
-            CortexType::PointerType { contained: c1, mutable: m1 },
-            CortexType::PointerType { contained: c2, mutable: m2 }
+            CortexType::RefType { contained: c1, mutable: m1 },
+            CortexType::RefType { contained: c2, mutable: m2 }
         ) = (self, other) {
             if c1.is_subtype_of(c2) {
-                if *m1 && !*m2 {
+                if !*m1 && *m2 {
                     false
                 } else {
                     true

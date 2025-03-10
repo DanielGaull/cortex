@@ -9,7 +9,7 @@ module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 struct = { "struct" ~ optIdentifier ~ "{" ~ paramList ~ "}" }
-bundle = { "bundle" ~ optIdentifier ~ "{" ~ paramList ~ funcList ~ "}" }
+bundle = { "bundle" ~ optIdentifier ~ "{" ~ paramList ~ bundleFuncList ~ "}" }
 
 // Statements
 statementNeedingSemicolon = _{ (throw | varDec | varAssign | expr) }
@@ -78,7 +78,12 @@ param = { ident ~ ":" ~ typ }
 paramList = { (param ~ ",")* ~ param? }
 exprList = { (expr ~ ",")* ~ expr? }
 body = { statement* ~ expr? }
-funcList = { function* }
+
+this = { "&this" }
+mutThis = { "&mut this" }
+bundleParamList = { ("," ~ param)* }
+bundleFunction = { "fn" ~ optIdentifier ~ "(" ~ (this | mutThis) ~ bundleParamList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
+bundleFuncList = { bundleFunction* }
 
 // Operator utilities
 add = { "+" }

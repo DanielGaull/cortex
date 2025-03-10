@@ -51,8 +51,16 @@ impl SimpleCodeGen for TopLevel {
     }
 }
 
+#[derive(PartialEq)]
+pub enum ThisArg {
+    This,
+    MutThis,
+    None,
+}
+
 pub struct Function {
     pub(crate) name: OptionalIdentifier,
+    pub(crate) this_arg: ThisArg,
     pub(crate) params: Vec<Parameter>,
     pub(crate) return_type: CortexType,
     pub(crate) body: Body,
@@ -66,6 +74,17 @@ impl SimpleCodeGen for Function {
         s.push_str("fn ");
         s.push_str(&self.name.codegen(indent));
         s.push_str("(");
+        
+        let mut has_this_arg = true;
+        match self.this_arg {
+            ThisArg::This => s.push_str("&this"),
+            ThisArg::MutThis => s.push_str("&mut this"),
+            ThisArg::None => has_this_arg = false,
+        }
+        if has_this_arg && self.params.len() > 0 {
+            s.push_str(", ");
+        }
+
         for (i, param) in self.params.iter().enumerate() {
             s.push_str(&param.codegen(indent));
             if i + 1 < self.params.len() {
@@ -90,6 +109,16 @@ impl Function {
             params: params,
             return_type: return_type,
             body: body,
+            this_arg: ThisArg::None,
+        }
+    }
+    pub fn member_func(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, this_arg: ThisArg) -> Self {
+        Function {
+            name: name,
+            params: params,
+            return_type: return_type,
+            body: body,
+            this_arg: this_arg,
         }
     }
 

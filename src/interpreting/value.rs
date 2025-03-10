@@ -14,6 +14,8 @@ pub enum ValueError {
     CannotAccessMemberOfNonComposite(&'static str),
     #[error("Member path cannot be empty")]
     MemberPathCannotBeEmpty,
+    #[error("Cannot modify member of non-mutable reference")]
+    CannotModifyNonMutableReference,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -27,7 +29,7 @@ pub enum CortexValue {
         struct_name: PathIdent,
         field_values: HashMap<String, Rc<RefCell<CortexValue>>>,
     },
-    Pointer(usize, CortexType),
+    Reference(usize, CortexType, bool), // address, type, mutable flag
 }
 
 impl Display for CortexValue {
@@ -48,7 +50,7 @@ impl Display for CortexValue {
                 }
                 write!(f, "{}({})", struct_name.codegen(0), s)
             },
-            CortexValue::Pointer(addr, _) => write!(f, "&0x{:x}", addr),
+            CortexValue::Reference(addr, _, mutable) => write!(f, "&{}0x{:x}", if *mutable {"mut"} else {""}, addr),
         }
     }
 }
@@ -61,7 +63,7 @@ impl CortexValue {
             CortexValue::Void => CortexType::void(false),
             CortexValue::Null => CortexType::null(),
             CortexValue::Composite { struct_name, field_values: _ } => CortexType::new(struct_name.clone(), false),
-            CortexValue::Pointer(_, typ) => typ.clone(),
+            CortexValue::Reference(_, typ, mutable) => CortexType::reference(typ.clone(), *mutable),
         }
     }
     fn get_variant_name(&self) -> &'static str {
@@ -72,7 +74,7 @@ impl CortexValue {
             CortexValue::Void => "void",
             CortexValue::Null => "null",
             CortexValue::Composite { struct_name: _, field_values: _ } => "composite",
-            CortexValue::Pointer(_, _) => "pointer",
+            CortexValue::Reference(_, _, _) => "pointer",
         }
     }
 
@@ -99,6 +101,18 @@ impl CortexValue {
                 }
             },
             _ => Err(ValueError::CannotModifyFieldOnNonComposite),
+        }
+    }
+
+    // If this is mutable, and the value is false, then returns a value with mutable = false
+    // Only has an effect on references
+    pub fn forward_mutability(self, value: bool) -> Self {
+        match self  {
+            Self::Reference(addr, typ, mutable) => {
+                let new_mutable = mutable && !value;
+                Self::Reference(addr, typ, new_mutable)
+            },
+            _ => self
         }
     }
 }

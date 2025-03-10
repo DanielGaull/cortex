@@ -1,7 +1,7 @@
 bundle Box {
     value: number,
 
-    fn increment(amount: number) {
+    fn increment(&mut this, amount: number) {
         this.value += amount;
     }
 }
@@ -9,7 +9,7 @@ bundle Box {
 bundle BoxedBox {
     box: &mut Box,
 
-    fn getBox(): &mut Box {
+    fn getBox(&mut this): &mut Box {
         this.box
     }
 }
@@ -21,15 +21,4 @@ fn getBox(value: number): &mut Box {
 }
 fn incValue(box: &mut Box, amt: number): void {
     box.value += amt;
-}
-
-// Increments v by 10
-fn runTest(v: number): number {
-    let box = getBox(v);
-    incValue(box, 1); // v + 1
-    box.increment(3); // v + 4
-    let doubleBox = BoxedBox {box:box};
-    doubleBox.getBox().increment(6); // v + 10
-
-    box.value
 }

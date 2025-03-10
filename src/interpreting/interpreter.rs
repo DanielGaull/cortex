@@ -109,7 +109,7 @@ impl CortexInterpreter {
             for (_, fvalue) in field_values {
                 self.find_reachables(current, fvalue.clone());
             }
-        } else if let CortexValue::Pointer(addr, _) = *value_ref {
+        } else if let CortexValue::Reference(addr, _, _) = *value_ref {
             current.insert(addr);
         }
     }
@@ -457,7 +457,14 @@ impl CortexInterpreter {
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
             Atom::Construction { name, assignments: _ } => {
-                Ok(CortexType::new(name.clone(), false).with_prefix_if_not_core(&self.current_context))
+                // Determine if this is a bundle or struct
+                let composite = self.lookup_composite(name)?;
+                let base_type = CortexType::new(name.clone(), false).with_prefix_if_not_core(&self.current_context);
+                if composite.is_heap_allocated {
+                    Ok(CortexType::reference(base_type, true))
+                } else {
+                    Ok(base_type)
+                }
             },
             Atom::IfStatement { first, conds, last } => {
                 let cond_typ = self.determine_type(&first.condition)?;
@@ -770,7 +777,7 @@ impl CortexInterpreter {
                     let value = self.construct_struct(name, assignments, &composite.fields)?;
                     let typ = value.get_type();
                     let addr = self.allocate(value);
-                    Ok(CortexValue::Pointer(addr, typ))
+                    Ok(CortexValue::Reference(addr, typ, true))
                 }
             },
             Atom::IfStatement { first, conds, last } => {
@@ -859,8 +866,14 @@ impl CortexInterpreter {
                 }
             },
             ExpressionTail::MemberAccess { member, next } => {
-                if let CortexValue::Pointer(addr, _) = atom {
-                    let val = self.heap.get(addr).borrow().get_field(member)?.borrow().clone();
+                if let CortexValue::Reference(addr, _, mutable) = atom {
+                    let val = self.heap
+                        .get(addr)
+                        .borrow()
+                        .get_field(member)?
+                        .borrow()
+                        .clone()
+                        .forward_mutability(mutable);
                     Ok(self.handle_expr_tail(val, next)?)
                 } else {
                     Ok(self.handle_expr_tail(atom.get_field(member)?.borrow().clone(), next)?)
@@ -955,7 +968,10 @@ impl CortexInterpreter {
     
     fn set_field_path(&mut self, mut base: Rc<RefCell<CortexValue>>, mut path: Vec<String>, value: CortexValue) -> Result<(), ValueError> {
         let first_option = path.get(0);
-        if let CortexValue::Pointer(addr, _) = &*base.clone().borrow() {
+        if let CortexValue::Reference(addr, _, mutable) = &*base.clone().borrow() {
+            if !mutable {
+                return Err(ValueError::CannotModifyNonMutableReference);
+            }
             base = self.heap.get(*addr);
         }
         if let Some(first) = first_option {
@@ -973,7 +989,7 @@ impl CortexInterpreter {
     }
     fn get_field_path(&self, mut value: Rc<RefCell<CortexValue>>, mut path: Vec<String>) -> Result<CortexValue, ValueError> {
         let first_option = path.get(0);
-        if let CortexValue::Pointer(addr, _) = &*value.clone().borrow() {
+        if let CortexValue::Reference(addr, _, _) = &*value.clone().borrow() {
             value = self.heap.get(*addr);
         }
         if let Some(first) = first_option {

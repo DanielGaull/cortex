@@ -66,6 +66,17 @@ fn test_bundle() -> Result<(), Box<dyn Error>> {
         interpreter.run_top_level(tl)?;
     }
 
-    assert_expression("runTest(5)", "15", &mut interpreter)?;
+    run_statement("let box = getBox(5);", &mut interpreter)?;
+    run_statement("incValue(box, 1);", &mut interpreter)?;
+    run_statement("box.increment(3);", &mut interpreter)?;
+    run_statement("let doubleBox = BoxedBox {box:box};", &mut interpreter)?;
+    run_statement("doubleBox.getBox().increment(6);", &mut interpreter)?;
+    assert_expression("box.value", "15", &mut interpreter)?;
+    Ok(())
+}
+
+fn run_statement(input: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+    let ast = CortexParser::parse_statement(input)?;
+    interpreter.run_statement(&ast)?;
     Ok(())
 }
