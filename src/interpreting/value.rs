@@ -109,7 +109,7 @@ impl CortexValue {
     pub fn forward_mutability(self, value: bool) -> Self {
         match self  {
             Self::Reference(addr, typ, mutable) => {
-                let new_mutable = mutable && !value;
+                let new_mutable = !mutable || value;
                 Self::Reference(addr, typ, new_mutable)
             },
             _ => self

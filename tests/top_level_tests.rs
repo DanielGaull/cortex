@@ -70,7 +70,10 @@ fn test_bundle() -> Result<(), Box<dyn Error>> {
     run_statement("incValue(box, 1);", &mut interpreter)?;
     run_statement("box.increment(3);", &mut interpreter)?;
     run_statement("let doubleBox = BoxedBox {box:box};", &mut interpreter)?;
-    run_statement("doubleBox.getBox().increment(6);", &mut interpreter)?;
+    assert_type("doubleBox", "&mut BoxedBox", &mut interpreter)?;
+    run_statement("let doubleBoxBox = doubleBox.getBox();", &mut interpreter)?;
+    assert_type("doubleBoxBox", "&mut Box", &mut interpreter)?;
+    run_statement("doubleBoxBox.increment(6);", &mut interpreter)?;
     assert_expression("box.value", "15", &mut interpreter)?;
     Ok(())
 }
@@ -78,5 +81,13 @@ fn test_bundle() -> Result<(), Box<dyn Error>> {
 fn run_statement(input: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_statement(input)?;
     interpreter.run_statement(&ast)?;
+    Ok(())
+}
+
+fn assert_type(input: &str, type_str: &str, interpreter: &CortexInterpreter) -> Result<(), Box<dyn Error>> {
+    let ast = CortexParser::parse_expression(input)?;
+    let eval_typ = interpreter.determine_type(&ast)?;
+    let typ = CortexParser::parse_type(type_str)?;
+    assert_eq!(typ, eval_typ);
     Ok(())
 }

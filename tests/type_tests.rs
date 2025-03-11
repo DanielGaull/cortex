@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, module::Module}, parsing::{ast::{expression::PathIdent, top_level::Bundle, r#type::CortexType}, parser::CortexParser}};
+use cortex_lang::{interpreting::{interpreter::CortexInterpreter, module::Module}, parsing::{ast::{expression::{OptionalIdentifier, PathIdent}, top_level::{BasicBody, Body, Bundle, Function}, r#type::CortexType}, parser::CortexParser}};
 
 fn run_test(input: &str, type_str: &str, interpreter: &CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
@@ -34,10 +34,28 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
             ("m", CortexType::number(false)),
             ("s", CortexType::number(false)),
         ],
-        vec![])
-    )?;
+        vec![]
+    ))?;
+    module.add_bundle(Bundle::new(
+        "Box",
+        vec![
+            ("time", CortexType::reference(CortexType::new(PathIdent::simple(String::from("Time")), false), true))
+        ],
+        vec![
+            Function::member_func(
+                OptionalIdentifier::Ident(String::from("get")), 
+                vec![],
+                CortexType::reference(CortexType::simple("Time", false), true),
+                Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.time")?))),
+                cortex_lang::parsing::ast::top_level::ThisArg::MutThis
+            )
+        ]
+    ))?;
     interpreter.register_module(&PathIdent::simple(String::from("Time")), module)?;
     run_test("Time::Time{m:5,s:5}", "&mut Time::Time", &interpreter)?;
+    interpreter.run_statement(&CortexParser::parse_statement("let box = Time::Box{ time: Time::Time{m:4,s:5} };")?)?;
+    run_test("box", "&mut Time::Box", &mut interpreter)?;
+    run_test("box.get()", "&mut Time::Time", &mut interpreter)?;
     Ok(())
 }
 
