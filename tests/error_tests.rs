@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::{EnvError, Environment}, interpreter::{CortexInterpreter, InterpreterError}, module::{Module, ModuleError}, value::{CortexValue, ValueError}}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
+use cortex_lang::{interpreting::{env::{EnvError, Environment}, interpreter::{CortexInterpreter, InterpreterError}, module::{Module, ModuleError}, value::{CortexValue, ValueError}}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -63,6 +63,8 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", InterpreterError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
     assert_err("simple::Time { m: 2, m: 3 };", InterpreterError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
+    interpreter.run_statement(&CortexParser::parse_statement("let box: &simple::IntBox = simple::IntBox { v: 100 };")?)?;
+    assert_err("box.v = 7;", ValueError::CannotModifyNonMutableReference, &mut interpreter)?;
     Ok(())
 }
 
@@ -155,10 +157,14 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
     ]);
+    let test_bundle = Bundle::new("IntBox", vec![
+        ("v", CortexType::number(false)),
+    ], vec![]);
     let mut interpreter = CortexInterpreter::new();
     let mut module = Module::new();
     module.add_function(add_func)?;
     module.add_struct(test_struct)?;
+    module.add_bundle(test_bundle)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.register_module(&path, module)?;
     Ok(interpreter)

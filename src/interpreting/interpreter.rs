@@ -185,7 +185,7 @@ impl CortexInterpreter {
             } => {
                 match name {
                     OptionalIdentifier::Ident(ident) => {
-                        let value = self.evaluate_expression(initial_value)?;
+                        let mut value = self.evaluate_expression(initial_value)?;
                         let true_type = if let Some(the_type) = typ {
                             // Check that the declared type and type of the result match
                             let value_type = self.determine_type(initial_value)?;
@@ -205,6 +205,10 @@ impl CortexInterpreter {
                             self.determine_type(initial_value)?
                         };
 
+                        if let CortexType::RefType { contained: _, mutable } = &true_type {
+                            value = value.forward_mutability(*mutable);
+                        }
+
                         if *is_const {
                             self.current_env.as_mut().unwrap().add_const(ident.clone(), true_type, value)?;
                         } else {
@@ -222,7 +226,7 @@ impl CortexInterpreter {
                 if name.is_simple() {
                     let var_name = &name.base;
                     let assigned_type = self.determine_type(value)?;
-                    let var_type = self.current_env.as_ref().unwrap().get_type_of(var_name)?;
+                    let var_type = &self.current_env.as_ref().unwrap().get_type_of(var_name)?.clone();
                     if let Some(binop) = op {
                         let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
                         if !type_op.is_subtype_of(var_type) {
@@ -238,7 +242,10 @@ impl CortexInterpreter {
                         }
                         let second = self.evaluate_expression(value)?;
                         let first = self.current_env.as_ref().unwrap().get_value(var_name)?;
-                        let value = self.evaluate_op(first.clone(), binop, second)?;
+                        let mut value = self.evaluate_op(first.clone(), binop, second)?;
+                        if let CortexType::RefType { contained: _, mutable } = var_type {
+                            value = value.forward_mutability(*mutable);
+                        }
                         self.current_env.as_mut().unwrap().set_value(var_name, value)?;
                     } else {
                         if !assigned_type.is_subtype_of(var_type) {
@@ -292,7 +299,10 @@ impl CortexInterpreter {
                                 )
                             );
                         }
-                        let value = self.evaluate_expression(value)?;
+                        let mut value = self.evaluate_expression(value)?;
+                        if let CortexType::RefType { contained: _, mutable } = &var_type {
+                            value = value.forward_mutability(*mutable);
+                        }
                         let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
                         self.set_field_path(base, chain, value)?;
                     }
