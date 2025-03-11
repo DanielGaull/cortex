@@ -64,6 +64,7 @@ pub struct Function {
     pub(crate) params: Vec<Parameter>,
     pub(crate) return_type: CortexType,
     pub(crate) body: Body,
+    pub(crate) type_param_names: Vec<String>,
 }
 impl SimpleCodeGen for Function {
     fn codegen(&self, indent: usize) -> String {
@@ -73,6 +74,13 @@ impl SimpleCodeGen for Function {
         s.push_str(indent_prefix);
         s.push_str("fn ");
         s.push_str(&self.name.codegen(indent));
+
+        if self.type_param_names.len() > 0 {
+            s.push_str("<");
+            s.push_str(&self.type_param_names.join(","));
+            s.push_str(">");
+        }
+
         s.push_str("(");
         
         let mut has_this_arg = true;
@@ -110,6 +118,7 @@ impl Function {
             return_type: return_type,
             body: body,
             this_arg: ThisArg::None,
+            type_param_names: vec![],
         }
     }
     pub fn member_func(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, this_arg: ThisArg) -> Self {
@@ -119,6 +128,7 @@ impl Function {
             return_type: return_type,
             body: body,
             this_arg: this_arg,
+            type_param_names: vec![],
         }
     }
 
@@ -191,7 +201,7 @@ impl Body {
 pub struct Struct {
     pub(crate) name: OptionalIdentifier,
     pub(crate) fields: HashMap<String, CortexType>,
-    pub(crate) type_arg_names: Vec<String>,
+    pub(crate) type_param_names: Vec<String>,
 }
 impl SimpleCodeGen for Struct {
     fn codegen(&self, indent: usize) -> String {
@@ -202,9 +212,9 @@ impl SimpleCodeGen for Struct {
         s.push_str("struct ");
         s.push_str(&self.name.codegen(indent));
 
-        if self.type_arg_names.len() > 0 {
+        if self.type_param_names.len() > 0 {
             s.push_str("<");
-            s.push_str(&self.type_arg_names.join(","));
+            s.push_str(&self.type_param_names.join(","));
             s.push_str(">");
         }
 
@@ -234,7 +244,7 @@ impl Struct {
         Struct {
             name: OptionalIdentifier::Ident(String::from(name)),
             fields: map,
-            type_arg_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
+            type_param_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
         }
     }
 }
@@ -243,7 +253,7 @@ pub struct Bundle {
     pub(crate) name: OptionalIdentifier,
     pub(crate) fields: HashMap<String, CortexType>,
     pub(crate) functions: Vec<Function>,
-    pub(crate) type_arg_names: Vec<String>,
+    pub(crate) type_param_names: Vec<String>,
 }
 impl SimpleCodeGen for Bundle {
     fn codegen(&self, indent: usize) -> String {
@@ -254,9 +264,9 @@ impl SimpleCodeGen for Bundle {
         s.push_str("bundle ");
         s.push_str(&self.name.codegen(indent));
 
-        if self.type_arg_names.len() > 0 {
+        if self.type_param_names.len() > 0 {
             s.push_str("<");
-            s.push_str(&self.type_arg_names.join(","));
+            s.push_str(&self.type_param_names.join(","));
             s.push_str(">");
         }
 
@@ -292,7 +302,7 @@ impl Bundle {
             name: OptionalIdentifier::Ident(String::from(name)),
             fields: map,
             functions: funcs,
-            type_arg_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
+            type_param_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
         }
     }
 

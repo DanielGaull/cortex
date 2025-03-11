@@ -515,7 +515,7 @@ impl CortexParser {
             Struct { 
                 name: name,
                 fields: fields,
-                type_arg_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+                type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
             }
         )
     }
@@ -546,7 +546,7 @@ impl CortexParser {
                 name: name,
                 fields: fields,
                 functions: functions,
-                type_arg_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+                type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
             }
         )
     }
@@ -554,7 +554,20 @@ impl CortexParser {
     fn parse_func_pair(pair: Pair<Rule>) -> Result<Function, ParseError> {
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
-        let params = Self::parse_param_list(pairs.next().unwrap())?;
+
+        let mut type_args = Vec::new();
+        let next = pairs.next().unwrap();
+        let params;
+        if matches!(next.as_rule(), Rule::typeArgList) {
+            let type_arg_pairs = next.into_inner();
+            for ident in type_arg_pairs {
+                type_args.push(ident.as_str());
+            }
+            params = Self::parse_param_list(pairs.next().unwrap())?;
+        } else {
+            params = Self::parse_param_list(next)?;
+        }
+
         let return_type = if matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
             Self::parse_type_pair(pairs.next().unwrap())?
         } else {
@@ -567,6 +580,7 @@ impl CortexParser {
             return_type: return_type,
             body: Body::Basic(body),
             this_arg: ThisArg::None,
+            type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
         })
     }
     fn parse_bundle_function(pair: Pair<Rule>) -> Result<Function, ParseError> {
@@ -579,8 +593,20 @@ impl CortexParser {
             } else {
                 ThisArg::MutThis
             };
+
+        let mut type_args = Vec::new();
+        let next = pairs.next().unwrap();
+        let params;
+        if matches!(next.as_rule(), Rule::typeArgList) {
+            let type_arg_pairs = next.into_inner();
+            for ident in type_arg_pairs {
+                type_args.push(ident.as_str());
+            }
+            params = Self::parse_param_list(pairs.next().unwrap())?;
+        } else {
+            params = Self::parse_param_list(next)?;
+        }
         
-        let params = Self::parse_param_list(pairs.next().unwrap())?;
         let return_type = if matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
             Self::parse_type_pair(pairs.next().unwrap())?
         } else {
@@ -593,6 +619,7 @@ impl CortexParser {
             return_type: return_type,
             body: Body::Basic(body),
             this_arg: this_arg,
+            type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
         })
     }
 

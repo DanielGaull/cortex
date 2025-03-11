@@ -119,6 +119,7 @@ fn test_functions() -> Result<(), Box<dyn Error>> {
     run_function_test("fn ~(): void {\n    throw;\n}")?;
     run_function_test_expected("fn test() {\n    throw;\n}", "fn test(): void {\n    throw;\n}")?;
     run_function_test_expected("fn ~() {\n    throw;\n}", "fn ~(): void {\n    throw;\n}")?;
+    run_function_test_expected("fn test<T>() {\n    throw;\n}", "fn test<T>(): void {\n    throw;\n}")?;
     Ok(())
 }
 

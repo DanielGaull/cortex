@@ -7,7 +7,7 @@ program = { SOI ~ topLevel* ~ EOI }
 topLevel = { import | function | struct | bundle | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
-function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
+function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 struct = { "struct" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ "}" }
 bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ bundleFuncList ~ "}" }
 
@@ -83,7 +83,7 @@ body = { statement* ~ expr? }
 this = { "&this" }
 mutThis = { "&mut this" }
 bundleParamList = { ("," ~ param)* }
-bundleFunction = { "fn" ~ optIdentifier ~ "(" ~ (this | mutThis) ~ bundleParamList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
+bundleFunction = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ (this | mutThis) ~ bundleParamList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 bundleFuncList = { bundleFunction* }
 
 typeArgList = { (ident ~ ",")* ~ ident }

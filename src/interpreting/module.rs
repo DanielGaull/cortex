@@ -169,7 +169,7 @@ impl Module {
                                 let new_param = Parameter::named(
                                     "this", 
                                     CortexType::reference(
-                                        CortexType::basic(PathIdent::simple(name.clone()), false, forwarded_type_args(&item.type_arg_names)),
+                                        CortexType::basic(PathIdent::simple(name.clone()), false, forwarded_type_args(&item.type_param_names)),
                                         func.this_arg == ThisArg::MutThis
                                     ));
                                 let mut param_list = vec![new_param];
@@ -195,7 +195,7 @@ impl Module {
     fn search_struct_for_loops(&self, s: &Struct) -> Result<bool, ModuleError> {
         match &s.name {
             OptionalIdentifier::Ident(name) => {
-                let stype = CortexType::basic(PathIdent::simple(name.clone()), false, forwarded_type_args(&s.type_arg_names));
+                let stype = CortexType::basic(PathIdent::simple(name.clone()), false, forwarded_type_args(&s.type_param_names));
                 let mut q = VecDeque::new();
                 for field in &s.fields {
                     q.push_back(field.1.clone());
