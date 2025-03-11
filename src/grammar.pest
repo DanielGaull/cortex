@@ -72,7 +72,7 @@ identExpr = { ident ~ ("." ~ ident)* }
 
 typ = { (basicType | refType) ~ "?"? }
 refType = { ("&mut" | "&") ~ typ }
-basicType = { pathIdent ~ ("<" ~ typeArgList ~ ">")? }
+basicType = { pathIdent ~ ("<" ~ typeList ~ ">")? }
 
 // Useful utilities
 param = { ident ~ ":" ~ typ }
@@ -87,6 +87,7 @@ bundleFunction = { "fn" ~ optIdentifier ~ "(" ~ (this | mutThis) ~ bundleParamLi
 bundleFuncList = { bundleFunction* }
 
 typeArgList = { (ident ~ ",")* ~ ident }
+typeList = { (typ ~ ",")* ~ typ }
 
 // Operator utilities
 add = { "+" }
