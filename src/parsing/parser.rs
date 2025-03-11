@@ -486,7 +486,18 @@ impl CortexParser {
     fn parse_struct_pair(pair: Pair<Rule>) -> Result<Struct, ParseError> {
         let mut pairs = pair.into_inner();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
-        let field_params = Self::parse_param_list(pairs.next().unwrap())?;
+        let mut type_args = Vec::new();
+        let next = pairs.next().unwrap();
+        let field_params;
+        if matches!(next.as_rule(), Rule::typeArgList) {
+            let type_arg_pairs = next.into_inner();
+            for ident in type_arg_pairs {
+                type_args.push(ident.as_str());
+            }
+            field_params = Self::parse_param_list(pairs.next().unwrap())?;
+        } else {
+            field_params = Self::parse_param_list(next)?;
+        }
         let mut fields = HashMap::new();
         for p in field_params {
             fields.insert(p.name, p.typ);
@@ -496,13 +507,25 @@ impl CortexParser {
             Struct { 
                 name: name,
                 fields: fields,
+                type_arg_names: type_args.into_iter().map(|s| String::from(s)).collect(),
             }
         )
     }
     fn parse_bundle_pair(pair: Pair<Rule>) -> Result<Bundle, ParseError> {
         let mut pairs = pair.into_inner();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
-        let field_params = Self::parse_param_list(pairs.next().unwrap())?;
+        let mut type_args = Vec::new();
+        let next = pairs.next().unwrap();
+        let field_params;
+        if matches!(next.as_rule(), Rule::typeArgList) {
+            let type_arg_pairs = next.into_inner();
+            for ident in type_arg_pairs {
+                type_args.push(ident.as_str());
+            }
+            field_params = Self::parse_param_list(pairs.next().unwrap())?;
+        } else {
+            field_params = Self::parse_param_list(next)?;
+        }
         let functions = Self::parse_bundle_func_list(pairs.next().unwrap())?;
 
         let mut fields = HashMap::new();
@@ -515,6 +538,7 @@ impl CortexParser {
                 name: name,
                 fields: fields,
                 functions: functions,
+                type_arg_names: type_args.into_iter().map(|s| String::from(s)).collect(),
             }
         )
     }

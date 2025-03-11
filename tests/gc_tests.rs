@@ -33,7 +33,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let test_bundle = Bundle::new("Time", vec![
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
-    ], vec![]);
+    ], vec![], vec![]);
     let alloc_func = CortexParser::parse_function("fn alloc(): Time { Time { m: 0, s: 0 } }")?;
     let mut interpreter = CortexInterpreter::new();
     let mut module = Module::new();

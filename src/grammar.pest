@@ -8,8 +8,8 @@ topLevel = { import | function | struct | bundle | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
-struct = { "struct" ~ optIdentifier ~ "{" ~ paramList ~ "}" }
-bundle = { "bundle" ~ optIdentifier ~ "{" ~ paramList ~ bundleFuncList ~ "}" }
+struct = { "struct" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ "}" }
+bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ bundleFuncList ~ "}" }
 
 // Statements
 statementNeedingSemicolon = _{ (throw | varDec | varAssign | expr) }
@@ -84,6 +84,8 @@ mutThis = { "&mut this" }
 bundleParamList = { ("," ~ param)* }
 bundleFunction = { "fn" ~ optIdentifier ~ "(" ~ (this | mutThis) ~ bundleParamList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 bundleFuncList = { bundleFunction* }
+
+typeArgList = { (ident ~ ",")* ~ ident }
 
 // Operator utilities
 add = { "+" }

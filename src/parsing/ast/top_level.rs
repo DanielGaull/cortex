@@ -191,6 +191,7 @@ impl Body {
 pub struct Struct {
     pub(crate) name: OptionalIdentifier,
     pub(crate) fields: HashMap<String, CortexType>,
+    pub(crate) type_arg_names: Vec<String>,
 }
 impl SimpleCodeGen for Struct {
     fn codegen(&self, indent: usize) -> String {
@@ -200,6 +201,13 @@ impl SimpleCodeGen for Struct {
         s.push_str(&indent_prefix);
         s.push_str("struct ");
         s.push_str(&self.name.codegen(indent));
+
+        if self.type_arg_names.len() > 0 {
+            s.push_str("<");
+            s.push_str(&self.type_arg_names.join(","));
+            s.push_str(">");
+        }
+
         s.push_str(" {\n");
 
         for (field, typ) in &self.fields {
@@ -218,7 +226,7 @@ impl SimpleCodeGen for Struct {
     }
 }
 impl Struct {
-    pub fn new(name: &str, fields: Vec<(&str, CortexType)>) -> Self {
+    pub fn new(name: &str, fields: Vec<(&str, CortexType)>, type_arg_names: Vec<&str>) -> Self {
         let mut map = HashMap::new();
         for f in fields {
             map.insert(String::from(f.0), f.1);
@@ -226,6 +234,7 @@ impl Struct {
         Struct {
             name: OptionalIdentifier::Ident(String::from(name)),
             fields: map,
+            type_arg_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
         }
     }
 }
@@ -234,6 +243,7 @@ pub struct Bundle {
     pub(crate) name: OptionalIdentifier,
     pub(crate) fields: HashMap<String, CortexType>,
     pub(crate) functions: Vec<Function>,
+    pub(crate) type_arg_names: Vec<String>,
 }
 impl SimpleCodeGen for Bundle {
     fn codegen(&self, indent: usize) -> String {
@@ -243,6 +253,13 @@ impl SimpleCodeGen for Bundle {
         s.push_str(&indent_prefix);
         s.push_str("bundle ");
         s.push_str(&self.name.codegen(indent));
+
+        if self.type_arg_names.len() > 0 {
+            s.push_str("<");
+            s.push_str(&self.type_arg_names.join(","));
+            s.push_str(">");
+        }
+
         s.push_str(" {\n");
 
         for (field, typ) in &self.fields {
@@ -266,7 +283,7 @@ impl SimpleCodeGen for Bundle {
     }
 }
 impl Bundle {
-    pub fn new(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<Function>) -> Self {
+    pub fn new(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<Function>, type_arg_names: Vec<&str>) -> Self {
         let mut map = HashMap::new();
         for f in fields {
             map.insert(String::from(f.0), f.1);
@@ -275,6 +292,7 @@ impl Bundle {
             name: OptionalIdentifier::Ident(String::from(name)),
             fields: map,
             functions: funcs,
+            type_arg_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
         }
     }
 

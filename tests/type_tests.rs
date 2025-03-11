@@ -34,7 +34,8 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
             ("m", CortexType::number(false)),
             ("s", CortexType::number(false)),
         ],
-        vec![]
+        vec![],
+        vec![],
     ))?;
     module.add_bundle(Bundle::new(
         "Box",
@@ -49,7 +50,8 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.time")?))),
                 cortex_lang::parsing::ast::top_level::ThisArg::MutThis
             )
-        ]
+        ],
+        vec![],
     ))?;
     interpreter.register_module(&PathIdent::simple(String::from("Time")), module)?;
     run_test("Time::Time{m:5,s:5}", "&mut Time::Time", &interpreter)?;
