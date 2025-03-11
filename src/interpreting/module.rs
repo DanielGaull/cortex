@@ -2,7 +2,7 @@ use std::{collections::{HashMap, VecDeque}, rc::Rc};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, Parameter, PathError, PathIdent}, top_level::{Bundle, Function, Struct, ThisArg}, r#type::CortexType};
+use crate::parsing::ast::{expression::{OptionalIdentifier, Parameter, PathError, PathIdent}, top_level::{Bundle, Function, Struct, ThisArg}, r#type::{forwarded_type_args, CortexType}};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -169,7 +169,7 @@ impl Module {
                                 let new_param = Parameter::named(
                                     "this", 
                                     CortexType::reference(
-                                        CortexType::new(PathIdent::simple(name.clone()), false),
+                                        CortexType::basic(PathIdent::simple(name.clone()), false, forwarded_type_args(&item.type_arg_names)),
                                         func.this_arg == ThisArg::MutThis
                                     ));
                                 let mut param_list = vec![new_param];
@@ -195,7 +195,7 @@ impl Module {
     fn search_struct_for_loops(&self, s: &Struct) -> Result<bool, ModuleError> {
         match &s.name {
             OptionalIdentifier::Ident(name) => {
-                let stype = CortexType::new(PathIdent::simple(name.clone()), false);
+                let stype = CortexType::basic(PathIdent::simple(name.clone()), false, forwarded_type_args(&s.type_arg_names));
                 let mut q = VecDeque::new();
                 for field in &s.fields {
                     q.push_back(field.1.clone());

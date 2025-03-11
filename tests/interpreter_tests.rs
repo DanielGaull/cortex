@@ -159,7 +159,7 @@ fn struct_tests() -> Result<(), Box<dyn Error>> {
         ("s", CortexType::number(false)),
     ], vec![]);
     let date_struct = Struct::new("Date", vec![
-        ("t", CortexType::new(PathIdent::new(vec!["Time"]), false)),
+        ("t", CortexType::basic(PathIdent::new(vec!["Time"]), false, vec![])),
     ], vec![]);
     let mut interpreter = CortexInterpreter::new();
     let mut module = Module::new();
@@ -194,7 +194,7 @@ fn bundle_tests() -> Result<(), Box<dyn Error>> {
         ("s", CortexType::number(false)),
     ], vec![], vec![]);
     let date_bundle = Bundle::new("Date", vec![
-        ("t", CortexType::reference(CortexType::new(PathIdent::new(vec!["Time"]), false), true)),
+        ("t", CortexType::reference(CortexType::basic(PathIdent::new(vec!["Time"]), false, vec![]), true)),
     ], vec![], vec![]);
     let mut interpreter = CortexInterpreter::new();
     let mut module = Module::new();

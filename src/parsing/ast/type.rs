@@ -7,6 +7,7 @@ pub enum CortexType {
     BasicType {
         nullable: bool,
         name: PathIdent,
+        type_args: Vec<CortexType>,
     },
     RefType {
         contained: Box<CortexType>,
@@ -17,9 +18,14 @@ pub enum CortexType {
 impl SimpleCodeGen for CortexType {
     fn codegen(&self, _: usize) -> String {
         match self {
-            CortexType::BasicType { nullable, name } => {
+            CortexType::BasicType { nullable, name, type_args } => {
                 let mut s = String::new();
                 s.push_str(&name.codegen(0));
+                if type_args.len() > 0 {
+                    s.push_str("<");
+                    s.push_str(&type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(","));
+                    s.push_str(">");
+                }
                 if *nullable {
                     s.push_str("?");
                 }
@@ -38,10 +44,11 @@ impl SimpleCodeGen for CortexType {
 }
 
 impl CortexType {
-    pub fn new(name: PathIdent, nullable: bool) -> Self {
+    pub fn basic(name: PathIdent, nullable: bool, type_args: Vec<CortexType>) -> Self {
         Self::BasicType {
             name: name,
             nullable: nullable,
+            type_args: type_args,
         }
     }
     pub fn reference(contained: CortexType, mutable: bool) -> Self {
@@ -51,7 +58,7 @@ impl CortexType {
         }
     }
     pub fn simple(name: &str, nullable: bool) -> Self {
-        Self::new(PathIdent::simple(String::from(name)), nullable)
+        Self::basic(PathIdent::simple(String::from(name)), nullable, vec![])
     }
     pub fn number(nullable: bool) -> Self {
         Self::simple("number", nullable)
@@ -70,10 +77,11 @@ impl CortexType {
     }
     pub fn with_prefix(&self, path: &PathIdent) -> Self {
         match self {
-            CortexType::BasicType { nullable, name } => {
+            CortexType::BasicType { nullable, name, type_args } => {
                 CortexType::BasicType {
                     name: PathIdent::concat(path, name),
                     nullable: *nullable,
+                    type_args: type_args.clone(),
                 }
             },
             CortexType::RefType { contained, mutable } => {
@@ -94,7 +102,7 @@ impl CortexType {
 
     pub fn prefix(&self) -> PathIdent {
         match self {
-            CortexType::BasicType { nullable: _, name } => {
+            CortexType::BasicType { nullable: _, name, type_args: _ } => {
                 name.without_last()
             },
             CortexType::RefType { contained, mutable: _ } => {
@@ -104,7 +112,7 @@ impl CortexType {
     }
     pub fn nullable(&self) -> bool {
         match self {
-            CortexType::BasicType { nullable, name: _ } => {
+            CortexType::BasicType { nullable, name: _, type_args: _ } => {
                 *nullable
             },
             CortexType::RefType { contained, mutable: _ } => {
@@ -115,7 +123,7 @@ impl CortexType {
 
     pub fn is_core(&self) -> bool {
         match self {
-            CortexType::BasicType { nullable: _, name } => {
+            CortexType::BasicType { nullable: _, name, type_args: _ } => {
                 name.is_final().unwrap() && 
                     matches!(name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "null" | "any")
             },
@@ -127,8 +135,8 @@ impl CortexType {
 
     pub fn to_nullable(self) -> Self {
         match self {
-            CortexType::BasicType { nullable: _, name } => {
-                CortexType::BasicType { nullable: true, name: name }
+            CortexType::BasicType { nullable: _, name, type_args } => {
+                CortexType::BasicType { nullable: true, name: name, type_args: type_args }
             },
             CortexType::RefType { contained, mutable } => {
                 CortexType::RefType { contained: Box::new(contained.to_nullable()), mutable: mutable }
@@ -137,8 +145,8 @@ impl CortexType {
     }
     pub fn to_non_nullable(self) -> Self {
         match self {
-            CortexType::BasicType { nullable: _, name } => {
-                CortexType::BasicType { nullable: false, name: name }
+            CortexType::BasicType { nullable: _, name, type_args } => {
+                CortexType::BasicType { nullable: false, name: name, type_args: type_args }
             },
             CortexType::RefType { contained, mutable } => {
                 CortexType::RefType { contained: Box::new(contained.to_non_nullable()), mutable: mutable }
@@ -148,13 +156,13 @@ impl CortexType {
 
     pub fn types(&self) -> Vec<&PathIdent> {
         match self {
-            CortexType::BasicType { nullable: _, name } => vec![name],
+            CortexType::BasicType { nullable: _, name, type_args: _ } => vec![name],
             CortexType::RefType { contained, mutable: _ } => contained.types(),
         }
     }
     pub fn name(&self) -> &PathIdent {
         match self {
-            CortexType::BasicType { nullable: _, name } => name,
+            CortexType::BasicType { nullable: _, name, type_args: _ } => name,
             CortexType::RefType { contained, mutable: _ } => contained.name(),
         }
     }
@@ -167,11 +175,15 @@ impl CortexType {
         } else if is_second_null_type {
             Some(self.to_non_nullable())
         } else if let (
-            CortexType::BasicType { nullable: n1, name:name1 }, 
-            CortexType::BasicType { nullable: n2, name: name2 }
+            CortexType::BasicType { nullable: n1, name: name1, type_args: ta1 }, 
+            CortexType::BasicType { nullable: n2, name: name2, type_args: ta2 }
         ) = (&self, &other) {
             if name1 == name2 {
-                Some(Self::new(name1.clone(), *n1 || *n2))
+                if !are_type_args_equal(ta1, ta2) {
+                    None
+                } else {
+                    Some(Self::basic(name1.clone(), *n1 || *n2, ta1.clone()))
+                }
             } else {
                 None
             }
@@ -197,11 +209,13 @@ impl CortexType {
             return false;
         }
         if let (
-            CortexType::BasicType { nullable: n1, name: name1 },
-            CortexType::BasicType { nullable: n2, name: name2 }
+            CortexType::BasicType { nullable: n1, name: name1, type_args: ta1 },
+            CortexType::BasicType { nullable: n2, name: name2, type_args: ta2 }
         ) = (self, other) {
             if name1 == name2 {
                 if *n1 && !*n2 {
+                    false
+                } else if !are_type_args_equal(ta1, ta2) {
                     false
                 } else {
                     true
@@ -230,4 +244,24 @@ impl CortexType {
 
 fn are_same_variant<T>(a: &T, b: &T) -> bool {
     std::mem::discriminant(a) == std::mem::discriminant(b)
+}
+
+fn are_type_args_equal(a: &Vec<CortexType>, b: &Vec<CortexType>) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    for i in 0..a.len() {
+        if a.get(i).unwrap() != b.get(i).unwrap() {
+            return false;
+        }
+    }
+    true
+}
+
+pub fn forwarded_type_args(names: &Vec<String>) -> Vec<CortexType> {
+    let mut type_args = Vec::new();
+    for name in names {
+        type_args.push(CortexType::basic(PathIdent::simple(name.clone()), false, vec![]));
+    }
+    type_args
 }

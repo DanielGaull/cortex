@@ -70,8 +70,9 @@ ident = ${ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
 pathIdent = { (ident ~ "::")* ~ ident }
 identExpr = { ident ~ ("." ~ ident)* }
 
-typ = { (pathIdent | refType) ~ "?"? }
-refType = { "&" ~ "mut"? ~ typ }
+typ = { (basicType | refType) ~ "?"? }
+refType = { ("&mut" | "&") ~ typ }
+basicType = { pathIdent ~ ("<" ~ typeArgList ~ ">")? }
 
 // Useful utilities
 param = { ident ~ ":" ~ typ }

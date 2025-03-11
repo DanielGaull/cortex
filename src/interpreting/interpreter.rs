@@ -105,7 +105,8 @@ impl CortexInterpreter {
     }
     fn find_reachables(&self, current: &mut HashSet<usize>, value: Rc<RefCell<CortexValue>>) {
         let value_ref = value.borrow();
-        if let CortexValue::Composite { struct_name: _, field_values } = &*value_ref {
+        if let CortexValue::Composite { struct_name: _, field_values, type_args: _, type_arg_names: _ } = &*value_ref {
+            // TODO: handle type args here
             for (_, fvalue) in field_values {
                 self.find_reachables(current, fvalue.clone());
             }
@@ -467,9 +468,9 @@ impl CortexInterpreter {
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
             Atom::Construction { name, assignments: _ } => {
-                // Determine if this is a bundle or struct
+                // TODO: add providing type args to construction
                 let composite = self.lookup_composite(name)?;
-                let base_type = CortexType::new(name.clone(), false).with_prefix_if_not_core(&self.current_context);
+                let base_type = CortexType::basic(name.clone(), false, vec![]).with_prefix_if_not_core(&self.current_context);
                 if composite.is_heap_allocated {
                     Ok(CortexType::reference(base_type, true))
                 } else {
@@ -969,6 +970,8 @@ impl CortexInterpreter {
                 CortexValue::Composite {
                     struct_name: PathIdent::concat(&self.current_context, name),
                     field_values: values,
+                    type_arg_names: vec![],
+                    type_args: vec![],
                 }
             )
         } else {

@@ -462,9 +462,17 @@ impl CortexParser {
         let nullable = pair_str.ends_with("?");
         let main = pair.into_inner().next().unwrap();
         match main.as_rule() {
-            Rule::pathIdent => {
-                let ident = Self::parse_path_ident(main)?;
-                Ok(CortexType::new(ident, nullable))
+            Rule::basicType => {
+                let mut pairs = main.into_inner();
+                let ident = Self::parse_path_ident(pairs.next().unwrap())?;
+                let mut type_args = Vec::new();
+                if let Some(type_args_top_pair) = pairs.next() {
+                    let type_arg_pairs = type_args_top_pair.into_inner();
+                    for typ_pair in type_arg_pairs {
+                        type_args.push(Self::parse_type_pair(typ_pair)?);
+                    }
+                }
+                Ok(CortexType::basic(ident, nullable, type_args))
             },
             Rule::refType => {
                 let typ = Self::parse_type_pair(main.into_inner().next().unwrap())?;

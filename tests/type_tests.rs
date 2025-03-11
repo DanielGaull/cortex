@@ -40,7 +40,7 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_bundle(Bundle::new(
         "Box",
         vec![
-            ("time", CortexType::reference(CortexType::new(PathIdent::simple(String::from("Time")), false), true))
+            ("time", CortexType::reference(CortexType::basic(PathIdent::simple(String::from("Time")), false, vec![]), true))
         ],
         vec![
             Function::member_func(
