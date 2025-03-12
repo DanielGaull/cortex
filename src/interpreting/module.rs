@@ -60,7 +60,7 @@ impl Module {
     }
 
     pub fn get_module_for(&self, path: &PathIdent) -> Result<&Module, ModuleError> {
-        if path.is_final().map_err(|e| ModuleError::PathError(e))? {
+        if path.is_final() {
             return Ok(self);
         }
         let front = path.get_front().map_err(|e| ModuleError::PathError(e))?;
@@ -73,7 +73,7 @@ impl Module {
         }
     }
     pub fn add_module(&mut self, path: &PathIdent, module: Module) -> Result<(), ModuleError> {
-        if path.is_final().map_err(|e| ModuleError::PathError(e))? {
+        if path.is_final() {
             let name = path.get_front().map_err(|e| ModuleError::PathError(e))?.clone();
             self.add_child(name, module)?;
             return Ok(());

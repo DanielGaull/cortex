@@ -124,7 +124,7 @@ impl CortexType {
     pub fn is_core(&self) -> bool {
         match self {
             CortexType::BasicType { nullable: _, name, type_args: _ } => {
-                name.is_final().unwrap() && 
+                name.is_final() && 
                     matches!(name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "null" | "any")
             },
             CortexType::RefType { contained, mutable: _ } => {
@@ -134,22 +134,18 @@ impl CortexType {
     }
 
     pub fn to_nullable(self) -> Self {
-        match self {
-            CortexType::BasicType { nullable: _, name, type_args } => {
-                CortexType::BasicType { nullable: true, name: name, type_args: type_args }
-            },
-            CortexType::RefType { contained, mutable } => {
-                CortexType::RefType { contained: Box::new(contained.to_nullable()), mutable: mutable }
-            },
-        }
+        self.to_nullable_value(true)
     }
     pub fn to_non_nullable(self) -> Self {
+        self.to_nullable_value(false)
+    }
+    pub fn to_nullable_value(self, value: bool) -> Self {
         match self {
             CortexType::BasicType { nullable: _, name, type_args } => {
-                CortexType::BasicType { nullable: false, name: name, type_args: type_args }
+                CortexType::BasicType { nullable: value, name: name, type_args: type_args }
             },
             CortexType::RefType { contained, mutable } => {
-                CortexType::RefType { contained: Box::new(contained.to_non_nullable()), mutable: mutable }
+                CortexType::RefType { contained: Box::new(contained.to_nullable_value(value)), mutable: mutable }
             },
         }
     }

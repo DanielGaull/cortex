@@ -1119,7 +1119,7 @@ impl CortexInterpreter {
     }
 
     fn lookup_type(&self, path: &PathIdent) -> Result<CortexType, CortexError> {
-        if path.is_final()? {
+        if path.is_final() {
             // Search in our environment for it
             Ok(self.current_env.as_ref().unwrap().get_type_of(path.get_front()?)?.clone())
         } else {
@@ -1127,7 +1127,7 @@ impl CortexInterpreter {
         }
     }
     fn lookup_value(&self, path: &PathIdent) -> Result<CortexValue, CortexError> {
-        if path.is_final()? {
+        if path.is_final() {
             // Search in our environment for it
             Ok(self.current_env.as_ref().unwrap().get_value(path.get_front()?)?.clone())
         } else {
