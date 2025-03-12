@@ -63,7 +63,7 @@ impl TypeEnvironment {
                 if name.is_final() {
                     let ident = name.get_back().unwrap();
                     if let Some(result) = self.find_binding(ident) {
-                        result.clone().to_nullable_value(nullable)
+                        result.clone().to_nullable_if_true(nullable)
                     } else {
                         CortexType::BasicType { nullable: nullable, name: name, type_args: type_args.into_iter().map(|t| self.fill_in(t)).collect() }
                     }

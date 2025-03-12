@@ -1,0 +1,3 @@
+fn identity<T>(item: T): T {
+    item
+}

@@ -149,6 +149,13 @@ impl CortexType {
             },
         }
     }
+    pub fn to_nullable_if_true(self, value: bool) -> Self {
+        if value {
+            self.to_nullable()
+        } else {
+            self
+        }
+    }
 
     pub fn types(&self) -> Vec<&PathIdent> {
         match self {
