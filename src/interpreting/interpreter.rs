@@ -4,7 +4,7 @@ use thiserror::Error;
 use paste::paste;
 
 use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
-use super::{env::Environment, mem::heap::Heap, module::{CompositeType, Module}, value::{CortexValue, ValueError}};
+use super::{env::Environment, mem::heap::Heap, module::{CompositeType, Module}, type_env::TypeEnvironment, value::{CortexValue, ValueError}};
 
 macro_rules! determine_op_type_fn {
     ($name:ident, $typ:ty, $prev_name:ident) => {
@@ -74,6 +74,10 @@ pub enum InterpreterError {
     LoopCannotHaveReturnValue,
     #[error("Value not found: {0} (module constants are currently not supported)")]
     ValueNotFound(String),
+    #[error("Could not infer type binding; expected {0} but found {1}")]
+    CouldNotInferTypeBinding(String, String),
+    #[error("Cannot have type arguments on a generic type: {0}")]
+    CannotHaveTypeArgsOnGeneric(String),
 }
 
 pub struct CortexInterpreter {
@@ -81,6 +85,7 @@ pub struct CortexInterpreter {
     current_env: Option<Box<Environment>>,
     current_context: PathIdent,
     heap: Heap,
+    current_type_env: Option<Box<TypeEnvironment>>,
 }
 
 impl CortexInterpreter {
@@ -90,6 +95,7 @@ impl CortexInterpreter {
             current_env: Some(Box::new(Environment::base())),
             current_context: PathIdent::empty(),
             heap: Heap::new(),
+            current_type_env: Some(Box::new(TypeEnvironment::base())),
         }
     }
 
@@ -342,7 +348,7 @@ impl CortexInterpreter {
     }
 
     pub fn determine_type(&self, expr: &Expression) -> Result<CortexType, CortexError> {
-        self.determine_type_expression(expr)
+        Ok(self.clean_type(self.determine_type_expression(expr)?))
     }
     fn determine_type_primary(&self, primary: &Primary) -> Result<CortexType, CortexError> {
         let atom_result = self.determine_type_atom(&primary.atom)?;
@@ -1029,6 +1035,76 @@ impl CortexInterpreter {
         self.call_function(func, arg_values)
     }
 
+    fn infer_type_args(&self, func: &Rc<Function>, args: &Vec<CortexValue>) -> Result<HashMap<String, CortexType>, CortexError> {
+        let mut bindings = HashMap::<String, CortexType>::new();
+        for (arg, param) in args.iter().zip(&func.params) {
+            self.infer_arg(&param.typ, &arg.get_type(), &func.type_param_names, &mut bindings, param.name())?;
+        }
+        Ok(bindings)
+    }
+    fn infer_arg(&self, param_type: &CortexType, arg_type: &CortexType, type_param_names: &Vec<String>, bindings: &mut HashMap<String, CortexType>, param_name: &String) -> Result<(), CortexError> {
+        let correct;
+        match (&param_type, arg_type) {
+            (CortexType::BasicType { nullable, name: _, type_args }, arg_type) => {
+                if let Some(name) = TypeEnvironment::does_arg_list_contain(type_param_names, &param_type) {
+                    // If we take in a T? and passing a number?, then we want T = number, not T = number?
+                    let mut bound_type = arg_type.clone();
+                    if *nullable {
+                        bound_type = bound_type.to_non_nullable();
+                    }
+                    if type_args.len() > 0 {
+                        return Err(Box::new(InterpreterError::CannotHaveTypeArgsOnGeneric(param_type.codegen(0))));
+                    }
+                    if let Some(existing_binding) = bindings.get(name) {
+                        let combined = bound_type.combine_with(existing_binding.clone());
+                        if let Some(result) = combined {
+                            bindings.insert(name.clone(), result);
+                            correct = true;
+                        } else {
+                            correct = false;
+                        }
+                    } else {
+                        bindings.insert(name.clone(), bound_type);
+                        correct = true;
+                    }
+                } else {
+                    // Try to match up type args (ex. list<T> to list<number>)
+                    // If both are not BasicType, then we just ignore this
+                    if let CortexType::BasicType { nullable: _, name: _, type_args: type_args2 } = arg_type {
+                        if type_args.len() == type_args2.len() {
+                            for (type_param, type_arg) in type_args.iter().zip(type_args2) {
+                                self.infer_arg(type_param, type_arg, type_param_names, bindings, param_name)?;
+                            }
+                            correct = true;
+                        } else {
+                            correct = false;
+                        }
+                    } else {
+                        correct = true;
+                    }
+                }
+            },
+            (CortexType::RefType { contained, mutable: _ }, CortexType::RefType { contained: contained2, mutable: _ }) => {
+                self.infer_arg(contained, contained2, type_param_names, bindings, param_name)?;
+                correct = true;
+            },
+            (CortexType::RefType { contained: _, mutable: _ }, _) => {
+                // parameter is reference but arg is not a reference
+                correct = false;
+            }
+        }
+        if correct {
+            Ok(())
+        } else {
+            Err(Box::new(InterpreterError::MismatchedType(param_type.codegen(0), arg_type.codegen(0), param_name.clone())))
+        }
+    }
+
+    // "Cleans" type, for example replacing type arguments
+    fn clean_type(&self, typ: CortexType) -> CortexType {
+        self.current_type_env.as_ref().unwrap().fill_in(typ)
+    }
+
     pub fn call_function(&mut self, func: &Rc<Function>, mut args: Vec<CortexValue>) -> Result<CortexValue, CortexError> {
         let body = &func.body;
         let mut param_names = Vec::<String>::with_capacity(func.params.len());
@@ -1044,9 +1120,18 @@ impl CortexInterpreter {
             ));
         }
 
+        // Infer type arguments
+        let type_bindings = self.infer_type_args(func, &args)?;
+        let parent_type_env = self.current_type_env.take().ok_or(InterpreterError::NoParentEnv)?;
+        let mut new_type_env = TypeEnvironment::new(*parent_type_env);
+        for (name, typ) in type_bindings {
+            new_type_env.add(name, typ);
+        }
+        self.current_type_env = Some(Box::new(new_type_env));
+
         for (i, arg) in args.iter().enumerate() {
-            let arg_type = arg.get_type();
-            let param_type = param_types.get(i).unwrap().clone().with_prefix_if_not_core(&self.current_context);
+            let arg_type = self.clean_type(arg.get_type());
+            let param_type = self.clean_type(param_types.get(i).unwrap().clone().with_prefix_if_not_core(&self.current_context));
             if !arg_type.is_subtype_of(&param_type) {
                 return Err(
                     Box::new(
@@ -1073,7 +1158,7 @@ impl CortexInterpreter {
         for i in 0..args.len() {
             let value = args.remove(0);
             let param_name = param_names.get(i).unwrap();
-            let param_type = param_types.remove(0);
+            let param_type = self.clean_type(param_types.remove(0));
             new_env
                 .add_var(
                     param_name.clone(),
@@ -1089,6 +1174,11 @@ impl CortexInterpreter {
         // Deconstruct environment
         self.current_env = Some(Box::new(
             self.current_env
+                .take()
+                .ok_or(InterpreterError::NoParentEnv)?
+                .exit()?));
+        self.current_type_env = Some(Box::new(
+            self.current_type_env
                 .take()
                 .ok_or(InterpreterError::NoParentEnv)?
                 .exit()?));

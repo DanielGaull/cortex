@@ -2,16 +2,18 @@ use std::collections::HashMap;
 
 use crate::parsing::ast::r#type::CortexType;
 
+use super::env::EnvError;
+
 pub struct TypeEnvironment {
     bindings: HashMap<String, CortexType>,
     parent: Option<Box<TypeEnvironment>>,
 }
 
 impl TypeEnvironment {
-    pub fn new(parent: Box<TypeEnvironment>) -> Self {
+    pub fn new(parent: TypeEnvironment) -> Self {
         TypeEnvironment {
             bindings: HashMap::new(),
-            parent: Some(parent),
+            parent: Some(Box::new(parent)),
         }
     }
     pub fn base() -> Self {
@@ -35,6 +37,26 @@ impl TypeEnvironment {
         }
     }
 
+    pub fn contains_binding(&self, typ: &CortexType) -> bool {
+        match typ {
+            CortexType::BasicType { nullable: _, name, type_args } => {
+                if name.is_final() {
+                    let ident = name.get_back().unwrap();
+                    if let Some(_) = self.find_binding(ident) {
+                        true
+                    } else {
+                        type_args.iter().any(|t| self.contains_binding(t))
+                    }
+                } else {
+                    type_args.iter().any(|t| self.contains_binding(t))
+                }
+            },
+            CortexType::RefType { contained, mutable: _ } => {
+                self.contains_binding(contained)
+            },
+        }
+    }
+
     pub fn fill_in(&self, typ: CortexType) -> CortexType {
         match typ {
             CortexType::BasicType { nullable, name, type_args } => {
@@ -43,16 +65,37 @@ impl TypeEnvironment {
                     if let Some(result) = self.find_binding(ident) {
                         result.clone().to_nullable_value(nullable)
                     } else {
-                        CortexType::BasicType { nullable: nullable, name: name, type_args: type_args }
+                        CortexType::BasicType { nullable: nullable, name: name, type_args: type_args.into_iter().map(|t| self.fill_in(t)).collect() }
                     }
                 } else {
-                    CortexType::BasicType { nullable: nullable, name: name, type_args: type_args }
+                    CortexType::BasicType { nullable: nullable, name: name, type_args: type_args.into_iter().map(|t| self.fill_in(t)).collect() }
                 }
             },
             CortexType::RefType { contained, mutable } => {
                 let new_contained = self.fill_in(*contained);
                 CortexType::RefType { contained: Box::new(new_contained), mutable: mutable }
             },
+        }
+    }
+
+    pub fn exit(self) -> Result<TypeEnvironment, EnvError> {
+        if let Some(parent) = self.parent {
+            Ok(*parent)
+        } else {
+            Err(EnvError::AlreadyBase)
+        }
+    }
+
+    pub fn does_arg_list_contain<'a>(type_param_names: &Vec<String>, typ: &'a CortexType) -> Option<&'a String> {
+        if typ.name().is_final() {
+            let name = typ.name().get_back().unwrap();
+            if type_param_names.contains(name) {
+                Some(name)
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 }
