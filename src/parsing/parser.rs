@@ -319,8 +319,14 @@ impl CortexParser {
                 Ok(Atom::Call(name, args))
             },
             Rule::structConstruction => {
-                let mut pairs = pair.into_inner();
+                let mut pairs = pair.into_inner().peekable();
                 let name = Self::parse_path_ident(pairs.next().unwrap())?;
+                let type_args;
+                if pairs.peek().unwrap().as_rule() == Rule::typeList {
+                    type_args = pairs.next().unwrap().into_inner().map(|s| Self::parse_type_pair(s)).collect::<Result<Vec<_>, _>>()?;
+                } else {
+                    type_args = vec![];
+                }
                 let mut assignments = Vec::new();
                 for p in pairs {
                     let mut member_init = p.into_inner();
@@ -328,7 +334,7 @@ impl CortexParser {
                     let expr = Self::parse_expr_pair(member_init.next().unwrap())?;
                     assignments.push((String::from(name), expr));
                 }
-                Ok(Atom::Construction { name: name, assignments: assignments })
+                Ok(Atom::Construction { name: name, assignments: assignments, type_args: type_args })
             },
             Rule::r#if => {
                 let mut pairs = pair.into_inner();

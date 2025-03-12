@@ -78,6 +78,8 @@ pub enum InterpreterError {
     CouldNotInferTypeBinding(String, String),
     #[error("Cannot have type arguments on a generic type: {0}")]
     CannotHaveTypeArgsOnGeneric(String),
+    #[error("Type {0} requires {1} type arguments but only {2} was/were provided")]
+    MismatchedTypeArgCount(String, usize, usize),
 }
 
 pub struct CortexInterpreter {
@@ -473,10 +475,9 @@ impl CortexInterpreter {
                 Ok(return_type)
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
-            Atom::Construction { name, assignments: _ } => {
-                // TODO: add providing type args to construction
+            Atom::Construction { name, type_args, assignments: _ } => {
                 let composite = self.lookup_composite(name)?;
-                let base_type = CortexType::basic(name.clone(), false, vec![]).with_prefix_if_not_core(&self.current_context);
+                let base_type = CortexType::basic(name.clone(), false, type_args.clone()).with_prefix_if_not_core(&self.current_context);
                 if composite.is_heap_allocated {
                     Ok(CortexType::reference(base_type, true))
                 } else {
@@ -786,12 +787,12 @@ impl CortexInterpreter {
                 self.current_context = context_to_return_to;
                 Ok(func_result?)
             },
-            Atom::Construction { name, assignments } => {
+            Atom::Construction { name, type_args, assignments } => {
                 let composite = self.lookup_composite(name)?;
                 if !composite.is_heap_allocated {
-                    Ok(self.construct_struct(name, assignments, &composite.fields)?)
+                    Ok(self.construct_struct(name, assignments, &composite.fields, &composite.type_param_names, type_args)?)
                 } else {
-                    let value = self.construct_struct(name, assignments, &composite.fields)?;
+                    let value = self.construct_struct(name, assignments, &composite.fields, &composite.type_param_names, type_args)?;
                     let typ = value.get_type();
                     let addr = self.allocate(value);
                     Ok(CortexValue::Reference(addr, typ, true))
@@ -931,7 +932,9 @@ impl CortexInterpreter {
         &mut self,
         name: &PathIdent,
         assignments: &Vec<(String, Expression)>,
-        fields: &HashMap<String, CortexType>
+        fields: &HashMap<String, CortexType>,
+        type_param_names: &Vec<String>,
+        type_args: &Vec<CortexType>,
     ) -> Result<CortexValue, CortexError> {
         let mut fields_to_assign = Vec::new();
         for k in fields.keys() {
@@ -971,13 +974,16 @@ impl CortexInterpreter {
                 return Err(Box::new(InterpreterError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
             }
         }
+        if type_args.len() != type_param_names.len() {
+            return Err(Box::new(InterpreterError::MismatchedTypeArgCount(name.codegen(0), type_param_names.len(), type_args.len())));
+        }
         if fields_to_assign.is_empty() {
             Ok(
                 CortexValue::Composite {
                     struct_name: PathIdent::concat(&self.current_context, name),
                     field_values: values,
-                    type_arg_names: vec![],
-                    type_args: vec![],
+                    type_arg_names: type_param_names.clone(),
+                    type_args: type_args.clone(),
                 }
             )
         } else {

@@ -74,7 +74,8 @@ pub enum Atom {
     PathIdent(PathIdent),
     Call(PathIdent, Vec<Expression>),
     Construction {
-        name: PathIdent, 
+        name: PathIdent,
+        type_args: Vec<CortexType>,
         assignments: Vec<(String, Expression)>
     },
     IfStatement {
@@ -111,9 +112,14 @@ impl SimpleCodeGen for Atom {
                 s.push_str(")");
                 s
             },
-            Atom::Construction { name, assignments } => {
+            Atom::Construction { name, type_args, assignments } => {
                 let mut s = String::new();
                 s.push_str(&name.codegen(0));
+                if type_args.len() > 0 {
+                    s.push_str("<");
+                    s.push_str(&type_args.iter().map(|s| s.codegen(0)).collect::<Vec<_>>().join(","));
+                    s.push_str(">");
+                }
                 s.push_str(" { ");
                 for a in assignments {
                     s.push_str(&a.0);

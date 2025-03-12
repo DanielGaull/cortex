@@ -34,7 +34,7 @@ logicResult = _{ eqResult ~ ((and | or) ~ eqResult)* }
 expr = { logicResult }
 
 call = { pathIdent ~ "(" ~ exprList ~ ")" }
-structConstruction = { pathIdent ~ "{" ~ (structMemberInit ~ ",")* ~ structMemberInit? ~ "}" }
+structConstruction = { pathIdent ~ ("<" ~ typeList ~ ">")? ~ "{" ~ (structMemberInit ~ ",")* ~ structMemberInit? ~ "}" }
 structMemberInit = { ident ~ ":" ~ expr }
 
 postfixBangTail = { ("!" ~ !"=") ~ exprTail }

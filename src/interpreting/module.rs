@@ -29,6 +29,7 @@ pub enum ModuleError {
 
 pub struct CompositeType {
     pub(crate) fields: HashMap<String, CortexType>,
+    pub(crate) type_param_names: Vec<String>,
     pub(crate) is_heap_allocated: bool,
 }
 
@@ -145,6 +146,7 @@ impl Module {
                         self.composites.insert(name.clone(), Rc::from(CompositeType {
                             fields: item.fields,
                             is_heap_allocated: false,
+                            type_param_names: item.type_param_names,
                         }));
                         Ok(())
                     }
@@ -159,10 +161,6 @@ impl Module {
                 if let Some(_) = self.get_composite_internal(&name) {
                     Err(ModuleError::TypeAlreadyExists(name.clone()))
                 } else {
-                    self.composites.insert(name.clone(), Rc::from(CompositeType {
-                        fields: item.fields,
-                        is_heap_allocated: true,
-                    }));
                     for func in item.functions {
                         match func.name {
                             OptionalIdentifier::Ident(func_name) => {
@@ -185,6 +183,11 @@ impl Module {
                             OptionalIdentifier::Ignore => (),
                         }
                     }
+                    self.composites.insert(name.clone(), Rc::from(CompositeType {
+                        fields: item.fields,
+                        is_heap_allocated: true,
+                        type_param_names: item.type_param_names,
+                    }));
                     Ok(())
                 }
             },
