@@ -43,7 +43,8 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
             Parameter::named("b", CortexType::number(false))
         ],
         CortexType::number(false),
-        add_body
+        add_body,
+        vec![],
     );
     let mut interpreter = CortexInterpreter::new();
     let mut module = Module::new();

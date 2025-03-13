@@ -172,11 +172,14 @@ impl Module {
                                     ));
                                 let mut param_list = vec![new_param];
                                 param_list.extend(func.params);
+                                let mut type_param_names = func.type_param_names;
+                                type_param_names.extend(item.type_param_names.clone());
                                 let new_func = Function::new(
                                     OptionalIdentifier::Ident(Bundle::get_bundle_func_name(name, &func_name)),
                                     param_list,
                                     func.return_type,
                                     func.body,
+                                    type_param_names,
                                 );
                                 self.add_function(new_func)?;
                             },

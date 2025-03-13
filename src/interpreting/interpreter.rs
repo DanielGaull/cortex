@@ -571,9 +571,23 @@ impl CortexInterpreter {
                 if !composite.fields.contains_key(member) {
                     Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), atom.name().codegen(0))))
                 } else {
-                    let member_type = composite.fields.get(member).unwrap().clone();
-                    let member_type = member_type.with_prefix_if_not_core(&atom.prefix());
-                    let member_type = self.determine_type_tail(member_type, next)?;
+                    let mut member_type = composite.fields.get(member).unwrap().clone();
+                    if let Some(_) = TypeEnvironment::does_arg_list_contain(&composite.type_param_names, &member_type) {
+                        let mut type_args_handled = false;
+                        let mut typ = atom.clone();
+                        while !type_args_handled {
+                            if let CortexType::BasicType { nullable: _, name: _, type_args } = &typ {
+                                let bindings = TypeEnvironment::create_bindings(&composite.type_param_names, type_args);
+                                typ = TypeEnvironment::fill(typ, &bindings);
+                                type_args_handled = true;
+                            } else if let CortexType::RefType { contained, mutable: _} = typ {
+                                typ = *contained;
+                            }
+                        }
+                        member_type = typ;
+                    }
+                    member_type = member_type.with_prefix_if_not_core(&atom.prefix());
+                    member_type = self.determine_type_tail(member_type, next)?;
                     Ok(member_type)
                 }
             },
@@ -936,20 +950,23 @@ impl CortexInterpreter {
         type_param_names: &Vec<String>,
         type_args: &Vec<CortexType>,
     ) -> Result<CortexValue, CortexError> {
+        if type_args.len() != type_param_names.len() {
+            return Err(Box::new(InterpreterError::MismatchedTypeArgCount(name.codegen(0), type_param_names.len(), type_args.len())));
+        }
         let mut fields_to_assign = Vec::new();
         for k in fields.keys() {
             fields_to_assign.push(k.clone());
         }
         let mut values = HashMap::<String, Rc<RefCell<CortexValue>>>::new();
+        let bindings = TypeEnvironment::create_bindings(type_param_names, type_args);
         for (fname, value) in assignments {
             let opt_typ = fields
                 .get(fname)
-                .map(|t| t
-                    .clone()
-                    .with_prefix_if_not_core(&self.current_context)
-                    .with_prefix_if_not_core(&name.without_last())
-                );
+                .map(|t| t.clone());
             if let Some(typ) = opt_typ {
+                let typ = TypeEnvironment::fill(typ, &bindings)
+                    .with_prefix_if_not_core(&self.current_context)
+                    .with_prefix_if_not_core(&name.without_last());
                 let assigned_type = self.determine_type(value)?;
                 if !assigned_type.is_subtype_of(&typ) {
                     return Err(
@@ -973,9 +990,6 @@ impl CortexInterpreter {
             } else {
                 return Err(Box::new(InterpreterError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
             }
-        }
-        if type_args.len() != type_param_names.len() {
-            return Err(Box::new(InterpreterError::MismatchedTypeArgCount(name.codegen(0), type_param_names.len(), type_args.len())));
         }
         if fields_to_assign.is_empty() {
             Ok(

@@ -1,3 +1,14 @@
 fn identity<T>(item: T): T {
     item
 }
+
+bundle Box<T> {
+    item: T,
+
+    fn get(&this): T {
+        this.item
+    }
+    fn set(&mut this, value: T) {
+        this.item = value;
+    }
+}

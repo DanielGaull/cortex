@@ -98,4 +98,29 @@ impl TypeEnvironment {
             None
         }
     }
+
+    pub fn fill(typ: CortexType, bindings: &HashMap<String, CortexType>) -> CortexType {
+        match typ {
+            CortexType::BasicType { nullable, name, type_args } => {
+                if name.is_final() {
+                    let ident = name.get_back().unwrap();
+                    if let Some(result) = bindings.get(ident) {
+                        result.clone().to_nullable_if_true(nullable)
+                    } else {
+                        CortexType::BasicType { nullable: nullable, name: name, type_args: type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() }
+                    }
+                } else {
+                    CortexType::BasicType { nullable: nullable, name: name, type_args: type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() }
+                }
+            },
+            CortexType::RefType { contained, mutable } => {
+                let new_contained = Self::fill(*contained, bindings);
+                CortexType::RefType { contained: Box::new(new_contained), mutable: mutable }
+            },
+        }
+    }
+
+    pub fn create_bindings(names: &Vec<String>, types: &Vec<CortexType>) -> HashMap<String, CortexType> {
+        names.clone().into_iter().zip(types.clone()).collect()
+    }
 }

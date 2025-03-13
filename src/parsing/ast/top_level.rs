@@ -111,24 +111,24 @@ impl SimpleCodeGen for Function {
     }
 }
 impl Function {
-    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body) -> Self {
+    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, type_param_names: Vec<String>) -> Self {
         Function {
             name: name,
             params: params,
             return_type: return_type,
             body: body,
             this_arg: ThisArg::None,
-            type_param_names: vec![],
+            type_param_names: type_param_names,
         }
     }
-    pub fn member_func(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, this_arg: ThisArg) -> Self {
+    pub fn member_func(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, this_arg: ThisArg, type_param_names: Vec<String>) -> Self {
         Function {
             name: name,
             params: params,
             return_type: return_type,
             body: body,
             this_arg: this_arg,
-            type_param_names: vec![],
+            type_param_names: type_param_names,
         }
     }
 

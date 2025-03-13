@@ -48,7 +48,8 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
                 vec![],
                 CortexType::reference(CortexType::simple("Time", false), true),
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.time")?))),
-                cortex_lang::parsing::ast::top_level::ThisArg::MutThis
+                cortex_lang::parsing::ast::top_level::ThisArg::MutThis,
+                vec![],
             )
         ],
         vec![],

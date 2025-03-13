@@ -109,7 +109,8 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
             Parameter::named("b", CortexType::number(false))
         ],
         CortexType::number(false),
-        add_body
+        add_body,
+        vec![],
     );
     let mut interpreter = CortexInterpreter::new();
     let mut module = Module::new();
@@ -139,7 +140,8 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
         OptionalIdentifier::Ident(String::from("test")),
         Vec::new(),
         CortexType::number(false),
-        test_body
+        test_body,
+        vec![],
     );
     let mut interpreter = CortexInterpreter::new();
     let mut module = Module::new();

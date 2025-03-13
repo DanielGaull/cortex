@@ -151,7 +151,8 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
             Parameter::named("b", CortexType::number(false))
         ],
         CortexType::number(false),
-        add_body
+        add_body,
+        vec![],
     );
     let test_struct = Struct::new("Time", vec![
         ("m", CortexType::number(false)),
