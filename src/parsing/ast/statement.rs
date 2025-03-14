@@ -12,7 +12,7 @@ pub enum Statement {
         typ: Option<CortexType>,
         initial_value: Expression,
     },
-    VariableAssignment {
+    Assignment {
         name: IdentExpression,
         value: Expression,
         op: Option<BinaryOperator>,
@@ -47,7 +47,7 @@ impl SimpleCodeGen for Statement {
                 s.push_str(" = ");
                 s.push_str(&initial_value.codegen(indent));
             },
-            Self::VariableAssignment { name, value, op } => {
+            Self::Assignment { name, value, op } => {
                 s.push_str(&name.codegen(indent));
                 s.push_str(" ");
                 if let Some(binop) = op {

@@ -245,6 +245,32 @@ impl IdentExpression {
     pub fn is_simple(&self) -> bool {
         self.chain.is_empty()
     }
+
+    pub fn to_member_access_expr(self) -> Expression {
+        let mut tail: ExpressionTail = ExpressionTail::None;
+        let mut chain = self.chain;
+        chain.reverse();
+        for link in chain {
+            tail = ExpressionTail::MemberAccess { member: link, next: Box::new(tail) };
+        }
+
+        Expression {
+            first: EqResult {
+                first: SumResult {
+                    first: MulResult {
+                        first: Primary {
+                            atom: Atom::PathIdent(PathIdent::simple(self.base)),
+                            tail: tail,
+                        },
+                        rest: vec![],
+                    },
+                    rest: vec![],
+                },
+                rest: vec![],
+            },
+            rest: vec![],
+        }
+    }
 }
 
 #[derive(Clone)]

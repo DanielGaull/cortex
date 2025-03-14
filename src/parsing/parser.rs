@@ -249,7 +249,7 @@ impl CortexParser {
                     _ => return Err(ParseError::FailStatement(String::from(orig)))
                 }
 
-                Ok(Statement::VariableAssignment { 
+                Ok(Statement::Assignment { 
                     name: left,
                     value: value,
                     op: op,

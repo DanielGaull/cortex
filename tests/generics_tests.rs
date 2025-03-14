@@ -36,6 +36,8 @@ fn test_box() -> Result<(), Box<dyn Error>> {
 
     run("let box = Box<number>{item: 5};", &mut interpreter)?;
     assert_exp("box.get()", "5", &mut interpreter)?;
+    run("box.set(100);", &mut interpreter)?;
+    assert_exp("box.get()", "100", &mut interpreter)?;
 
     Ok(())
 }

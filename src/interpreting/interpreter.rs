@@ -114,7 +114,6 @@ impl CortexInterpreter {
     fn find_reachables(&self, current: &mut HashSet<usize>, value: Rc<RefCell<CortexValue>>) {
         let value_ref = value.borrow();
         if let CortexValue::Composite { struct_name: _, field_values, type_args: _, type_arg_names: _ } = &*value_ref {
-            // TODO: handle type args here
             for (_, fvalue) in field_values {
                 self.find_reachables(current, fvalue.clone());
             }
@@ -231,7 +230,7 @@ impl CortexInterpreter {
                     },
                 }
             },
-            Statement::VariableAssignment { name, value, op } => {
+            Statement::Assignment { name, value, op } => {
                 if name.is_simple() {
                     let var_name = &name.base;
                     let assigned_type = self.determine_type(value)?;
@@ -273,12 +272,13 @@ impl CortexInterpreter {
                     }
                     Ok(())
                 } else {
+                    let name_expr = name.clone().to_member_access_expr();
+                    let var_type = self.determine_type(&name_expr)?;
                     let var_name = &name.base;
                     let chain = name.chain.clone();
                     let assigned_type = self.determine_type(value)?;
                     let base = Rc::new(RefCell::new(self.current_env.as_ref().unwrap().get_value(var_name)?.clone()));
                     let current_value = self.get_field_path(base, chain.clone())?;
-                    let var_type = current_value.get_type();
                     if let Some(binop) = op {
                         let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
                         if !type_op.is_subtype_of(&var_type) {
@@ -347,6 +347,22 @@ impl CortexInterpreter {
                 Ok(())
             },
         }
+    }
+
+    fn get_bindings(type_param_names: &Vec<String>, typ: &CortexType) -> HashMap<String, CortexType> {
+        let mut type_args_handled = false;
+        let mut typ = typ.clone();
+        let mut bindings = HashMap::new();
+        while !type_args_handled {
+            if let CortexType::BasicType { nullable: _, name: _, type_args } = &typ {
+                bindings = TypeEnvironment::create_bindings(type_param_names, type_args);
+                typ = TypeEnvironment::fill(typ, &bindings);
+                type_args_handled = true;
+            } else if let CortexType::RefType { contained, mutable: _} = typ {
+                typ = *contained;
+            }
+        }
+        bindings
     }
 
     pub fn determine_type(&self, expr: &Expression) -> Result<CortexType, CortexError> {
@@ -572,20 +588,8 @@ impl CortexInterpreter {
                     Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), atom.name().codegen(0))))
                 } else {
                     let mut member_type = composite.fields.get(member).unwrap().clone();
-                    if let Some(_) = TypeEnvironment::does_arg_list_contain(&composite.type_param_names, &member_type) {
-                        let mut type_args_handled = false;
-                        let mut typ = atom.clone();
-                        while !type_args_handled {
-                            if let CortexType::BasicType { nullable: _, name: _, type_args } = &typ {
-                                let bindings = TypeEnvironment::create_bindings(&composite.type_param_names, type_args);
-                                typ = TypeEnvironment::fill(typ, &bindings);
-                                type_args_handled = true;
-                            } else if let CortexType::RefType { contained, mutable: _} = typ {
-                                typ = *contained;
-                            }
-                        }
-                        member_type = typ;
-                    }
+                    let bindings = Self::get_bindings(&composite.type_param_names, &atom);
+                    member_type = TypeEnvironment::fill(member_type, &bindings);
                     member_type = member_type.with_prefix_if_not_core(&atom.prefix());
                     member_type = self.determine_type_tail(member_type, next)?;
                     Ok(member_type)
@@ -599,9 +603,12 @@ impl CortexInterpreter {
                 let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
                     .subtract(&self.current_context)?;
                 let func = self.lookup_function(&member_func_path)?;
-                let return_type = func.return_type.clone();
-                let return_type = self.determine_type_tail(return_type, next)?;
-                let return_type = return_type
+                let composite = self.lookup_composite(&atom.name())?;
+                let mut return_type = func.return_type.clone();
+                let bindings = Self::get_bindings(&composite.type_param_names, &atom);
+                return_type = TypeEnvironment::fill(return_type, &bindings);
+                return_type = self.determine_type_tail(return_type, next)?;
+                return_type = return_type
                     .with_prefix_if_not_core(&self.current_context)
                     .with_prefix_if_not_core(&caller_func_prefix);
                 Ok(return_type)

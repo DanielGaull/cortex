@@ -62,6 +62,34 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new();
+    let mut module = Module::new();
+    module.add_bundle(Bundle::new(
+        "Box",
+        vec![
+            ("item", CortexType::basic(PathIdent::simple(String::from("T")), false, vec![]))
+        ],
+        vec![
+            Function::member_func(
+                OptionalIdentifier::Ident(String::from("get")), 
+                vec![],
+                CortexType::basic(PathIdent::simple(String::from("T")), false, vec![]),
+                Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.item")?))),
+                cortex_lang::parsing::ast::top_level::ThisArg::This,
+                vec![],
+            )
+        ],
+        vec!["T"],
+    ))?;
+    interpreter.register_module(&PathIdent::simple(String::from("box")), module)?;
+    interpreter.run_statement(&CortexParser::parse_statement("let box = box::Box<number>{ item: 5 };")?)?;
+    run_test("box.item", "number", &mut interpreter)?;
+    run_test("box.get()", "number", &mut interpreter)?;
+    Ok(())
+}
+
 // #[test]
 // fn run_var_type_tests() -> Result<(), Box<dyn Error>> {
 //     let mut interpreter = CortexInterpreter::new();

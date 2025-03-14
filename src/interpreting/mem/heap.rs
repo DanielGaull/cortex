@@ -61,7 +61,6 @@ impl Heap {
     }
 
     fn mark_children(&self, marked: &mut HashSet<usize>, value: Rc<RefCell<CortexValue>>) {
-        // TODO: handle type args here
         if let CortexValue::Composite { struct_name: _, field_values, type_arg_names: _, type_args: _ } = &*value.borrow() {
             for (_, fvalue_ref) in field_values {
                 let fvalue = fvalue_ref.borrow();
