@@ -24,7 +24,7 @@ while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
 atom = { number | boolean | null | void | string | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
-exprTail = { postfixBangTail | memberCallTail | memberAccessTail | "" }
+exprTail = { postfixBangTail | memberCallTail | memberAccessTail | indexTail | "" }
 
 primary = { atom ~ exprTail }
 mulResult = { primary ~ ((mul | div | rem) ~ primary)* }
@@ -40,6 +40,7 @@ structMemberInit = { ident ~ ":" ~ expr }
 postfixBangTail = { ("!" ~ !"=") ~ exprTail }
 memberAccessTail = { "." ~ ident ~ exprTail }
 memberCallTail = { "." ~ ident ~ "(" ~ exprList ~ ")" ~ exprTail }
+indexTail = { "[" ~ exprList ~ "]" ~ exprTail }
 
 if = { "if" ~ expr ~ "{" ~ body ~ "}" ~ elifs ~ else? }
 elifs = { elif* }

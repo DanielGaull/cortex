@@ -75,6 +75,10 @@ fn test_bundle() -> Result<(), Box<dyn Error>> {
     assert_type("doubleBoxBox", "&mut Box", &mut interpreter)?;
     run_statement("doubleBoxBox.increment(6);", &mut interpreter)?;
     assert_expression("box.value", "15", &mut interpreter)?;
+
+    run_statement("let access = Access { dummy: 0 };", &mut interpreter)?;
+    assert_expression("access[10]", "10", &mut interpreter)?;
+
     Ok(())
 }
 

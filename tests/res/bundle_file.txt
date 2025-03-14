@@ -14,6 +14,14 @@ bundle BoxedBox {
     }
 }
 
+bundle Access {
+    dummy: number,
+
+    fn __index(&this, val: number): number {
+        val
+    }
+}
+
 fn getBox(value: number): &mut Box {
     Box {
         value: value,

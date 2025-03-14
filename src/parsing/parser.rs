@@ -6,6 +6,8 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
+use crate::constants::INDEX_FN_NAME;
+
 use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, ThisArg, TopLevel}, r#type::CortexType};
 
 macro_rules! operator_parser {
@@ -392,6 +394,13 @@ impl CortexParser {
                             let args = Self::parse_expr_list(args_pair)?;
                             let next = Self::parse_expr_tail_pair(pairs.next().unwrap())?;
                             Ok(ExpressionTail::MemberCall { member: String::from(member), args: args, next: Box::new(next) })
+                        },
+                        Rule::indexTail => {
+                            let mut pairs = tail_pair.into_inner();
+                            let args_pair = pairs.next().unwrap();
+                            let args = Self::parse_expr_list(args_pair)?;
+                            let next = Self::parse_expr_tail_pair(pairs.next().unwrap())?;
+                            Ok(ExpressionTail::MemberCall { member: String::from(INDEX_FN_NAME), args: args, next: Box::new(next) })
                         },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }
