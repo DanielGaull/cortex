@@ -33,6 +33,7 @@ pub enum CortexValue {
         type_args: Vec<CortexType>,
     },
     Reference(usize, CortexType, bool), // address, type, mutable flag
+    List(Vec<CortexValue>, CortexType),
 }
 
 impl Display for CortexValue {
@@ -54,6 +55,16 @@ impl Display for CortexValue {
                 write!(f, "{}({})", struct_name.codegen(0), s)
             },
             CortexValue::Reference(addr, _, mutable) => write!(f, "&{}0x{:x}", if *mutable {"mut"} else {""}, addr),
+            CortexValue::List(list, _) => {
+                let _ = write!(f, "[");
+                for (i, item) in list.iter().enumerate() {
+                    let _ = write!(f, "{}", item);
+                    if i + 1 < list.len() {
+                        let _ = write!(f, ", ");
+                    }
+                }
+                write!(f, "]")
+            },
         }
     }
 }
@@ -67,6 +78,7 @@ impl CortexValue {
             CortexValue::Null => CortexType::null(),
             CortexValue::Composite { struct_name, field_values: _, type_arg_names: _, type_args } => CortexType::basic(struct_name.clone(), false, type_args.clone()),
             CortexValue::Reference(_, typ, mutable) => CortexType::reference(typ.clone(), *mutable),
+            CortexValue::List(_, typ) => CortexType::list(typ.clone(), false),
         }
     }
     fn get_variant_name(&self) -> &'static str {
@@ -78,6 +90,7 @@ impl CortexValue {
             CortexValue::Null => "null",
             CortexValue::Composite { struct_name: _, field_values: _, type_args: _, type_arg_names: _ } => "composite",
             CortexValue::Reference(_, _, _) => "pointer",
+            CortexValue::List(_, _) => "list",
         }
     }
 

@@ -95,6 +95,9 @@ impl CortexType {
     pub fn null() -> Self {
         Self::simple("null", true)
     }
+    pub fn list(typ: CortexType, nullable: bool) -> Self {
+        Self::basic(PathIdent::simple(String::from("list")), nullable, vec![typ])
+    }
     pub fn with_prefix(&self, path: &PathIdent) -> Self {
         match self {
             CortexType::BasicType { nullable, name, type_args } => {

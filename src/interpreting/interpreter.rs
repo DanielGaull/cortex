@@ -80,6 +80,8 @@ pub enum InterpreterError {
     MismatchedTypeArgCount(String, usize, usize),
     #[error("Invalid type: {0} is not valid in this context")]
     TypeInvalidInThisContext(String),
+    #[error("Could not determine type for list literal: expected {0} but found {1}")]
+    CannotDetermineListLiteralType(String, String),
 }
 
 pub struct CortexInterpreter {
@@ -571,10 +573,17 @@ impl CortexInterpreter {
                     },
                 }
             },
-            Atom::ListLiteral(_items) => {
-                //let mut typ = self.determine_type(items.get(0).len)
-                todo!()
-                //Ok(())
+            Atom::ListLiteral(items) => {
+                let mut typ = CortexType::Unknown(false);
+                for item in items {
+                    let item_type = self.determine_type(item)?;
+                    let item_type_str = item_type.codegen(0);
+                    let typ_str = typ.codegen(0);
+                    typ = typ
+                        .combine_with(item_type)
+                        .ok_or(InterpreterError::CannotDetermineListLiteralType(typ_str, item_type_str))?;
+                }
+                Ok(typ)
             },
         }
     }
@@ -898,9 +907,21 @@ impl CortexInterpreter {
                     },
                 }
             },
-            Atom::ListLiteral(_items) => {
-                todo!()
-                // Ok(())  
+            Atom::ListLiteral(items) => {
+                let values = items
+                    .iter()
+                    .map(|e| self.evaluate_expression(e))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let mut typ = CortexType::Unknown(false);
+                for item in items {
+                    let item_type = self.determine_type(item)?;
+                    let item_type_str = item_type.codegen(0);
+                    let typ_str = typ.codegen(0);
+                    typ = typ
+                        .combine_with(item_type)
+                        .ok_or(InterpreterError::CannotDetermineListLiteralType(typ_str, item_type_str))?;
+                }
+                Ok(CortexValue::List(values, typ))
             },
         }
     }
