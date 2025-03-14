@@ -481,13 +481,15 @@ impl CortexInterpreter {
             Atom::Null => Ok(CortexType::null()),
             Atom::String(_) => Ok(CortexType::string(false)),
             Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
-            Atom::Call(path_ident, _) => {
+            Atom::Call(path_ident, arg_exps) => {
                 let func = self.lookup_function(path_ident)?;
-                let return_type = func
+                let mut return_type = func
                     .return_type
                     .clone()
                     .with_prefix_if_not_core(&self.current_context)
                     .with_prefix_if_not_core(&path_ident.without_last());
+                let bindings = self.infer_type_args(&func, &arg_exps.iter().map(|a| self.determine_type(a)).collect::<Result<Vec<_>, _>>()?)?;
+                return_type = TypeEnvironment::fill(return_type, &bindings);
                 Ok(return_type)
             },
             Atom::Expression(expression) => Ok(self.determine_type(expression)?),
@@ -1062,10 +1064,10 @@ impl CortexInterpreter {
         self.call_function(func, arg_values)
     }
 
-    fn infer_type_args(&self, func: &Rc<Function>, args: &Vec<CortexValue>) -> Result<HashMap<String, CortexType>, CortexError> {
+    fn infer_type_args(&self, func: &Rc<Function>, args: &Vec<CortexType>) -> Result<HashMap<String, CortexType>, CortexError> {
         let mut bindings = HashMap::<String, CortexType>::new();
         for (arg, param) in args.iter().zip(&func.params) {
-            self.infer_arg(&param.typ, &arg.get_type(), &func.type_param_names, &mut bindings, param.name())?;
+            self.infer_arg(&param.typ, &arg, &func.type_param_names, &mut bindings, param.name())?;
         }
         Ok(bindings)
     }
@@ -1148,7 +1150,7 @@ impl CortexInterpreter {
         }
 
         // Infer type arguments
-        let type_bindings = self.infer_type_args(func, &args)?;
+        let type_bindings = self.infer_type_args(func, &args.iter().map(|a| a.get_type()).collect())?;
         let parent_type_env = self.current_type_env.take().ok_or(InterpreterError::NoParentEnv)?;
         let mut new_type_env = TypeEnvironment::new(*parent_type_env);
         for (name, typ) in type_bindings {

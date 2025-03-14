@@ -12,3 +12,7 @@ bundle Box<T> {
         this.item = value;
     }
 }
+
+fn readBox<T>(box: &Box<T>): T {
+    box.get()
+}

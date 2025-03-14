@@ -38,6 +38,8 @@ fn test_box() -> Result<(), Box<dyn Error>> {
     assert_exp("box.get()", "5", &mut interpreter)?;
     run("box.set(100);", &mut interpreter)?;
     assert_exp("box.get()", "100", &mut interpreter)?;
+    run("let val: number = readBox(box);", &mut interpreter)?;
+    assert_exp("val", "100", &mut interpreter)?;
 
     Ok(())
 }
