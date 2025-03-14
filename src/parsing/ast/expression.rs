@@ -87,6 +87,7 @@ pub enum Atom {
         op: UnaryOperator,
         exp: Box<Expression>,
     },
+    ListLiteral(Vec<Expression>),
     Expression(Box<Expression>),
 }
 impl SimpleCodeGen for Atom {
@@ -152,6 +153,19 @@ impl SimpleCodeGen for Atom {
                 let mut s = String::new();
                 s.push_str(&op.codegen(indent));
                 s.push_str(&exp.codegen(indent));
+                s
+            },
+            Atom::ListLiteral(items) => {
+                let mut s = String::new();
+                s.push_str("[");
+                s.push_str(
+                    &items
+                        .iter()
+                        .map(|e| e.codegen(0))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                s.push_str("]");
                 s
             },
         }

@@ -394,6 +394,11 @@ impl CortexParser {
                 let expr = Self::parse_expr_pair(pairs.next().unwrap())?;
                 Ok(Atom::UnaryOperation { op: unop, exp: Box::new(expr) })
             },
+            Rule::listLiteral => {
+                let mut pairs = pair.into_inner();
+                let items = Self::parse_expr_list(pairs.next().unwrap())?;
+                Ok(Atom::ListLiteral(items))
+            },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }

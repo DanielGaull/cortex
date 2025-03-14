@@ -569,6 +569,11 @@ impl CortexInterpreter {
                     },
                 }
             },
+            Atom::ListLiteral(_items) => {
+                //let mut typ = self.determine_type(items.get(0).len)
+                todo!()
+                //Ok(())
+            },
         }
     }
     fn determine_type_tail(&self, atom: CortexType, tail: &ExpressionTail) -> Result<CortexType, CortexError> {
@@ -886,6 +891,10 @@ impl CortexInterpreter {
                         }
                     },
                 }
+            },
+            Atom::ListLiteral(_items) => {
+                todo!()
+                // Ok(())  
             },
         }
     }

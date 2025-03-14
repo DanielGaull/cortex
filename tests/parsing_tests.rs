@@ -45,6 +45,7 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
     run_expression_test("true")?;
     run_expression_test("null")?;
     run_expression_test("void")?;
+    run_expression_test("[1, 2, 3]")?;
     Ok(())
 }
 
