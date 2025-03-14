@@ -1,9 +1,9 @@
-use std::{cell::RefCell, collections::{HashMap, HashSet}, error::Error, rc::Rc};
+use std::{cell::RefCell, collections::{HashMap, HashSet}, error::Error, fs::File, io::Read, path::Path, rc::Rc};
 
 use thiserror::Error;
 use paste::paste;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen, parser::CortexParser};
 use super::{env::Environment, mem::heap::Heap, module::{CompositeType, Module}, type_env::TypeEnvironment, value::{CortexValue, ValueError}};
 
 macro_rules! determine_op_type_fn {
@@ -90,13 +90,25 @@ pub struct CortexInterpreter {
 
 impl CortexInterpreter {
     pub fn new() -> Self {
-        CortexInterpreter {
+        let mut this = CortexInterpreter {
             base_module: Module::new(),
             current_env: Some(Box::new(Environment::base())),
             current_context: PathIdent::empty(),
             heap: Heap::new(),
             current_type_env: Some(Box::new(TypeEnvironment::base())),
+        };
+        
+        let path = Path::new("./res/preamble.txt");
+        let mut file = File::open(path).unwrap();
+        let mut content = String::new();
+        let _ = file.read_to_string(&mut content);
+        content = content.replace("\r\n", "\n");
+        let preamble_program = CortexParser::parse_program(&content).unwrap();
+        for tl in preamble_program.content {
+            this.run_top_level(tl).unwrap();
         }
+
+        this
     }
 
     pub fn gc(&mut self) {
