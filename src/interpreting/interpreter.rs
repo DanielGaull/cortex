@@ -605,8 +605,12 @@ impl CortexInterpreter {
                     .subtract(&self.current_context)?;
                 let func = self.lookup_function(&member_func_path)?;
                 let mut return_type = func.return_type.clone();
-                let bindings = self.infer_type_args(&func, &args.iter().map(|a| self.determine_type(a)).collect::<Result<Vec<_>, _>>()?)?;
+
+                let mut arg_types = args.iter().map(|a| self.determine_type(a)).collect::<Result<Vec<_>, _>>()?;
+                arg_types.insert(0, atom.clone());
+                let bindings = self.infer_type_args(&func, &arg_types)?;
                 return_type = TypeEnvironment::fill(return_type, &bindings);
+
                 return_type = self.determine_type_tail(return_type, next)?;
                 return_type = return_type
                     .with_prefix_if_not_core(&self.current_context)
@@ -1172,7 +1176,6 @@ impl CortexInterpreter {
             ));
         }
 
-        // Infer type arguments
         let type_bindings = self.infer_type_args(func, &args.iter().map(|a| a.get_type()).collect())?;
         let parent_type_env = self.current_type_env.take().ok_or(InterpreterError::NoParentEnv)?;
         let mut new_type_env = TypeEnvironment::new(*parent_type_env);
