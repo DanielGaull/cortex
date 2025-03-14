@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, rc::Rc};
+use std::{collections::{HashMap, HashSet, VecDeque}, rc::Rc};
 
 use thiserror::Error;
 
@@ -25,6 +25,9 @@ pub enum ModuleError {
 
     #[error("Struct \"{0}\" contains at least one field that references back to itself")]
     StructContainsCircularFields(String),
+
+    #[error("Duplicate type argument name: {0}")]
+    DuplicateTypeArgumentName(String),
 }
 
 pub struct CompositeType {
@@ -110,6 +113,14 @@ impl Module {
                 if let Some(_) = self.get_function_internal(&name) {
                     Err(ModuleError::FunctionAlreadyExists(name.clone()))
                 } else {
+                    let mut seen_type_param_names = HashSet::new();
+                    for t in &func.type_param_names {
+                        if seen_type_param_names.contains(t) {
+                            return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
+                        }
+                        seen_type_param_names.insert(t);
+                    }
+
                     self.functions.insert(name.clone(), Rc::from(func));
                     Ok(())
                 }
@@ -143,6 +154,14 @@ impl Module {
                     if has_loop {
                         Err(ModuleError::StructContainsCircularFields(name.clone()))
                     } else {
+                        let mut seen_type_param_names = HashSet::new();
+                        for t in &item.type_param_names {
+                            if seen_type_param_names.contains(t) {
+                                return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
+                            }
+                            seen_type_param_names.insert(t);
+                        }
+
                         self.composites.insert(name.clone(), Rc::from(CompositeType {
                             fields: item.fields,
                             is_heap_allocated: false,
@@ -186,6 +205,15 @@ impl Module {
                             OptionalIdentifier::Ignore => (),
                         }
                     }
+
+                    let mut seen_type_param_names = HashSet::new();
+                    for t in &item.type_param_names {
+                        if seen_type_param_names.contains(t) {
+                            return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
+                        }
+                        seen_type_param_names.insert(t);
+                    }
+
                     self.composites.insert(name.clone(), Rc::from(CompositeType {
                         fields: item.fields,
                         is_heap_allocated: true,

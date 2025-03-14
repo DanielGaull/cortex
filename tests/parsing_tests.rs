@@ -144,5 +144,6 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     )?;
     run_top_level_test("struct Box<T> {\n    item: T,\n}\n")?;
     run_top_level_test("bundle Box<T> {\n    item: T,\n}\n")?;
+    run_top_level_test("bundle Box<T> {\n    fn doAThing<U>(&this): void {\n    }\n}\n")?;
     Ok(())
 }

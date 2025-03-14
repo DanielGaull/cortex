@@ -118,6 +118,22 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn test_type_argument_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+
+    interpreter.run_top_level(CortexParser::parse_top_level("fn a<T>(){}")?)?;
+    assert_err("a();", InterpreterError::CouldNotInferTypeBinding(String::from("a")), &mut interpreter)?;
+    assert_err_toplevel("fn b<T, T>(){}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
+    assert_err_toplevel("bundle www<T, T>{}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
+    assert_err_toplevel("bundle abc<T> {\nfn x<T>(&this) {\n}\n}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
+
+    interpreter.run_top_level(CortexParser::parse_top_level("bundle GenericBundle<T, R>{}")?)?;
+    assert_err("GenericBundle<number>{};", InterpreterError::MismatchedTypeArgCount(String::from("GenericBundle"), 2, 1), &mut interpreter)?;
+
+    Ok(())
+}
+
 fn assert_err_toplevel<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let parsed = CortexParser::parse_top_level(statement)?;
     let evaled = interpreter.run_top_level(parsed);

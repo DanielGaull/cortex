@@ -592,26 +592,31 @@ impl CortexParser {
     fn parse_bundle_function(pair: Pair<Rule>) -> Result<Function, ParseError> {
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
-        let this_arg_pair = pairs.next().unwrap();
-        let this_arg = 
-            if matches!(this_arg_pair.as_rule(), Rule::this) {
-                ThisArg::This
-            } else {
-                ThisArg::MutThis
-            };
 
         let mut type_args = Vec::new();
         let next = pairs.next().unwrap();
-        let params;
+        let this_arg;
         if matches!(next.as_rule(), Rule::typeArgList) {
             let type_arg_pairs = next.into_inner();
             for ident in type_arg_pairs {
                 type_args.push(ident.as_str());
             }
-            params = Self::parse_param_list(pairs.next().unwrap())?;
+            this_arg = 
+                if matches!(pairs.next().unwrap().as_rule(), Rule::this) {
+                    ThisArg::This
+                } else {
+                    ThisArg::MutThis
+                };
         } else {
-            params = Self::parse_param_list(next)?;
+            this_arg = 
+                if matches!(next.as_rule(), Rule::this) {
+                    ThisArg::This
+                } else {
+                    ThisArg::MutThis
+                };
         }
+        
+        let params = Self::parse_param_list(pairs.next().unwrap())?;
         
         let return_type = if matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
             Self::parse_type_pair(pairs.next().unwrap())?

@@ -72,8 +72,8 @@ pub enum InterpreterError {
     LoopCannotHaveReturnValue,
     #[error("Value not found: {0} (module constants are currently not supported)")]
     ValueNotFound(String),
-    #[error("Could not infer type binding; expected {0} but found {1}")]
-    CouldNotInferTypeBinding(String, String),
+    #[error("Could not infer type bindings for {0} (consider manually providing bindings)")]
+    CouldNotInferTypeBinding(String),
     #[error("Cannot have type arguments on a generic type: {0}")]
     CannotHaveTypeArgsOnGeneric(String),
     #[error("Type {0} requires {1} type arguments but only {2} was/were provided")]
@@ -347,22 +347,6 @@ impl CortexInterpreter {
         }
     }
 
-    fn get_bindings(type_param_names: &Vec<String>, typ: &CortexType) -> HashMap<String, CortexType> {
-        let mut type_args_handled = false;
-        let mut typ = typ.clone();
-        let mut bindings = HashMap::new();
-        while !type_args_handled {
-            if let CortexType::BasicType { nullable: _, name: _, type_args } = &typ {
-                bindings = TypeEnvironment::create_bindings(type_param_names, type_args);
-                typ = TypeEnvironment::fill(typ, &bindings);
-                type_args_handled = true;
-            } else if let CortexType::RefType { contained, mutable: _} = typ {
-                typ = *contained;
-            }
-        }
-        bindings
-    }
-
     pub fn determine_type(&self, expr: &Expression) -> Result<CortexType, CortexError> {
         Ok(self.clean_type(self.determine_type_expression(expr)?))
     }
@@ -588,7 +572,7 @@ impl CortexInterpreter {
                     Err(Box::new(ValueError::FieldDoesNotExist(member.clone(), atom.name().codegen(0))))
                 } else {
                     let mut member_type = composite.fields.get(member).unwrap().clone();
-                    let bindings = Self::get_bindings(&composite.type_param_names, &atom);
+                    let bindings = Self::get_bindings(&composite.type_param_names, &atom)?;
                     member_type = TypeEnvironment::fill(member_type, &bindings);
                     member_type = member_type.with_prefix_if_not_core(&atom.prefix());
                     member_type = self.determine_type_tail(member_type, next)?;
@@ -1061,12 +1045,33 @@ impl CortexInterpreter {
         self.call_function(func, arg_values)
     }
 
+    // Used to get bindings for a type (give param names and the concrete type)
+    fn get_bindings(type_param_names: &Vec<String>, typ: &CortexType) -> Result<HashMap<String, CortexType>, CortexError> {
+        let mut type_args_handled = false;
+        let mut typ = typ.clone();
+        let mut bindings = HashMap::new();
+        while !type_args_handled {
+            if let CortexType::BasicType { nullable: _, name: _, type_args } = &typ {
+                bindings = TypeEnvironment::create_bindings(type_param_names, type_args);
+                typ = TypeEnvironment::fill(typ, &bindings);
+                type_args_handled = true;
+            } else if let CortexType::RefType { contained, mutable: _} = typ {
+                typ = *contained;
+            }
+        }
+        Ok(bindings)
+    }
     fn infer_type_args(&self, func: &Rc<Function>, args: &Vec<CortexType>) -> Result<HashMap<String, CortexType>, CortexError> {
         let mut bindings = HashMap::<String, CortexType>::new();
         for (arg, param) in args.iter().zip(&func.params) {
             self.infer_arg(&param.typ, &arg, &func.type_param_names, &mut bindings, param.name())?;
         }
-        Ok(bindings)
+
+        if bindings.len() != func.type_param_names.len() {
+            Err(Box::new(InterpreterError::CouldNotInferTypeBinding(func.name.codegen(0))))
+        } else {
+            Ok(bindings)
+        }
     }
     fn infer_arg(&self, param_type: &CortexType, arg_type: &CortexType, type_param_names: &Vec<String>, bindings: &mut HashMap<String, CortexType>, param_name: &String) -> Result<(), CortexError> {
         let correct;
