@@ -58,8 +58,6 @@ pub enum InterpreterError {
     InvalidOperatorUnary(&'static str),
     #[error("Expected an integer value in this context; {0} is not an integer")]
     ExpectedInteger(f64),
-    #[error("Field {0} does not exist on struct {1}")]
-    FieldDoesNotExist(String, String),
     #[error("Cannot assign multiple times to struct field {0} in construction")]
     MultipleFieldAssignment(String),
     #[error("Fields not assigned on struct {0}: {1}")]
@@ -587,7 +585,7 @@ impl CortexInterpreter {
             ExpressionTail::MemberAccess { member, next } => {
                 let composite = self.lookup_composite(&atom.name())?;
                 if !composite.fields.contains_key(member) {
-                    Err(Box::new(InterpreterError::FieldDoesNotExist(member.clone(), atom.name().codegen(0))))
+                    Err(Box::new(ValueError::FieldDoesNotExist(member.clone(), atom.name().codegen(0))))
                 } else {
                     let mut member_type = composite.fields.get(member).unwrap().clone();
                     let bindings = Self::get_bindings(&composite.type_param_names, &atom);
@@ -997,7 +995,7 @@ impl CortexInterpreter {
                     return Err(Box::new(InterpreterError::MultipleFieldAssignment(fname.clone())));
                 }
             } else {
-                return Err(Box::new(InterpreterError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
+                return Err(Box::new(ValueError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
             }
         }
         if fields_to_assign.is_empty() {

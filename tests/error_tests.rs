@@ -54,7 +54,7 @@ fn test_function_errors() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("simple::Time { z: 5 };", InterpreterError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
+    assert_err("simple::Time { z: 5 };", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("let myTime = simple::Time { m: 5, s: 2 };")?)?;
     assert_err("myTime.z;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
@@ -89,7 +89,8 @@ fn assert_err<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interp
     let parsed = CortexParser::parse_statement(statement)?;
     let evaled = interpreter.run_statement(&parsed);
     if let Err(e) = evaled {
-        let error = *e.downcast::<T>().expect("Expected provided error type");
+        let msg = format!("Expected {:?}, but found {:?}", flavor, e);
+        let error = *e.downcast::<T>().expect(&msg);
         assert_eq!(flavor, error);
         Ok(())
     } else {
