@@ -595,7 +595,7 @@ impl CortexInterpreter {
                     Ok(member_type)
                 }
             },
-            ExpressionTail::MemberCall { member, args: _, next } => {
+            ExpressionTail::MemberCall { member, args, next } => {
                 let caller_type = atom.name();
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
@@ -605,7 +605,11 @@ impl CortexInterpreter {
                 let func = self.lookup_function(&member_func_path)?;
                 let composite = self.lookup_composite(&atom.name())?;
                 let mut return_type = func.return_type.clone();
-                let bindings = Self::get_bindings(&composite.type_param_names, &atom);
+                let mut bindings = Self::get_bindings(&composite.type_param_names, &atom);
+                let bindings2 = self.infer_type_args(&func, &args.iter().map(|a| self.determine_type(a)).collect::<Result<Vec<_>, _>>()?)?;
+                for (k, v) in bindings2 {
+                    bindings.insert(k, v); // allow shadowing
+                }
                 return_type = TypeEnvironment::fill(return_type, &bindings);
                 return_type = self.determine_type_tail(return_type, next)?;
                 return_type = return_type
