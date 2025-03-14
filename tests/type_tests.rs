@@ -110,5 +110,8 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
     assert!(CortexType::null().is_subtype_of(&CortexType::number(true)));
     assert!(CortexType::reference(CortexType::number(false), true).is_subtype_of(&CortexType::reference(CortexType::number(false), false)));
     assert!(!CortexType::reference(CortexType::number(false), false).is_subtype_of(&CortexType::reference(CortexType::number(false), true)));
+    assert!(CortexType::basic_simple("list", false, vec![CortexType::simple("number", false)])
+        .is_subtype_of(&CortexType::basic_simple("list", false, vec![CortexType::simple("number", true)]))
+    );
     Ok(())
 }

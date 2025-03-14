@@ -51,6 +51,13 @@ impl CortexType {
             type_args: type_args,
         }
     }
+    pub fn basic_simple(name: &str, nullable: bool, type_args: Vec<CortexType>) -> Self {
+        Self::BasicType {
+            name: PathIdent::simple(String::from(name)),
+            nullable: nullable,
+            type_args: type_args,
+        }
+    }
     pub fn reference(contained: CortexType, mutable: bool) -> Self {
         Self::RefType {
             contained: Box::new(contained),
@@ -183,7 +190,15 @@ impl CortexType {
         ) = (&self, &other) {
             if name1 == name2 {
                 if !are_type_args_equal(ta1, ta2) {
-                    None
+                    if ta1.len() == 1 && ta2.len() == 1 {
+                        if let Some(inner) = ta1.get(0).unwrap().clone().combine_with(ta2.get(0).unwrap().clone()) {
+                            Some(Self::basic(name1.clone(), *n1 || *n2, vec![inner]))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
                 } else {
                     Some(Self::basic(name1.clone(), *n1 || *n2, ta1.clone()))
                 }
@@ -219,7 +234,11 @@ impl CortexType {
                 if *n1 && !*n2 {
                     false
                 } else if !are_type_args_equal(ta1, ta2) {
-                    false
+                    if ta1.len() == 1 && ta2.len() == 1 {
+                        ta1.get(0).unwrap().is_subtype_of(ta2.get(0).unwrap())
+                    } else {
+                        false
+                    }
                 } else {
                     true
                 }
