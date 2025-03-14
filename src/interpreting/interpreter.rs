@@ -603,13 +603,8 @@ impl CortexInterpreter {
                 let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
                     .subtract(&self.current_context)?;
                 let func = self.lookup_function(&member_func_path)?;
-                let composite = self.lookup_composite(&atom.name())?;
                 let mut return_type = func.return_type.clone();
-                let mut bindings = Self::get_bindings(&composite.type_param_names, &atom);
-                let bindings2 = self.infer_type_args(&func, &args.iter().map(|a| self.determine_type(a)).collect::<Result<Vec<_>, _>>()?)?;
-                for (k, v) in bindings2 {
-                    bindings.insert(k, v); // allow shadowing
-                }
+                let bindings = self.infer_type_args(&func, &args.iter().map(|a| self.determine_type(a)).collect::<Result<Vec<_>, _>>()?)?;
                 return_type = TypeEnvironment::fill(return_type, &bindings);
                 return_type = self.determine_type_tail(return_type, next)?;
                 return_type = return_type
