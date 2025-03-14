@@ -2,7 +2,7 @@ use std::{collections::{HashMap, HashSet, VecDeque}, rc::Rc};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, Parameter, PathError, PathIdent}, top_level::{Bundle, Function, Struct, ThisArg}, r#type::{forwarded_type_args, CortexType}};
+use crate::parsing::ast::{expression::{OptionalIdentifier, Parameter, PathError, PathIdent}, top_level::{Bundle, Function, Struct, ThisArg}, r#type::{forwarded_type_args, CortexType, TypeError}};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -28,6 +28,9 @@ pub enum ModuleError {
 
     #[error("Duplicate type argument name: {0}")]
     DuplicateTypeArgumentName(String),
+
+    #[error("Type Error: {0}")]
+    TypeError(TypeError),
 }
 
 pub struct CompositeType {
@@ -242,9 +245,10 @@ impl Module {
                     }
                     if !typ.is_core() {
                         // Enqueue all fields of this type
+                        let typ_name = typ.name().map_err(|e| ModuleError::TypeError(e))?;
                         let struc = self
-                            .get_module_for(typ.name())?
-                            .get_composite(typ.name().get_back().map_err(|e| ModuleError::PathError(e))?)?;
+                            .get_module_for(typ_name)?
+                            .get_composite(typ_name.get_back().map_err(|e| ModuleError::PathError(e))?)?;
                         
                         for field in &struc.fields {
                             q.push_back(field.1.clone());

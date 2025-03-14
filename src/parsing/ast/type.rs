@@ -1,18 +1,30 @@
+use thiserror::Error;
+
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
 use super::expression::PathIdent;
 
+#[derive(Error, Debug, PartialEq)]
+pub enum TypeError {
+    #[error("Unknown type: not valid in this context")]
+    UnknownTypeNotValid,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum CortexType {
+    // Represents a simple named type that may or may not have type arguments
     BasicType {
         nullable: bool,
         name: PathIdent,
         type_args: Vec<CortexType>,
     },
+    // Represents a reference to some other type
     RefType {
         contained: Box<CortexType>,
         mutable: bool,
     },
+    // Represents a type that is currently unknown, but will be resolved at some point
+    Unknown(bool),
 }
 
 impl SimpleCodeGen for CortexType {
@@ -39,6 +51,7 @@ impl SimpleCodeGen for CortexType {
                 s.push_str(&contained.codegen(0));
                 s
             },
+            CortexType::Unknown(optional) => format!("<unknown{}>", if *optional {"?"} else {""}),
         }
     }
 }
@@ -97,6 +110,7 @@ impl CortexType {
                     mutable: *mutable,
                 }
             },
+            CortexType::Unknown(b) => CortexType::Unknown(*b),
         }
     }
     pub fn with_prefix_if_not_core(self, prefix: &PathIdent) -> Self {
@@ -115,6 +129,7 @@ impl CortexType {
             CortexType::RefType { contained, mutable: _ } => {
                 contained.prefix()
             },
+            CortexType::Unknown(_) => PathIdent::empty(),
         }
     }
     pub fn nullable(&self) -> bool {
@@ -125,6 +140,7 @@ impl CortexType {
             CortexType::RefType { contained, mutable: _ } => {
                 contained.nullable()
             },
+            CortexType::Unknown(optional) => *optional,
         }
     }
 
@@ -137,6 +153,7 @@ impl CortexType {
             CortexType::RefType { contained, mutable: _ } => {
                 contained.is_core()
             },
+            CortexType::Unknown(_) => true,
         }
     }
 
@@ -154,6 +171,7 @@ impl CortexType {
             CortexType::RefType { contained, mutable } => {
                 CortexType::RefType { contained: Box::new(contained.to_nullable_value(value)), mutable: mutable }
             },
+            CortexType::Unknown(_) => CortexType::Unknown(value),
         }
     }
     pub fn to_nullable_if_true(self, value: bool) -> Self {
@@ -164,16 +182,18 @@ impl CortexType {
         }
     }
 
-    pub fn types(&self) -> Vec<&PathIdent> {
+    pub fn types(&self) -> Result<Vec<&PathIdent>, TypeError> {
         match self {
-            CortexType::BasicType { nullable: _, name, type_args: _ } => vec![name],
+            CortexType::BasicType { nullable: _, name, type_args: _ } => Ok(vec![name]),
             CortexType::RefType { contained, mutable: _ } => contained.types(),
+            CortexType::Unknown(_) => Err(TypeError::UnknownTypeNotValid),
         }
     }
-    pub fn name(&self) -> &PathIdent {
+    pub fn name(&self) -> Result<&PathIdent, TypeError> {
         match self {
-            CortexType::BasicType { nullable: _, name, type_args: _ } => name,
+            CortexType::BasicType { nullable: _, name, type_args: _ } => Ok(name),
             CortexType::RefType { contained, mutable: _ } => contained.name(),
+            CortexType::Unknown(_) => Err(TypeError::UnknownTypeNotValid),
         }
     }
 
@@ -214,6 +234,8 @@ impl CortexType {
             } else {
                 None
             }
+        } else if let CortexType::Unknown(optional) = &self {
+            Some(other.to_nullable_if_true(*optional))
         } else {
             None
         }
@@ -257,6 +279,12 @@ impl CortexType {
                 }
             } else {
                 false
+            }
+        } else if let CortexType::Unknown(optional) = self {
+            if *optional {
+                other.nullable()
+            } else {
+                true
             }
         } else {
             false

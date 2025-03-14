@@ -78,6 +78,8 @@ pub enum InterpreterError {
     CannotHaveTypeArgsOnGeneric(String),
     #[error("Type {0} requires {1} type arguments but only {2} was/were provided")]
     MismatchedTypeArgCount(String, usize, usize),
+    #[error("Invalid type: {0} is not valid in this context")]
+    TypeInvalidInThisContext(String),
 }
 
 pub struct CortexInterpreter {
@@ -584,9 +586,9 @@ impl CortexInterpreter {
                 Ok(self.determine_type_tail(new_type, next)?)
             },
             ExpressionTail::MemberAccess { member, next } => {
-                let composite = self.lookup_composite(&atom.name())?;
+                let composite = self.lookup_composite(atom.name()?)?;
                 if !composite.fields.contains_key(member) {
-                    Err(Box::new(ValueError::FieldDoesNotExist(member.clone(), atom.name().codegen(0))))
+                    Err(Box::new(ValueError::FieldDoesNotExist(member.clone(), atom.codegen(0))))
                 } else {
                     let mut member_type = composite.fields.get(member).unwrap().clone();
                     let bindings = Self::get_bindings(&composite.type_param_names, &atom)?;
@@ -597,7 +599,7 @@ impl CortexInterpreter {
                 }
             },
             ExpressionTail::MemberCall { member, args, next } => {
-                let caller_type = atom.name();
+                let caller_type = atom.name()?;
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
                 let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
@@ -928,7 +930,7 @@ impl CortexInterpreter {
             },
             ExpressionTail::MemberCall { member, args, next } => {
                 let atom_type = atom.get_type();
-                let caller_type = atom_type.name();
+                let caller_type = atom_type.name()?;
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
                 let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
@@ -1147,7 +1149,10 @@ impl CortexInterpreter {
             (CortexType::RefType { contained: _, mutable: _ }, _) => {
                 // parameter is reference but arg is not a reference
                 correct = false;
-            }
+            },
+            (_, _) => {
+                correct = false;
+            },
         }
         if correct {
             Ok(())

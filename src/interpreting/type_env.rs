@@ -54,6 +54,7 @@ impl TypeEnvironment {
             CortexType::RefType { contained, mutable: _ } => {
                 self.contains_binding(contained)
             },
+            CortexType::Unknown(_) => false,
         }
     }
 
@@ -75,6 +76,7 @@ impl TypeEnvironment {
                 let new_contained = self.fill_in(*contained);
                 CortexType::RefType { contained: Box::new(new_contained), mutable: mutable }
             },
+            CortexType::Unknown(b) => CortexType::Unknown(b),
         }
     }
 
@@ -87,8 +89,9 @@ impl TypeEnvironment {
     }
 
     pub fn does_arg_list_contain<'a>(type_param_names: &Vec<String>, typ: &'a CortexType) -> Option<&'a String> {
-        if typ.name().is_final() {
-            let name = typ.name().get_back().unwrap();
+        let typ_name = typ.name().ok()?;
+        if typ_name.is_final() {
+            let name = typ_name.get_back().unwrap();
             if type_param_names.contains(name) {
                 Some(name)
             } else {
@@ -117,6 +120,7 @@ impl TypeEnvironment {
                 let new_contained = Self::fill(*contained, bindings);
                 CortexType::RefType { contained: Box::new(new_contained), mutable: mutable }
             },
+            CortexType::Unknown(b) => CortexType::Unknown(b),
         }
     }
 
