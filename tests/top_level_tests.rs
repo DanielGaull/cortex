@@ -78,6 +78,8 @@ fn test_bundle() -> Result<(), Box<dyn Error>> {
 
     run_statement("let access = Access { dummy: 0 };", &mut interpreter)?;
     assert_expression("access[10]", "10", &mut interpreter)?;
+    run_statement("access[5] = 20;", &mut interpreter)?;
+    assert_expression("access.dummy", "25", &mut interpreter)?;
 
     Ok(())
 }

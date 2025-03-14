@@ -71,7 +71,7 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("!foo.bar")?;
     run_expression_test("myNum.increment(3)")?;
     run_expression_test("myNum.ref.ref().ref.increment(3)")?;
-    run_expression_test_expected("item[5]", "item.__index(5)")?;
+    run_expression_test_expected("item[5]", "item.__indexGet(5)")?;
     Ok(())
 }
 
@@ -108,6 +108,7 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("x = 5;")?;
     run_statement_test("while true {\n    x += 1;\n}")?;
     run_statement_test("myNum.increment(3);")?;
+    run_statement_test_expected("myList[1] = 10;", "(myList).__indexSet(1, 10);")?;
     Ok(())
 }
 

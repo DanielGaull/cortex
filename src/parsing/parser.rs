@@ -6,7 +6,7 @@ use pest_derive::Parser;
 use thiserror::Error;
 use paste::paste;
 
-use crate::constants::INDEX_FN_NAME;
+use crate::constants::{INDEX_SET_FN_NAME, INDEX_GET_FN_NAME};
 
 use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, ThisArg, TopLevel}, r#type::CortexType};
 
@@ -257,6 +257,32 @@ impl CortexParser {
                     op: op,
                 })
             },
+            Rule::indexVarAssign => {
+                let mut pairs = pair.into_inner();
+                let left = Self::parse_ident_expr(pairs.next().unwrap())?;
+                let mut args = Self::parse_expr_list(pairs.next().unwrap())?;
+                let value = Self::parse_expr_pair(pairs.next().unwrap())?;
+                args.push(value);
+
+                Ok(Statement::Expression(
+                    Expression {
+                        first: EqResult { 
+                            first: SumResult {
+                                first: MulResult {
+                                    first: Primary {
+                                        atom: Atom::Expression(Box::new(left.to_member_access_expr())),
+                                        tail: ExpressionTail::MemberCall { member: String::from(INDEX_SET_FN_NAME), args: args, next: Box::new(ExpressionTail::None) },
+                                    },
+                                    rest: vec![],
+                                },
+                                rest: vec![],
+                            },
+                            rest: vec![],
+                        },
+                        rest: vec![],
+                    }
+                ))
+            },
             Rule::r#while => {
                 let mut pairs = pair.into_inner();
                 let cond = Self::parse_expr_pair(pairs.next().unwrap())?;
@@ -400,7 +426,7 @@ impl CortexParser {
                             let args_pair = pairs.next().unwrap();
                             let args = Self::parse_expr_list(args_pair)?;
                             let next = Self::parse_expr_tail_pair(pairs.next().unwrap())?;
-                            Ok(ExpressionTail::MemberCall { member: String::from(INDEX_FN_NAME), args: args, next: Box::new(next) })
+                            Ok(ExpressionTail::MemberCall { member: String::from(INDEX_GET_FN_NAME), args: args, next: Box::new(next) })
                         },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }

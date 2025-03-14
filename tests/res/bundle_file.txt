@@ -17,8 +17,11 @@ bundle BoxedBox {
 bundle Access {
     dummy: number,
 
-    fn __index(&this, val: number): number {
+    fn __indexGet(&this, val: number): number {
         val
+    }
+    fn __indexSet(&mut this, idx: number, val: number) {
+        this.dummy = idx + val;
     }
 }
 
