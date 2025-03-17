@@ -1,10 +1,10 @@
-use std::{cell::RefCell, collections::{HashMap, HashSet}, error::Error, fs::File, io::Read, path::Path, rc::Rc};
+use std::{cell::RefCell, collections::{HashMap, HashSet}, error::Error, rc::Rc};
 
 use thiserror::Error;
 use paste::paste;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen, parser::CortexParser};
-use super::{env::Environment, heap::Heap, module::{CompositeType, Module}, type_env::TypeEnvironment, value::{CortexValue, ValueError}};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use super::{env::Environment, heap::Heap, module::{CompositeType, Module, ModuleError}, type_env::TypeEnvironment, value::{CortexValue, ValueError}};
 
 macro_rules! determine_op_type_fn {
     ($name:ident, $typ:ty, $prev_name:ident) => {
@@ -90,27 +90,19 @@ pub struct CortexInterpreter {
     current_context: PathIdent,
     heap: Heap,
     current_type_env: Option<Box<TypeEnvironment>>,
+    global_module: Module,
 }
 
 impl CortexInterpreter {
     pub fn new() -> Self {
-        let mut this = CortexInterpreter {
+        let this = CortexInterpreter {
             base_module: Module::new(),
             current_env: Some(Box::new(Environment::base())),
             current_context: PathIdent::empty(),
             heap: Heap::new(),
             current_type_env: Some(Box::new(TypeEnvironment::base())),
+            global_module: Module::new(),
         };
-        
-        let path = Path::new("./res/preamble.txt");
-        let mut file = File::open(path).unwrap();
-        let mut content = String::new();
-        let _ = file.read_to_string(&mut content);
-        content = content.replace("\r\n", "\n");
-        let preamble_program = CortexParser::parse_program(&content).unwrap();
-        for tl in preamble_program.content {
-            this.run_top_level(tl).unwrap();
-        }
 
         this
     }
@@ -1310,10 +1302,22 @@ impl CortexInterpreter {
 
     fn lookup_function(&self, path: &PathIdent) -> Result<Rc<Function>, CortexError> {
         let last = path.get_back()?;
-        Ok(self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?.get_function(last)?)
+        let module = self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?;
+        let result = module.get_function(last);
+        match result {
+            Ok(f) => Ok(f),
+            Err(ModuleError::FunctionDoesNotExist(_)) => Ok(self.global_module.get_function(last)?),
+            Err(e) => Err(Box::new(e)),
+        }
     }
     fn lookup_composite(&self, path: &PathIdent) -> Result<Rc<CompositeType>, CortexError> {
         let last = path.get_back()?;
-        Ok(self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?.get_composite(last)?)
+        let module = self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?;
+        let result = module.get_composite(last);
+        match result {
+            Ok(f) => Ok(f),
+            Err(ModuleError::TypeDoesNotExist(_)) => Ok(self.global_module.get_composite(last)?),
+            Err(e) => Err(Box::new(e)),
+        }
     }
 }
