@@ -54,7 +54,7 @@ impl Display for CortexValue {
                 }
                 write!(f, "{}({})", struct_name.codegen(0), s)
             },
-            CortexValue::Reference(addr, _, mutable) => write!(f, "&{}0x{:x}", if *mutable {"mut"} else {""}, addr),
+            CortexValue::Reference(addr, _, mutable) => write!(f, "&{}0x{:x}", if *mutable {"mut "} else {""}, addr),
             CortexValue::List(list, _) => {
                 let _ = write!(f, "[");
                 for (i, item) in list.iter().enumerate() {
