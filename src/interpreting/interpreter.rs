@@ -583,7 +583,8 @@ impl CortexInterpreter {
                         .combine_with(item_type)
                         .ok_or(InterpreterError::CannotDetermineListLiteralType(typ_str, item_type_str))?;
                 }
-                Ok(typ)
+                let true_type = CortexType::reference(CortexType::list(typ, false), true);
+                Ok(true_type)
             },
         }
     }
@@ -921,7 +922,8 @@ impl CortexInterpreter {
                         .combine_with(item_type)
                         .ok_or(InterpreterError::CannotDetermineListLiteralType(typ_str, item_type_str))?;
                 }
-                Ok(CortexValue::List(values, typ))
+                let addr = self.heap.allocate(CortexValue::List(values, typ.clone()));
+                Ok(CortexValue::Reference(addr, CortexType::list(typ, false), true))
             },
         }
     }

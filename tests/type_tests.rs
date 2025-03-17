@@ -21,6 +21,8 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
     run_test("void", "void", &interpreter)?;
     run_test("(((void)))", "void", &interpreter)?;
     run_test("null", "null?", &interpreter)?;
+    run_test("[1]", "&mut list<number>", &interpreter)?;
+    run_test("[1, null]", "&mut list<number?>", &interpreter)?;
     Ok(())
 }
 

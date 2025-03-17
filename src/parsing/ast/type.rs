@@ -206,7 +206,7 @@ impl CortexType {
         if is_first_null_type {
             Some(other.to_nullable())
         } else if is_second_null_type {
-            Some(self.to_non_nullable())
+            Some(self.to_nullable())
         } else if let (
             CortexType::BasicType { nullable: n1, name: name1, type_args: ta1 }, 
             CortexType::BasicType { nullable: n2, name: name2, type_args: ta2 }
