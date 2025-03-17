@@ -2,7 +2,7 @@ use std::{cell::RefCell, error::Error, rc::Rc};
 
 use thiserror::Error;
 
-use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}};
+use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function}, r#type::CortexType}};
 
 use super::{heap::Heap, interpreter::CortexInterpreter, module::Module, value::CortexValue};
 
@@ -18,7 +18,7 @@ impl CortexInterpreter {
     pub(crate) fn add_list_funcs<'a>(global: &'a mut Module, heap: Rc<RefCell<Heap>>) -> Result<(), Box<dyn Error>> {
         let rheap = heap.clone();
         global.add_function(Function::new(
-            OptionalIdentifier::Ident(String::from(INDEX_GET_FN_NAME)),
+            OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from(INDEX_GET_FN_NAME))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
                 Parameter::named("index", CortexType::number(false))
@@ -50,7 +50,7 @@ impl CortexInterpreter {
 
         let rheap = heap.clone();
         global.add_function(Function::new(
-            OptionalIdentifier::Ident(String::from(INDEX_SET_FN_NAME)),
+            OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from(INDEX_SET_FN_NAME))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
                 Parameter::named("index", CortexType::number(false)),
