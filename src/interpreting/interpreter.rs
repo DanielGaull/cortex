@@ -4,7 +4,7 @@ use thiserror::Error;
 use paste::paste;
 
 use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen, parser::CortexParser};
-use super::{env::Environment, mem::heap::Heap, module::{CompositeType, Module}, type_env::TypeEnvironment, value::{CortexValue, ValueError}};
+use super::{env::Environment, heap::Heap, module::{CompositeType, Module}, type_env::TypeEnvironment, value::{CortexValue, ValueError}};
 
 macro_rules! determine_op_type_fn {
     ($name:ident, $typ:ty, $prev_name:ident) => {

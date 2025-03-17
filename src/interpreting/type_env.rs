@@ -37,27 +37,6 @@ impl TypeEnvironment {
         }
     }
 
-    pub fn contains_binding(&self, typ: &CortexType) -> bool {
-        match typ {
-            CortexType::BasicType { nullable: _, name, type_args } => {
-                if name.is_final() {
-                    let ident = name.get_back().unwrap();
-                    if let Some(_) = self.find_binding(ident) {
-                        true
-                    } else {
-                        type_args.iter().any(|t| self.contains_binding(t))
-                    }
-                } else {
-                    type_args.iter().any(|t| self.contains_binding(t))
-                }
-            },
-            CortexType::RefType { contained, mutable: _ } => {
-                self.contains_binding(contained)
-            },
-            CortexType::Unknown(_) => false,
-        }
-    }
-
     pub fn fill_in(&self, typ: CortexType) -> CortexType {
         match typ {
             CortexType::BasicType { nullable, name, type_args } => {
