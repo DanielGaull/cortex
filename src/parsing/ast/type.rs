@@ -151,7 +151,7 @@ impl CortexType {
         match self {
             CortexType::BasicType { nullable: _, name, type_args: _ } => {
                 name.is_final() && 
-                    matches!(name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "null" | "any")
+                    matches!(name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "null" | "list")
             },
             CortexType::RefType { contained, mutable: _ } => {
                 contained.is_core()
