@@ -12,7 +12,7 @@ fn run_test(input: &str, type_str: &str, interpreter: &CortexInterpreter) -> Res
 
 #[test]
 fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
-    let interpreter = CortexInterpreter::new();
+    let interpreter = CortexInterpreter::new()?;
     run_test("5", "number", &interpreter)?;
     run_test("5.3", "number", &interpreter)?;
     run_test("\"hello\"", "string", &interpreter)?;
@@ -28,7 +28,7 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_bundle(Bundle::new(
         "Time", 
@@ -66,7 +66,7 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_bundle(Bundle::new(
         "Box",

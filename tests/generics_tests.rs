@@ -4,7 +4,7 @@ use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::parser:
 
 #[test]
 fn test_identity() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let path = Path::new("./tests/res/generics_file.txt");
     let mut file = File::open(path).unwrap();
     let mut content = String::new();
@@ -23,7 +23,7 @@ fn test_identity() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_box() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let path = Path::new("./tests/res/generics_file.txt");
     let mut file = File::open(path).unwrap();
     let mut content = String::new();

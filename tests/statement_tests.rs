@@ -46,7 +46,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         add_body,
         vec![],
     );
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_function(add_func)?;
     let path = CortexParser::parse_path("simple")?;

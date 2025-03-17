@@ -19,7 +19,7 @@ fn run_test(input: &str, expected: &str, interpreter: &mut CortexInterpreter) ->
 
 #[test]
 fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     run_test("5", "5", &mut interpreter)?;
     run_test("5.3", "5.3", &mut interpreter)?;
     run_test("true", "true", &mut interpreter)?;
@@ -32,7 +32,7 @@ fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn op_tests() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     run_test("5 + 2", "7", &mut interpreter)?;
     run_test("5 - 2", "3", &mut interpreter)?;
     run_test("5 * 2", "10", &mut interpreter)?;
@@ -62,7 +62,7 @@ fn op_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn complex_expr_tests() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     run_test("if true{1} else {0}", "1", &mut interpreter)?;
     run_test("if false{1}elif true{2} else {0}", "2", &mut interpreter)?;
     run_test("if false{1}elif 0 == 1{2} else {0}", "0", &mut interpreter)?;
@@ -112,7 +112,7 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
         add_body,
         vec![],
     );
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_function(add_func)?;
     let path = CortexParser::parse_path("simple")?;
@@ -143,7 +143,7 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
         test_body,
         vec![],
     );
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_function(test_func)?;
     let path = CortexParser::parse_path("simple")?;
@@ -163,7 +163,7 @@ fn struct_tests() -> Result<(), Box<dyn Error>> {
     let date_struct = Struct::new("Date", vec![
         ("t", CortexType::basic(PathIdent::new(vec!["Time"]), false, vec![])),
     ], vec![]);
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_struct(test_struct)?;
     module.add_struct(date_struct)?;
@@ -198,7 +198,7 @@ fn bundle_tests() -> Result<(), Box<dyn Error>> {
     let date_bundle = Bundle::new("Date", vec![
         ("t", CortexType::reference(CortexType::basic(PathIdent::new(vec!["Time"]), false, vec![]), true)),
     ], vec![], vec![]);
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_bundle(test_bundle)?;
     module.add_bundle(date_bundle)?;

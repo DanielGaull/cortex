@@ -88,23 +88,25 @@ pub struct CortexInterpreter {
     base_module: Module,
     current_env: Option<Box<Environment>>,
     current_context: PathIdent,
-    heap: Heap,
+    heap: Rc<RefCell<Heap>>,
     current_type_env: Option<Box<TypeEnvironment>>,
     global_module: Module,
 }
 
 impl CortexInterpreter {
-    pub fn new() -> Self {
-        let this = CortexInterpreter {
+    pub fn new() -> Result<Self, CortexError> {
+        let mut this = CortexInterpreter {
             base_module: Module::new(),
             current_env: Some(Box::new(Environment::base())),
             current_context: PathIdent::empty(),
-            heap: Heap::new(),
+            heap: Rc::new(RefCell::new(Heap::new())),
             current_type_env: Some(Box::new(TypeEnvironment::base())),
             global_module: Module::new(),
         };
 
-        this
+        Self::add_list_funcs(&mut this.global_module, this.heap.clone())?;
+
+        Ok(this)
     }
 
     pub fn gc(&mut self) {
@@ -115,7 +117,7 @@ impl CortexInterpreter {
         if let Some(env) = &self.current_env {
             env.foreach(|_name, value| self.find_reachables(&mut roots, Rc::new(RefCell::new(value.clone()))));
         }
-        self.heap.gc(roots);
+        self.heap.borrow_mut().gc(roots);
     }
     fn find_reachables(&self, current: &mut HashSet<usize>, value: Rc<RefCell<CortexValue>>) {
         let value_ref = value.borrow();
@@ -128,7 +130,7 @@ impl CortexInterpreter {
         }
     }
     pub fn hpsz(&self) -> usize {
-        self.heap.sz()
+        self.heap.borrow().sz()
     }
 
     pub fn register_module(&mut self, path: &PathIdent, module: Module) -> Result<(), CortexError> {
@@ -914,7 +916,7 @@ impl CortexInterpreter {
                         .combine_with(item_type)
                         .ok_or(InterpreterError::CannotDetermineListLiteralType(typ_str, item_type_str))?;
                 }
-                let addr = self.heap.allocate(CortexValue::List(values, typ.clone()));
+                let addr = self.heap.borrow_mut().allocate(CortexValue::List(values, typ.clone()));
                 Ok(CortexValue::Reference(addr, CortexType::list(typ, false), true))
             },
         }
@@ -932,6 +934,7 @@ impl CortexInterpreter {
             ExpressionTail::MemberAccess { member, next } => {
                 if let CortexValue::Reference(addr, _, mutable) = atom {
                     let val = self.heap
+                        .borrow()
                         .get(addr)
                         .borrow()
                         .get_field(member)?
@@ -968,8 +971,8 @@ impl CortexInterpreter {
     }
 
     fn allocate(&mut self, value: CortexValue) -> usize {
-        let ptr = self.heap.allocate(value);
-        if self.heap.is_at_gc_threshold() {
+        let ptr = self.heap.borrow_mut().allocate(value);
+        if self.heap.borrow().is_at_gc_threshold() {
             self.gc();
         }
         ptr
@@ -1043,7 +1046,7 @@ impl CortexInterpreter {
             if !mutable {
                 return Err(ValueError::CannotModifyNonMutableReference);
             }
-            base = self.heap.get(*addr);
+            base = self.heap.borrow().get(*addr);
         }
         if let Some(first) = first_option {
             if path.len() == 1{
@@ -1061,7 +1064,7 @@ impl CortexInterpreter {
     fn get_field_path(&self, mut value: Rc<RefCell<CortexValue>>, mut path: Vec<String>) -> Result<CortexValue, ValueError> {
         let first_option = path.get(0);
         if let CortexValue::Reference(addr, _, _) = &*value.clone().borrow() {
-            value = self.heap.get(*addr);
+            value = self.heap.borrow().get(*addr);
         }
         if let Some(first) = first_option {
             if path.len() == 1 {

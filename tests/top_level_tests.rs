@@ -18,7 +18,7 @@ fn assert_expression_or(input: &str, expected1: &str, expected2: &str, interpret
 
 #[test]
 fn test_top_level() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let path = Path::new("./tests/res/full_file.txt");
     let mut file = File::open(path).unwrap();
     let mut content = String::new();
@@ -37,7 +37,7 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_module_pathing() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let path = Path::new("./tests/res/module_pathing.txt");
     let mut file = File::open(path).unwrap();
     let mut content = String::new();
@@ -55,7 +55,7 @@ fn test_module_pathing() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_bundle() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let path = Path::new("./tests/res/bundle_file.txt");
     let mut file = File::open(path).unwrap();
     let mut content = String::new();

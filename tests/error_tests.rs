@@ -178,7 +178,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let test_bundle = Bundle::new("IntBox", vec![
         ("v", CortexType::number(false)),
     ], vec![], vec![]);
-    let mut interpreter = CortexInterpreter::new();
+    let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_function(add_func)?;
     module.add_struct(test_struct)?;
