@@ -72,6 +72,16 @@ impl Heap {
                     self.mark_children(marked, Rc::new(RefCell::new(fvalue.clone())));
                 }
             }
+        } else if let CortexValue::List(items, _) = &*value.borrow() {
+            for fvalue in items {
+                if let CortexValue::Reference(addr, _, _) = fvalue {
+                    self.mark(marked, *addr);
+                } else if let CortexValue::Composite { struct_name: _, field_values: _, type_arg_names: _, type_args: _ } = fvalue {
+                    // NOTE: we are allowed to clone fields of composites
+                    // We are only not allowed to clone values that directly appear on the heap
+                    self.mark_children(marked, Rc::new(RefCell::new(fvalue.clone())));
+                }
+            }
         }
     }
 
