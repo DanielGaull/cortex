@@ -29,6 +29,10 @@ impl Expression {
             last.append(tail);
         }
     }
+
+    pub(crate) fn is_atomic(&self) -> bool {
+        self.tail.is_none()
+    }
 }
 
 #[derive(Clone)]
@@ -83,7 +87,13 @@ impl SimpleCodeGen for Atom {
             Atom::Void => String::from("void"),
             Atom::None => String::from("none"),
             Atom::PathIdent(path) => path.codegen(indent),
-            Atom::Expression(expr) => format!("({})", expr.codegen(indent)),
+            Atom::Expression(expr) => {
+                if !expr.is_atomic() {
+                    format!("({})", expr.codegen(indent))
+                } else {
+                    expr.codegen(indent)
+                }
+            },
             Atom::Call(path, args) => {
                 let mut s = String::new();
                 s.push_str(&path.codegen(indent));

@@ -205,46 +205,24 @@ impl CortexInterpreter {
                     },
                 }
             },
-            Statement::Assignment { name, value, op } => {
+            Statement::Assignment { name, value } => {
                 if name.is_simple() {
                     let var_name = &name.base;
                     let assigned_type = self.determine_type(value)?;
                     let var_type = &self.current_env.as_ref().unwrap().get_type_of(var_name)?.clone();
-                    if let Some(binop) = op {
-                        let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
-                        if !type_op.is_subtype_of(var_type) {
-                            return Err(
-                                Box::new(
-                                    InterpreterError::MismatchedType(
-                                        var_type.codegen(0),
-                                        type_op.codegen(0),
-                                        var_name.clone(),
-                                    )
+                    if !assigned_type.is_subtype_of(var_type) {
+                        return Err(
+                            Box::new(
+                                InterpreterError::MismatchedType(
+                                    var_type.codegen(0),
+                                    assigned_type.codegen(0),
+                                    var_name.clone(),
                                 )
-                            );
-                        }
-                        let second = self.evaluate_expression(value)?;
-                        let first = self.current_env.as_ref().unwrap().get_value(var_name)?;
-                        let mut value = self.evaluate_op(first.clone(), binop, second)?;
-                        if let CortexType::RefType { contained: _, mutable } = var_type {
-                            value = value.forward_mutability(*mutable);
-                        }
-                        self.current_env.as_mut().unwrap().set_value(var_name, value)?;
-                    } else {
-                        if !assigned_type.is_subtype_of(var_type) {
-                            return Err(
-                                Box::new(
-                                    InterpreterError::MismatchedType(
-                                        var_type.codegen(0),
-                                        assigned_type.codegen(0),
-                                        var_name.clone(),
-                                    )
-                                )
-                            );
-                        }
-                        let value = self.evaluate_expression(value)?;
-                        self.current_env.as_mut().unwrap().set_value(var_name, value)?;
+                            )
+                        );
                     }
+                    let value = self.evaluate_expression(value)?;
+                    self.current_env.as_mut().unwrap().set_value(var_name, value)?;
                     Ok(())
                 } else {
                     let name_expr = name.clone().to_member_access_expr();
@@ -252,44 +230,23 @@ impl CortexInterpreter {
                     let var_name = &name.base;
                     let chain = name.chain.clone();
                     let assigned_type = self.determine_type(value)?;
-                    let base = Rc::new(RefCell::new(self.current_env.as_ref().unwrap().get_value(var_name)?.clone()));
-                    let current_value = self.get_field_path(base, chain.clone())?;
-                    if let Some(binop) = op {
-                        let type_op = self.determine_type_operator(var_type.clone(), binop, assigned_type)?;
-                        if !type_op.is_subtype_of(&var_type) {
-                            return Err(
-                                Box::new(
-                                    InterpreterError::MismatchedType(
-                                        var_type.codegen(0),
-                                        type_op.codegen(0),
-                                        chain.last().unwrap().clone(),
-                                    )
+                    if !assigned_type.is_subtype_of(&var_type) {
+                        return Err(
+                            Box::new(
+                                InterpreterError::MismatchedType(
+                                    var_type.codegen(0),
+                                    assigned_type.codegen(0),
+                                    chain.last().unwrap().clone(),
                                 )
-                            );
-                        }
-                        let second = self.evaluate_expression(value)?;
-                        let value = self.evaluate_op(current_value, binop, second)?;
-                        let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
-                        self.set_field_path(base, chain, value)?;
-                    } else {
-                        if !assigned_type.is_subtype_of(&var_type) {
-                            return Err(
-                                Box::new(
-                                    InterpreterError::MismatchedType(
-                                        var_type.codegen(0),
-                                        assigned_type.codegen(0),
-                                        chain.last().unwrap().clone(),
-                                    )
-                                )
-                            );
-                        }
-                        let mut value = self.evaluate_expression(value)?;
-                        if let CortexType::RefType { contained: _, mutable } = &var_type {
-                            value = value.forward_mutability(*mutable);
-                        }
-                        let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
-                        self.set_field_path(base, chain, value)?;
+                            )
+                        );
                     }
+                    let mut value = self.evaluate_expression(value)?;
+                    if let CortexType::RefType { contained: _, mutable } = &var_type {
+                        value = value.forward_mutability(*mutable);
+                    }
+                    let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
+                    self.set_field_path(base, chain, value)?;
                     Ok(())
                 }
             },
@@ -1025,25 +982,6 @@ impl CortexInterpreter {
             }
         } else {
             Err(ValueError::MemberPathCannotBeEmpty)
-        }
-    }
-    fn get_field_path(&self, mut value: Rc<RefCell<CortexValue>>, mut path: Vec<String>) -> Result<CortexValue, ValueError> {
-        let first_option = path.get(0);
-        if let CortexValue::Reference(addr, _, _) = &*value.clone().borrow() {
-            value = self.heap.borrow().get(*addr);
-        }
-        if let Some(first) = first_option {
-            if path.len() == 1 {
-                Ok(value.borrow().get_field(first)?.borrow().clone())
-            } else {
-                let fname = first.clone();
-                path.remove(0);
-                let field = value.borrow().get_field(&fname)?.clone();
-                self.get_field_path(field, path)
-            }
-        } else {
-            let val = value.borrow().clone();
-            Ok(val)
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
-use super::{expression::{BinaryOperator, ConditionBody, Expression, IdentExpression, OptionalIdentifier}, r#type::CortexType};
+use super::{expression::{ConditionBody, Expression, IdentExpression, OptionalIdentifier}, r#type::CortexType};
 
 #[derive(Clone)]
 pub enum Statement {
@@ -15,7 +15,6 @@ pub enum Statement {
     Assignment {
         name: IdentExpression,
         value: Expression,
-        op: Option<BinaryOperator>,
     },
     WhileLoop(ConditionBody),
 }
@@ -47,13 +46,9 @@ impl SimpleCodeGen for Statement {
                 s.push_str(" = ");
                 s.push_str(&initial_value.codegen(indent));
             },
-            Self::Assignment { name, value, op } => {
+            Self::Assignment { name, value } => {
                 s.push_str(&name.codegen(indent));
-                s.push_str(" ");
-                if let Some(binop) = op {
-                    s.push_str(&binop.codegen(indent));
-                }
-                s.push_str("= ");
+                s.push_str(" = ");
                 s.push_str(&value.codegen(indent));
             },
             Self::WhileLoop(cond_body) => {

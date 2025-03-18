@@ -210,15 +210,18 @@ impl CortexParser {
                 let mut pairs = pair.into_inner();
                 let left = Self::parse_ident_expr(pairs.next().unwrap())?;
                 let value;
-                let op;
                 let next = pairs.next().unwrap();
                 match next.as_rule() {
                     Rule::arithLogicBinOp => {
-                        op = Some(Self::parse_binop(next.into_inner().next().unwrap())?);
-                        value = Self::parse_expr_pair(pairs.next().unwrap())?;
+                        let left_as_expr = left.clone().to_member_access_expr();
+                        let op = Self::parse_binop(next.into_inner().next().unwrap())?;
+                        let right = Self::parse_expr_pair(pairs.next().unwrap())?;
+                        value = Expression {
+                            atom: Atom::Expression(Box::new(left_as_expr)),
+                            tail: ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) }
+                        };
                     },
                     Rule::expr => {
-                        op = None;
                         value = Self::parse_expr_pair(next)?;
                     },
                     _ => return Err(ParseError::FailStatement(String::from(orig)))
@@ -227,7 +230,6 @@ impl CortexParser {
                 Ok(Statement::Assignment { 
                     name: left,
                     value: value,
-                    op: op,
                 })
             },
             Rule::indexVarAssign => {
