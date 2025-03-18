@@ -236,7 +236,28 @@ impl CortexParser {
                 let mut pairs = pair.into_inner();
                 let left = Self::parse_ident_expr(pairs.next().unwrap())?;
                 let mut args = Self::parse_expr_list(pairs.next().unwrap())?;
-                let value = Self::parse_expr_pair(pairs.next().unwrap())?;
+                let next = pairs.next().unwrap();
+                let value;
+                match next.as_rule() {
+                    Rule::arithLogicBinOp => {
+                        let left_as_expr = left.clone().to_member_access_expr();
+                        let full_left_expr = Expression {
+                            atom: Atom::Expression(Box::new(left_as_expr)),
+                            tail: ExpressionTail::MemberCall { member: String::from(INDEX_GET_FN_NAME), args: args.clone(), next: Box::new(ExpressionTail::None) }
+                        };
+                        let op = Self::parse_binop(next.into_inner().next().unwrap())?;
+                        let right = Self::parse_expr_pair(pairs.next().unwrap())?;
+                        value = Expression {
+                            atom: Atom::Expression(Box::new(full_left_expr)),
+                            tail: ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) }
+                        };
+                    },
+                    Rule::expr => {
+                        value = Self::parse_expr_pair(next)?;
+                    },
+                    _ => return Err(ParseError::FailStatement(String::from(orig)))
+                }
+                
                 args.push(value);
 
                 Ok(Statement::Expression(

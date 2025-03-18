@@ -110,6 +110,7 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("while true {\n    x = x + 1;\n}")?;
     run_statement_test("myNum.increment(3);")?;
     run_statement_test_expected("myList[1] = 10;", "myList.__indexSet(1, 10);")?;
+    run_statement_test_expected("myList[1] += 10;", "myList.__indexSet(1, (myList.__indexGet(1)) + 10);")?;
     Ok(())
 }
 

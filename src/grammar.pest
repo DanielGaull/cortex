@@ -19,7 +19,7 @@ throw = { "throw" ~ expr }
 
 varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { identExpr ~ arithLogicBinOp? ~ "=" ~ expr }
-indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ "=" ~ expr }
+indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ expr }
 
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
