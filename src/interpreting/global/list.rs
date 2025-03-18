@@ -25,7 +25,7 @@ impl PartialEq for ListError {
 }
 
 impl CortexInterpreter {
-    pub(crate) fn add_list_funcs<'a>(global: &'a mut Module, heap: Rc<RefCell<Heap>>) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn add_list_funcs(global: &mut Module, heap: Rc<RefCell<Heap>>) -> Result<(), Box<dyn Error>> {
         let rheap = heap.clone();
         global.add_function(Function::new(
             OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from(INDEX_GET_FN_NAME))),

@@ -24,6 +24,7 @@ impl CortexInterpreter {
         };
 
         Self::add_list_funcs(&mut this.global_module, this.heap.clone())?;
+        Self::add_string_funcs(&mut this.global_module, this.heap.clone())?;
 
         Ok(this)
     }
