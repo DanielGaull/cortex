@@ -4,4 +4,5 @@ pub mod env;
 pub mod module;
 mod heap;
 mod type_env;
-pub mod list;
+pub mod global;
+pub mod error;

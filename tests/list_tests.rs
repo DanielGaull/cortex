@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, list::ListError}, parsing::parser::CortexParser};
+use cortex_lang::{interpreting::{interpreter::CortexInterpreter, global::list::ListError}, parsing::parser::CortexParser};
 
 #[test]
 fn test_list_get_set() -> Result<(), Box<dyn Error>> {

@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function}, r#type::CortexType}};
 
-use super::{heap::Heap, interpreter::CortexInterpreter, module::Module, value::CortexValue};
+use crate::interpreting::{heap::Heap, interpreter::CortexInterpreter, module::Module, value::CortexValue};
 
 #[derive(Error, Debug)]
 pub enum ListError {

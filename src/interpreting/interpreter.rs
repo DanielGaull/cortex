@@ -1,55 +1,7 @@
-use std::{cell::RefCell, collections::{HashMap, HashSet}, error::Error, rc::Rc};
-
-use thiserror::Error;
+use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
 use crate::parsing::{ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
-use super::{env::Environment, heap::Heap, module::{CompositeType, Module, ModuleError}, type_env::TypeEnvironment, value::{CortexValue, ValueError}};
-
-pub type CortexError = Box<dyn Error>;
-
-#[derive(Error, Debug, PartialEq)]
-pub enum InterpreterError {
-    #[error("Program threw an error: {0}")]
-    ProgramThrow(CortexValue),
-    #[error("Cannot modify value \"{0}\" if it comes from a module")]
-    CannotModifyModuleEnvironment(String),
-    #[error("Mismatched argument count: Function {0} expects {1} arguments but received {2}")]
-    MismatchedArgumentCount(String, usize, usize),
-    #[error("Parent environment does not exist")]
-    NoParentEnv,
-    #[error("Expected type {0} for {2} but expression of type {1} was found")]
-    MismatchedType(String, String, String),
-    #[error("Invalid binary operator values: only the type(s) {0} and {1} are allowed")]
-    InvalidOperator(&'static str, &'static str),
-    #[error("Invalid unary operator values: only the type(s) {0} are allowed")]
-    InvalidOperatorUnary(&'static str),
-    #[error("Expected an integer value in this context; {0} is not an integer")]
-    ExpectedInteger(f64),
-    #[error("Cannot assign multiple times to struct field {0} in construction")]
-    MultipleFieldAssignment(String),
-    #[error("Fields not assigned on struct {0}: {1}")]
-    NotAllFieldsAssigned(String, String),
-    #[error("Bang operator called on a none value")]
-    BangCalledOnNoneValue,
-    #[error("If arm types do not match: expected {0} but found {1}")]
-    IfArmsDoNotMatch(String, String),
-    #[error("If an if arm returns a value, then there must be an else block")]
-    IfRequiresElseBlock,
-    #[error("Loop body cannot have a return value")]
-    LoopCannotHaveReturnValue,
-    #[error("Value not found: {0} (module constants are currently not supported)")]
-    ValueNotFound(String),
-    #[error("Could not infer type bindings for {0} (consider manually providing bindings)")]
-    CouldNotInferTypeBinding(String),
-    #[error("Cannot have type arguments on a generic type: {0}")]
-    CannotHaveTypeArgsOnGeneric(String),
-    #[error("Type {0} requires {1} type arguments but only {2} was/were provided")]
-    MismatchedTypeArgCount(String, usize, usize),
-    #[error("Invalid type: {0} is not valid in this context")]
-    TypeInvalidInThisContext(String),
-    #[error("Could not determine type for list literal: expected {0} but found {1}")]
-    CannotDetermineListLiteralType(String, String),
-}
+use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, module::{CompositeType, Module, ModuleError}, type_env::TypeEnvironment, value::{CortexValue, ValueError}};
 
 pub struct CortexInterpreter {
     base_module: Module,

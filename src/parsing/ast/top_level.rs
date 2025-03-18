@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::{env::Environment, interpreter::CortexError, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
+use crate::{interpreting::{env::Environment, error::CortexError, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
 
 use super::{expression::{Expression, OptionalIdentifier, Parameter}, statement::Statement, r#type::CortexType};
 

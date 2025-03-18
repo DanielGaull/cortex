@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::{EnvError, Environment}, interpreter::{CortexInterpreter, InterpreterError}, module::{Module, ModuleError}, value::{CortexValue, ValueError}}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
+use cortex_lang::{interpreting::{env::{EnvError, Environment}, interpreter::CortexInterpreter, error::InterpreterError, module::{Module, ModuleError}, value::{CortexValue, ValueError}}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
