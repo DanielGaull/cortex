@@ -6,12 +6,22 @@ use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, parsing::ast::{ex
 
 use super::{heap::Heap, interpreter::CortexInterpreter, module::Module, value::CortexValue};
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug)]
 pub enum ListError {
     #[error("Expected arg {0} to be of type {1}")]
     InvalidArg(&'static str, &'static str),
     #[error("Invalid index {0} for list of length {1}")]
     InvalidIndex(f64, usize),
+}
+
+impl PartialEq for ListError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::InvalidArg(l0, l1), Self::InvalidArg(r0, r1)) => *l0 == *r0 && *l1 == *r1,
+            (Self::InvalidIndex(l0, l1), Self::InvalidIndex(r0, r1)) => (*l0 - *r0).abs() < f64::EPSILON && *l1 == *r1,
+            _ => false,
+        }
+    }
 }
 
 impl CortexInterpreter {
@@ -29,7 +39,7 @@ impl CortexInterpreter {
                 if let CortexValue::Reference(addr, _, _) = list_ptr {
                     if let CortexValue::List(items, _) = &*rheap.borrow().get(addr).borrow() {
                         if let CortexValue::Number(num) = env.get_value("index")? {
-                            let index = f64_to_usize(num).ok_or(Box::new(ListError::InvalidIndex(num, items.len())))?;
+                            let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
                             if let Some(item) = items.get(index) {
                                 Ok(item.clone())
                             } else {
@@ -62,7 +72,7 @@ impl CortexInterpreter {
                 if let CortexValue::Reference(addr, _, _) = list_ptr {
                     if let CortexValue::List(items, _) = &mut *rheap.borrow().get(addr).borrow_mut() {
                         if let CortexValue::Number(num) = env.get_value("index")? {
-                            let index = f64_to_usize(num).ok_or(Box::new(ListError::InvalidIndex(num, items.len())))?;
+                            let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
                             if index < items.len() {
                                 items[index] = env.get_value("value")?;
                                 Ok(CortexValue::Void)
@@ -196,7 +206,7 @@ impl CortexInterpreter {
                 if let CortexValue::Reference(addr, _, _) = list_ptr {
                     if let CortexValue::List(items, _) = &mut *rheap.borrow().get(addr).borrow_mut() {
                         if let CortexValue::Number(num) = env.get_value("index")? {
-                            let index = f64_to_usize(num).ok_or(Box::new(ListError::InvalidIndex(num, items.len())))?;
+                            let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
                             if index < items.len() {
                                 let item = env.get_value("item")?;
                                 items.insert(index, item);
@@ -230,7 +240,7 @@ impl CortexInterpreter {
                 if let CortexValue::Reference(addr, _, _) = list_ptr {
                     if let CortexValue::List(items, _) = &mut *rheap.borrow().get(addr).borrow_mut() {
                         if let CortexValue::Number(num) = env.get_value("index")? {
-                            let index = f64_to_usize(num).ok_or(Box::new(ListError::InvalidIndex(num, items.len())))?;
+                            let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
                             if index < items.len() {
                                 items.remove(index);
                                 Ok(CortexValue::Void)
