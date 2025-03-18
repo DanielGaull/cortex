@@ -4,37 +4,10 @@ use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
-use paste::paste;
 
 use crate::constants::{INDEX_SET_FN_NAME, INDEX_GET_FN_NAME};
 
-use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, EqResult, Expression, ExpressionTail, IdentExpression, MulResult, OptionalIdentifier, Parameter, PathIdent, Primary, SumResult, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, ThisArg, TopLevel}, r#type::CortexType};
-
-macro_rules! operator_parser {
-    ($name:ident, $typ:ty, $prev_name:ident, $prev_typ:ty) => {
-        paste! {
-            fn [<parse_ $name>](pair: Pair<Rule>) -> Result<$typ, ParseError> {
-                let mut pairs = pair.into_inner();
-                let first = Self::[<parse_ $prev_name>](pairs.next().unwrap())?;
-                let mut pair_iter = pairs.into_iter().peekable();
-                let mut rest = Vec::<(BinaryOperator, $prev_typ)>::new();
-                while pair_iter.peek().is_some() {
-                    let first_pair = pair_iter.next().unwrap();
-                    let second_pair = pair_iter.next().unwrap();
-                    let op = Self::parse_binop(first_pair)?;
-                    let right = Self::[<parse_ $prev_name>](second_pair)?;
-                    rest.push((op, right));
-                }
-                Ok(
-                    $typ {
-                        first: first,
-                        rest: rest,
-                    }
-                )
-            }
-        }
-    }
-}
+use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, Expression, ExpressionTail, IdentExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, ThisArg, TopLevel}, r#type::CortexType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -266,20 +239,8 @@ impl CortexParser {
 
                 Ok(Statement::Expression(
                     Expression {
-                        first: EqResult { 
-                            first: SumResult {
-                                first: MulResult {
-                                    first: Primary {
-                                        atom: Atom::Expression(Box::new(left.to_member_access_expr())),
-                                        tail: ExpressionTail::MemberCall { member: String::from(INDEX_SET_FN_NAME), args: args, next: Box::new(ExpressionTail::None) },
-                                    },
-                                    rest: vec![],
-                                },
-                                rest: vec![],
-                            },
-                            rest: vec![],
-                        },
-                        rest: vec![],
+                        atom: Atom::Expression(Box::new(left.to_member_access_expr())),
+                        tail: ExpressionTail::MemberCall { member: String::from(INDEX_SET_FN_NAME), args: args, next: Box::new(ExpressionTail::None) },
                     }
                 ))
             },
@@ -293,7 +254,51 @@ impl CortexParser {
         }
     }
 
-    fn parse_primary(pair: Pair<Rule>) -> Result<Primary, ParseError> {
+    fn parse_expr_pair(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+        Self::parse_logic_result(pair)
+    }
+    fn parse_logic_result(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+        let mut pairs = pair.into_inner().peekable();
+        let mut result = Self::parse_eq_result(pairs.next().unwrap())?;
+        while pairs.peek() != None {
+            let op = Self::parse_binop(pairs.next().unwrap())?;
+            let right = Self::parse_eq_result(pairs.next().unwrap())?;
+            result.append_tail(ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) });
+        }
+        Ok(result)
+    }
+    fn parse_eq_result(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+        let mut pairs = pair.into_inner().peekable();
+        let mut result = Self::parse_sum_result(pairs.next().unwrap())?;
+        while pairs.peek() != None {
+            let op = Self::parse_binop(pairs.next().unwrap())?;
+            let right = Self::parse_sum_result(pairs.next().unwrap())?;
+            result.append_tail(ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) });
+        }
+        Ok(result)
+    }
+    fn parse_sum_result(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+        let mut pairs = pair.into_inner().peekable();
+        let mut result = Self::parse_mul_result(pairs.next().unwrap())?;
+        while pairs.peek() != None {
+            let op = Self::parse_binop(pairs.next().unwrap())?;
+            let right = Self::parse_mul_result(pairs.next().unwrap())?;
+            result.append_tail(ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) });
+        }
+        Ok(result)
+    }
+    fn parse_mul_result(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+        let mut pairs = pair.into_inner().peekable();
+        let mut result = Self::parse_primary(pairs.next().unwrap())?;
+        while pairs.peek() != None {
+            let op = Self::parse_binop(pairs.next().unwrap())?;
+            let right = Self::parse_primary(pairs.next().unwrap())?;
+            result.append_tail(ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) });
+        }
+        Ok(result)
+    }
+
+    fn parse_primary(pair: Pair<Rule>) -> Result<Expression, ParseError> {
         let mut pairs = pair.into_inner();
         let atom_pair = pairs.next().unwrap();
         let atom = Self::parse_atom_pair(atom_pair.into_inner().next().unwrap())?;
@@ -303,15 +308,11 @@ impl CortexParser {
             let expr_tail_pair = next.unwrap();
             expr_tail = Self::parse_expr_tail_pair(expr_tail_pair)?;
         }
-        Ok(Primary {
+        Ok(Expression {
             atom: atom,
             tail: expr_tail,
         })
     }
-    operator_parser!(mul_result, MulResult, primary, Primary);
-    operator_parser!(sum_result, SumResult, mul_result, MulResult);
-    operator_parser!(eq_result, EqResult, sum_result, SumResult);
-    operator_parser!(expr_pair, Expression, eq_result, EqResult);
 
     fn parse_atom_pair(pair: Pair<Rule>) -> Result<Atom, ParseError> {
         match pair.as_rule() {

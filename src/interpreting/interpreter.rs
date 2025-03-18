@@ -1,42 +1,9 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, error::Error, rc::Rc};
 
 use thiserror::Error;
-use paste::paste;
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, EqResult, Expression, ExpressionTail, MulResult, OptionalIdentifier, PathIdent, Primary, SumResult, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, heap::Heap, module::{CompositeType, Module, ModuleError}, type_env::TypeEnvironment, value::{CortexValue, ValueError}};
-
-macro_rules! determine_op_type_fn {
-    ($name:ident, $typ:ty, $prev_name:ident) => {
-        paste! {
-            fn [<determine_type_ $name>](&self, this: &$typ) -> Result<CortexType, CortexError> {
-                let first = &this.first;
-                let rest = &this.rest;
-                let mut typ = self.[<determine_type_ $prev_name>](first)?;
-                for (op, item) in rest {
-                    let second = self.[<determine_type_ $prev_name>](item)?;
-                    typ = self.determine_type_operator(typ, op, second)?;
-                }
-                Ok(typ)
-            }
-        }
-    }
-}
-
-macro_rules! evaluate_op_fn {
-    ($name:ident, $typ:ty, $prev_name:ident) => {
-        paste! {
-            fn [<evaluate_ $name>](&mut self, item: &$typ) -> Result<CortexValue, CortexError> {
-                let mut typ = self.[<evaluate_ $prev_name>](&item.first)?;
-                for (op, exp) in &item.rest {
-                    let second = self.[<evaluate_ $prev_name>](exp)?;
-                    typ = self.evaluate_op(typ, op, second)?;
-                }
-                Ok(typ)
-            }
-        }
-    }
-}
 
 pub type CortexError = Box<dyn Error>;
 
@@ -360,15 +327,11 @@ impl CortexInterpreter {
     pub fn determine_type(&self, expr: &Expression) -> Result<CortexType, CortexError> {
         Ok(self.clean_type(self.determine_type_expression(expr)?))
     }
-    fn determine_type_primary(&self, primary: &Primary) -> Result<CortexType, CortexError> {
+    fn determine_type_expression(&self, primary: &Expression) -> Result<CortexType, CortexError> {
         let atom_result = self.determine_type_atom(&primary.atom)?;
         let tail_result = self.determine_type_tail(atom_result, &primary.tail)?;
         Ok(tail_result)
     }
-    determine_op_type_fn!(mul_result, MulResult, primary);
-    determine_op_type_fn!(sum_result, SumResult, mul_result);
-    determine_op_type_fn!(eq_result, EqResult, sum_result);
-    determine_op_type_fn!(expression, Expression, eq_result);
     fn determine_type_operator(&self, first: CortexType, op: &BinaryOperator, second: CortexType) -> Result<CortexType, CortexError> {
         let number = CortexType::number(false);
         let string = CortexType::string(false);
@@ -623,6 +586,11 @@ impl CortexInterpreter {
                     .with_prefix_if_not_core(&caller_func_prefix);
                 Ok(return_type)
             },
+            ExpressionTail::BinOp { op, right, next } => {
+                let op_type = self.determine_type_operator(atom, op, self.determine_type(right)?)?;
+                let next_type = self.determine_type_tail(op_type, next)?;
+                Ok(next_type)
+            },
         }
     }
     fn determine_type_body(&self, body: &BasicBody) -> Result<CortexType, CortexError> {
@@ -633,17 +601,10 @@ impl CortexInterpreter {
         }
     }
 
-    fn evaluate_primary(&mut self, primary: &Primary) -> Result<CortexValue, CortexError> {
+    pub fn evaluate_expression(&mut self, primary: &Expression) -> Result<CortexValue, CortexError> {
         let atom_result = self.evaluate_atom(&primary.atom)?;
         let tail_result = self.handle_expr_tail(atom_result, &primary.tail)?;
         Ok(tail_result)
-    }
-    evaluate_op_fn!(mul_result, MulResult, primary);
-    evaluate_op_fn!(sum_result, SumResult, mul_result);
-    evaluate_op_fn!(eq_result, EqResult, sum_result);
-    evaluate_op_fn!(expression_priv, Expression, eq_result);
-    pub fn evaluate_expression(&mut self, expr: &Expression) -> Result<CortexValue, CortexError> {
-        self.evaluate_expression_priv(expr)
     }
     fn evaluate_op(&mut self, first: CortexValue, op: &BinaryOperator, second: CortexValue) -> Result<CortexValue, CortexError> {
         match op {
@@ -966,7 +927,12 @@ impl CortexInterpreter {
                 self.current_context = context_to_return_to;
 
                 Ok(self.handle_expr_tail(result?, next)?)
-            }
+            },
+            ExpressionTail::BinOp { op, right, next } => {
+                let right = self.evaluate_expression(right)?;
+                let result = self.evaluate_op(atom, op, right)?;
+                Ok(self.handle_expr_tail(result, next)?)
+            },
         }
     }
 

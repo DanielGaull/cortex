@@ -4,46 +4,30 @@ use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
 use super::{top_level::BasicBody, r#type::CortexType};
 
-macro_rules! operator_struct {
-    ($name:ident, $item: ty) => {
-        #[derive(Clone)]
-        pub struct $name {
-            pub(crate) first: $item,
-            pub(crate) rest: Vec<(BinaryOperator, $item)>,
-        }
-
-        impl SimpleCodeGen for $name {
-            fn codegen(&self, indent: usize) -> String {
-                let mut s = String::new();
-                s.push_str(&self.first.codegen(indent));
-                for (op, item) in &self.rest {
-                    s.push_str(" ");
-                    s.push_str(&op.codegen(indent));
-                    s.push_str(" ");
-                    s.push_str(&item.codegen(indent));
-                }
-                s
-            }
-        }
-    }
-}
-
-operator_struct!(MulResult, Primary);
-operator_struct!(SumResult, MulResult);
-operator_struct!(EqResult, SumResult);
-operator_struct!(Expression, EqResult);
-
 #[derive(Clone)]
-pub struct Primary {
+pub struct Expression {
     pub(crate) atom: Atom,
     pub(crate) tail: ExpressionTail,
 }
-impl SimpleCodeGen for Primary {
+impl SimpleCodeGen for Expression {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
         s.push_str(&self.atom.codegen(indent));
         s.push_str(&self.tail.codegen(indent));
         s
+    }
+}
+impl Expression {
+    pub(crate) fn append_tail(&mut self, tail: ExpressionTail) {
+        if self.tail.is_none() {
+            self.tail = tail;
+        } else {
+            let mut last: &mut ExpressionTail = &mut self.tail;
+            while !last.is_next_none() {
+                last = last.next_ref();
+            }
+            last.append(tail);
+        }
     }
 }
 
@@ -187,6 +171,11 @@ pub enum ExpressionTail {
         args: Vec<Expression>,
         next: Box<ExpressionTail>,
     },
+    BinOp {
+        op: BinaryOperator,
+        right: Box<Expression>,
+        next: Box<ExpressionTail>,
+    }
 }
 impl SimpleCodeGen for ExpressionTail {
     fn codegen(&self, indent: usize) -> String {
@@ -204,6 +193,52 @@ impl SimpleCodeGen for ExpressionTail {
                 let next = next.codegen(indent);
                 let args = args.iter().map(|x| x.codegen(0)).collect::<Vec<_>>().join(", ");
                 format!(".{}({}){}", member, args, next)
+            },
+            ExpressionTail::BinOp { op, right, next } => {
+                let op = op.codegen(indent);
+                let right = right.codegen(indent);
+                let next = next.codegen(indent);
+                format!(" {} {}{}", op, right, next)
+            }
+        }
+    }
+}
+impl ExpressionTail {
+    fn is_next_none(&self) -> bool {
+        match self {
+            ExpressionTail::None => false,
+            ExpressionTail::PostfixBang { next } => next.is_none(),
+            ExpressionTail::MemberAccess { member: _, next } => next.is_none(),
+            ExpressionTail::MemberCall { member: _, args: _, next } => next.is_none(),
+            ExpressionTail::BinOp { op: _, right: _, next } => next.is_none(),
+        }
+    }
+    fn is_none(&self) -> bool {
+        matches!(self, ExpressionTail::None)
+    }
+    fn next_ref(&mut self) -> &mut ExpressionTail {
+        match self {
+            ExpressionTail::None => panic!(),
+            ExpressionTail::PostfixBang { next } => next,
+            ExpressionTail::MemberAccess { member: _, next } => next,
+            ExpressionTail::MemberCall { member: _, args: _, next } => next,
+            ExpressionTail::BinOp { op: _, right: _, next } => next,
+        }
+    }
+    fn append(&mut self, new_next: ExpressionTail) {
+        match self {
+            ExpressionTail::None => (),
+            ExpressionTail::PostfixBang { next } => {
+                *next = Box::new(new_next);
+            },
+            ExpressionTail::MemberAccess { member: _, next } => {
+                *next = Box::new(new_next);
+            },
+            ExpressionTail::MemberCall { member: _, args: _, next } => {
+                *next = Box::new(new_next);
+            },
+            ExpressionTail::BinOp { op: _, right: _, next } => {
+                *next = Box::new(new_next);
             },
         }
     }
@@ -269,20 +304,8 @@ impl IdentExpression {
         }
 
         Expression {
-            first: EqResult {
-                first: SumResult {
-                    first: MulResult {
-                        first: Primary {
-                            atom: Atom::PathIdent(PathIdent::simple(self.base)),
-                            tail: tail,
-                        },
-                        rest: vec![],
-                    },
-                    rest: vec![],
-                },
-                rest: vec![],
-            },
-            rest: vec![],
+            atom: Atom::PathIdent(PathIdent::simple(self.base)),
+            tail: tail,
         }
     }
 }
