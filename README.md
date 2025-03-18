@@ -13,7 +13,26 @@ This file consists of documentation of the Cortex Language itself, and examples 
 Comments can be used by starting a line with '//' or enclosed within '/* */' like in most C-style languages. Whitespace is irrelevant; all statements must end with a semicolon anyway.
 
 ### Data Types
-There are 5 built-in data types in Cortex: number, boolean, string, void, and null. Numbers are stored as a 64-bit floating point number (Rust's `f64`); booleans are stored as a boolean (1 byte); strings are stored in Rust `String`s (so all Rust `String` rules apply); and void and null each don't store any additional data. Void should be used for functions that return no data; null should indicate the explicit absense of data.
+There are 6 built-in data types in Cortex: number, boolean, string, void, none, and list. Numbers are stored as a 64-bit floating point number (Rust's `f64`); booleans are stored as a boolean (1 byte); strings are stored in Rust `String`s (so all Rust `String` rules apply); and void and none each don't store any additional data. Void should be used for functions that return no data; none should indicate the explicit absense of data.
+
+#### List
+Lists are a special data type. Internally, they use a Rust `Vec`. Lists require a type argument denoting which type they store. Lists can be created using list construction syntax:
+
+    let myList = [1, 2, 3];
+
+Lists, like bundle instances, are created on the heap, and therefore the type is a reference to the list. This is the actual type of the above list:
+
+    let myList: &mut list<number> = [1, 2, 3];
+
+Lists define a few functions:
+* __indexGet (see below)
+* __indexSet (see below)
+* add(&mut this, item: T): void - Adds an item to the end of the list
+* insert(&mut this, index: number, item: T): void - Adds an item at the specified index
+* remove(&mut this, index: number): void - Removes the item at the specified index
+* find(&this, item: T): number? - Returns the index of the specified item, or `none` if the value was not found
+* contains(&this, item: T): bool - Returns `true` if the item is in the list, and `false` if not
+* len(&this): number - Returns the length/size of the list
 
 ### Variables
 You can declare a variable with syntax like the following:
@@ -28,20 +47,20 @@ As you can see, there are a few key things:
 * The initial value of the variable
 * A semicolon - required to terminate *all* statements
 
-### Nullability
-All variables have a type. There is syntax for creating something known as a *nullable* type, which allows for any value of that base type, and also `null`. For example:
+### Optional Values
+All variables have a type. There is syntax for creating something known as a *optional* type, which allows for any value of that base type, and also `none`. For example:
 
     let x: number? = 5;
-    x = null;
+    x = none;
     let y: number = 0;
-    y = null; // There will be an error here
+    y = none; // There will be an error here
 
-There are cases where you may want to assert that a variable with a nullable type is not the null value. Use the bang operation like so:
+There are cases where you may want to assert that a variable with a optional type is not the none value. Use the bang operation like so:
 
     let x: number? = 5;
     let y: number = x!;
 
-If you use the bang operation on a null value, the interpreter will return an error and stop execution.
+If you use the bang operation on a none value, the interpreter will return an error and stop execution.
 
 ### Operators
 There are several binary operators you can use. Here is each one, and how they work:
@@ -139,7 +158,7 @@ Example:
 5 >= 5 = true
 
 ### If Expressions
-If expressions are *expressions*, meaning they evaluate to a value. If bodies are similar to function bodies, in that you can add an expression at the end (that isn't semicolon-terminated) to return that value. All arms of an if expression must return the same type (however, if an arm returns `null` and others do not, the interpreter can infer the type as a nullable type rather than giving an error). If expressions look like this:
+If expressions are *expressions*, meaning they evaluate to a value. If bodies are similar to function bodies, in that you can add an expression at the end (that isn't semicolon-terminated) to return that value. All arms of an if expression must return the same type (however, if an arm returns `none` and others do not, the interpreter can infer the type as a optional type rather than giving an error). If expressions look like this:
 
     if *condition* {
         // Body...
@@ -200,6 +219,19 @@ Here is an unnamed function:
 
 This function cannot be called within Cortex, but you can use parse functions to read a `Function` object into the calling Rust code and use this function there.
 
+Functions can also take in type arguments, like structs and bundles. The syntax looks something like this:
+
+    fn identity<T>(item: T): T {
+        item
+    }
+
+This way, the function `identity` can be called and the function is generic.
+
+You can call generic functions without explicitly providing the type arguments and they will be inferred, but you can also explicitly provide them:
+
+    identity(5); // 5
+    identity<string?>(none); // none
+
 ### Structs
 You can define (or inject) data types using *structs*. Structs consist of fields of a certain type, and struct instances (or composite values) consist of the values of those fields. Keep in mind *all* values are currently pass-by-value, meaning that passing a value into a function or assigning it to a variable *duplicates* the fields of structs. Make sure structs are cheap to copy, and if not, give them a way to hook into your Rust implementation where the actual complex object is stored, or use bundles instead (see below).
 
@@ -230,6 +262,10 @@ The type name to refer to a struct is the struct name itself (or path if it is i
 ### Bundles
 Bundles are another type of composite type, similar to structs. Like structs, you can inject bundles into modules from outside of the interpreter. When instances of bundles are created, they are placed on a virtual heap, and all bundle values are pass-by-reference. This means that when you pass a bundle value into a function or assign it to another field, it will share the same instance. There is a garbage collector that runs in the background to ensure that memory doesn't get out of hand.
 
+Because bundles place their values on the heap, they are accessed via *references*. References can either be mutable or immutable (&type and &mut type). This allows creating references to bundle instances that can are immutable, and passing such a value around will prevent it from being mutated. You cannot modify fields or call mutating functions on immutable references (more on this below).
+
+Constructing a bundle uses the same syntax as structs, but will return a mutable reference to the bundle instance. Note that there is no way to create a reference to any arbitrary value at the moment, they are only created implicitly by certain actions.
+
 Bundles are declared very similarly to structs (trailing comma is optional):
 
     bundle Point {
@@ -239,7 +275,7 @@ Bundles are declared very similarly to structs (trailing comma is optional):
 
 You can create instances the same way that you create struct instances:
 
-    let point: Point = Point {
+    let point: &mut Point = Point {
         x: 0,
         y: 0,
     };
@@ -250,7 +286,7 @@ However, bundles can also have functions defined on them, below the list of fiel
         x: number,
         y: number
 
-        fn increment(x: number, y: number) {
+        fn increment(&mut this, x: number, y: number) {
             this.x += x;
             this.y += y;
         }
@@ -258,13 +294,42 @@ However, bundles can also have functions defined on them, below the list of fiel
 
 Now, you can call `increment` on any `Point` to modify its values:
 
-    let point: Point = Point {
+    let point: &mut Point = Point {
         x: 0,
         y: 0,
     };
     point.increment(5, 2); // Point is now equal to {x=5, y=2}
 
 Due to pass-by-reference semantics and the benefits of bundle functions, it is recommended to use bundles in most cases. Structs should only be used for small, inexpensive types of data. Currently, defining functions on a struct does not exist.
+
+For bundle functions, you must provide either "&this" or "&mut this" as the first argument to specify whether the value must be mutable or not. You can call "immutable" functions on mutable values, but you cannot call "mutable" functions on immutable values.
+
+#### Indexing
+There are a few special bundle functions. Cortex features *index syntax*, allowing for things like so:
+
+    let val = myList[5];
+    myList[0] = 10;
+
+Indexing is not special, and is really syntax sugar for calling one of two bundle functions: `__indexGet` and `__indexSet`. Therefore, by defining those functions on your own types, you can add index functionality. You can provide any parameters you like, even multiple parameters, for more index functionality:
+
+    fn __indexGet(&this, i: number, s: string): string
+    fn __indexSet(&mut this, i: number, s: string, value: string): void
+
+The last parameter to `__indexSet` will be the value that is assigned.
+
+### Generic Types
+Structs and bundles can, like functions, have type arguments.
+
+    bundle Box<T> {
+        item: T,
+
+        fn get(&this): T {
+            this.item
+        }
+        fn set(&mut this, value: T) {
+            this.item = value;
+        }
+    }
 
 ### Modules
 Modules are a way to package types and functions (or even other modules) under a shared namespace. Items in modules require paths to access them. Here's an example of a module:
