@@ -27,11 +27,11 @@ impl TypeEnvironment {
         self.bindings.insert(name, typ);
     }
 
-    fn find_binding(&self, name: &String) -> Option<&CortexType> {
+    pub fn get(&self, name: &String) -> Option<&CortexType> {
         if let Some(result) = self.bindings.get(name) {
             Some(result)
         } else if let Some(parent) = &self.parent {
-            parent.find_binding(name)
+            parent.get(name)
         } else {
             None
         }
@@ -42,7 +42,7 @@ impl TypeEnvironment {
             CortexType::BasicType { optional, name, type_args } => {
                 if name.is_final() {
                     let ident = name.get_back().unwrap();
-                    if let Some(result) = self.find_binding(ident) {
+                    if let Some(result) = self.get(ident) {
                         result.clone().to_optional_if_true(optional)
                     } else {
                         CortexType::BasicType { optional, name: name, type_args: type_args.into_iter().map(|t| self.fill_in(t)).collect() }

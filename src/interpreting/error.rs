@@ -16,8 +16,6 @@ pub enum InterpreterError {
     MismatchedArgumentCount(String, usize, usize),
     #[error("Parent environment does not exist")]
     NoParentEnv,
-    #[error("Expected type {0} for {2} but expression of type {1} was found")]
-    MismatchedType(String, String, String),
     #[error("Invalid binary operator values: only the type(s) {0} and {1} are allowed")]
     InvalidOperator(&'static str, &'static str),
     #[error("Invalid unary operator values: only the type(s) {0} are allowed")]
@@ -36,16 +34,22 @@ pub enum InterpreterError {
     IfRequiresElseBlock,
     #[error("Loop body cannot have a return value")]
     LoopCannotHaveReturnValue,
-    #[error("Value not found: {0} (module constants are currently not supported)")]
-    ValueNotFound(String),
-    #[error("Could not infer type bindings for {0} (consider manually providing bindings)")]
-    CouldNotInferTypeBinding(String),
-    #[error("Cannot have type arguments on a generic type: {0}")]
-    CannotHaveTypeArgsOnGeneric(String),
     #[error("Type {0} requires {1} type arguments but only {2} was/were provided")]
     MismatchedTypeArgCount(String, usize, usize),
     #[error("Invalid type: {0} is not valid in this context")]
     TypeInvalidInThisContext(String),
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum PreprocessingError {
+    #[error("Could not infer type bindings for {0} (consider manually providing bindings)")]
+    CouldNotInferTypeBinding(String),
+    #[error("Cannot have type arguments on a generic type: {0}")]
+    CannotHaveTypeArgsOnGeneric(String),
+    #[error("Expected type {0} for {2} but expression of type {1} was found")]
+    MismatchedType(String, String, String),
     #[error("Could not determine type for list literal: expected {0} but found {1}")]
     CannotDetermineListLiteralType(String, String),
+    #[error("Value not found: {0} (module constants are currently not supported)")]
+    ValueNotFound(String),
 }
