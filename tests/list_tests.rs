@@ -31,7 +31,7 @@ fn test_list_find() -> Result<(), Box<dyn Error>> {
     run("let myList = [1, 2, 3];", &mut interpreter)?;
     assert("myList.find(1)", "0", &mut interpreter)?;
     assert("myList.find(2)", "1", &mut interpreter)?;
-    assert("myList.find(4)", "null", &mut interpreter)?;
+    assert("myList.find(4)", "none", &mut interpreter)?;
 
     Ok(())
 }

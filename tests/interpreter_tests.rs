@@ -25,7 +25,7 @@ fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
     run_test("true", "true", &mut interpreter)?;
     run_test("false", "false", &mut interpreter)?;
     run_test("\"hello\"", "\"hello\"", &mut interpreter)?;
-    run_test("null", "null", &mut interpreter)?;
+    run_test("none", "none", &mut interpreter)?;
     run_test("void", "void", &mut interpreter)?;
     Ok(())
 }
@@ -66,7 +66,7 @@ fn complex_expr_tests() -> Result<(), Box<dyn Error>> {
     run_test("if true{1} else {0}", "1", &mut interpreter)?;
     run_test("if false{1}elif true{2} else {0}", "2", &mut interpreter)?;
     run_test("if false{1}elif 0 == 1{2} else {0}", "0", &mut interpreter)?;
-    run_test("if false{1}elif 0 == 1{2} else {null}", "null", &mut interpreter)?;
+    run_test("if false{1}elif 0 == 1{2} else {none}", "none", &mut interpreter)?;
     Ok(())
 }
 
@@ -75,13 +75,13 @@ fn complex_expr_tests() -> Result<(), Box<dyn Error>> {
 //     let mut interpreter = CortexInterpreter::new();
 //     let mut module = Environment::base();
 //     mod_env.add_const(String::from("myBoolean"), CortexType::boolean(false), CortexValue::Boolean(true))?;
-//     mod_env.add_const(String::from("nullableBoolean"), CortexType::boolean(true), CortexValue::Null)?;
+//     mod_env.add_const(String::from("optionalBoolean"), CortexType::boolean(true), CortexValue::None)?;
 //     let path = CortexParser::parse_path("simple")?;
 //     let module = Module::new(mod_env);
 //     interpreter.register_module(&path, module)?;
 
 //     run_test("simple::myBoolean", "true", &mut interpreter)?;
-//     run_test("simple::nullableBoolean", "null", &mut interpreter)?;
+//     run_test("simple::optionalBoolean", "none", &mut interpreter)?;
     
 //     Ok(())
 // }

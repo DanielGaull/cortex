@@ -24,7 +24,7 @@ indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ "=" ~ expr }
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
-atom = { number | boolean | null | void | string | listLiteral | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
+atom = { number | boolean | none | void | string | listLiteral | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberCallTail | memberAccessTail | indexTail | "" }
 
 primary = { atom ~ exprTail }
@@ -56,7 +56,7 @@ unOpAtom = { unOp ~ expr }
 // Literals/Primitives
 number = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ ~ ("." ~ (ASCII_DIGIT)+)? }
 boolean = { "true" | "false" }
-null = { "null" }
+none = { "none" }
 void = { "void" }
 listLiteral = { "[" ~ exprList ~ "]" }
 // tuple = { "(" ~ expr ~ "," ~ exprList ~ ")" }

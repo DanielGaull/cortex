@@ -43,7 +43,7 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
     run_expression_test("\"hello\"")?;
     run_expression_test("\"true\"")?;
     run_expression_test("true")?;
-    run_expression_test("null")?;
+    run_expression_test("none")?;
     run_expression_test("void")?;
     run_expression_test("[1, 2, 3]")?;
     Ok(())
@@ -99,7 +99,7 @@ fn test_types() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("stop;")?;
-    run_statement_test("null;")?;
+    run_statement_test("none;")?;
     run_statement_test("print(hello, \"hi\");")?;
     run_statement_test("let x = 5;")?;
     run_statement_test("let x: number = 5;")?;

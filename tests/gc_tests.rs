@@ -19,7 +19,7 @@ fn gc_test_simple() -> Result<(), Box<dyn Error>> {
 fn gc_test_ref() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_eq!(0, interpreter.hpsz());
-    interpreter.run_statement(&CortexParser::parse_statement("let time: simple::Time? = null;")?)?;
+    interpreter.run_statement(&CortexParser::parse_statement("let time: simple::Time? = none;")?)?;
     for _ in 0..100 {
         interpreter.run_statement(&CortexParser::parse_statement("time = simple::alloc();")?)?;
     }

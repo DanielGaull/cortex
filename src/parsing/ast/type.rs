@@ -14,7 +14,7 @@ pub enum TypeError {
 pub enum CortexType {
     // Represents a simple named type that may or may not have type arguments
     BasicType {
-        nullable: bool,
+        optional: bool,
         name: PathIdent,
         type_args: Vec<CortexType>,
     },
@@ -30,7 +30,7 @@ pub enum CortexType {
 impl SimpleCodeGen for CortexType {
     fn codegen(&self, _: usize) -> String {
         match self {
-            CortexType::BasicType { nullable, name, type_args } => {
+            CortexType::BasicType { optional, name, type_args } => {
                 let mut s = String::new();
                 s.push_str(&name.codegen(0));
                 if type_args.len() > 0 {
@@ -38,7 +38,7 @@ impl SimpleCodeGen for CortexType {
                     s.push_str(&type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(","));
                     s.push_str(">");
                 }
-                if *nullable {
+                if *optional {
                     s.push_str("?");
                 }
                 s
@@ -57,17 +57,17 @@ impl SimpleCodeGen for CortexType {
 }
 
 impl CortexType {
-    pub fn basic(name: PathIdent, nullable: bool, type_args: Vec<CortexType>) -> Self {
+    pub fn basic(name: PathIdent, optional: bool, type_args: Vec<CortexType>) -> Self {
         Self::BasicType {
             name: name,
-            nullable: nullable,
+            optional,
             type_args: type_args,
         }
     }
-    pub fn basic_simple(name: &str, nullable: bool, type_args: Vec<CortexType>) -> Self {
+    pub fn basic_simple(name: &str, optional: bool, type_args: Vec<CortexType>) -> Self {
         Self::BasicType {
             name: PathIdent::simple(String::from(name)),
-            nullable: nullable,
+            optional,
             type_args: type_args,
         }
     }
@@ -77,33 +77,33 @@ impl CortexType {
             mutable: mutable,
         }
     }
-    pub fn simple(name: &str, nullable: bool) -> Self {
-        Self::basic(PathIdent::simple(String::from(name)), nullable, vec![])
+    pub fn simple(name: &str, optional: bool) -> Self {
+        Self::basic(PathIdent::simple(String::from(name)), optional, vec![])
     }
-    pub fn number(nullable: bool) -> Self {
-        Self::simple("number", nullable)
+    pub fn number(optional: bool) -> Self {
+        Self::simple("number", optional)
     }
-    pub fn boolean(nullable: bool) -> Self {
-        Self::simple("bool", nullable)
+    pub fn boolean(optional: bool) -> Self {
+        Self::simple("bool", optional)
     }
-    pub fn string(nullable: bool) -> Self {
-        Self::simple("string", nullable)
+    pub fn string(optional: bool) -> Self {
+        Self::simple("string", optional)
     }
-    pub fn void(nullable: bool) -> Self {
-        Self::simple("void", nullable)
+    pub fn void(optional: bool) -> Self {
+        Self::simple("void", optional)
     }
-    pub fn null() -> Self {
-        Self::simple("null", true)
+    pub fn none() -> Self {
+        Self::simple("none", true)
     }
-    pub fn list(typ: CortexType, nullable: bool) -> Self {
-        Self::basic(PathIdent::simple(String::from("list")), nullable, vec![typ])
+    pub fn list(typ: CortexType, optional: bool) -> Self {
+        Self::basic(PathIdent::simple(String::from("list")), optional, vec![typ])
     }
     pub fn with_prefix(&self, path: &PathIdent) -> Self {
         match self {
-            CortexType::BasicType { nullable, name, type_args } => {
+            CortexType::BasicType { optional, name, type_args } => {
                 CortexType::BasicType {
                     name: PathIdent::concat(path, name),
-                    nullable: *nullable,
+                    optional: *optional,
                     type_args: type_args.clone(),
                 }
             },
@@ -126,7 +126,7 @@ impl CortexType {
 
     pub fn prefix(&self) -> PathIdent {
         match self {
-            CortexType::BasicType { nullable: _, name, type_args: _ } => {
+            CortexType::BasicType { optional: _, name, type_args: _ } => {
                 name.without_last()
             },
             CortexType::RefType { contained, mutable: _ } => {
@@ -135,13 +135,13 @@ impl CortexType {
             CortexType::Unknown(_) => PathIdent::empty(),
         }
     }
-    pub fn nullable(&self) -> bool {
+    pub fn optional(&self) -> bool {
         match self {
-            CortexType::BasicType { nullable, name: _, type_args: _ } => {
-                *nullable
+            CortexType::BasicType { optional, name: _, type_args: _ } => {
+                *optional
             },
             CortexType::RefType { contained, mutable: _ } => {
-                contained.nullable()
+                contained.optional()
             },
             CortexType::Unknown(optional) => *optional,
         }
@@ -149,9 +149,9 @@ impl CortexType {
 
     pub fn is_core(&self) -> bool {
         match self {
-            CortexType::BasicType { nullable: _, name, type_args: _ } => {
+            CortexType::BasicType { optional: _, name, type_args: _ } => {
                 name.is_final() && 
-                    matches!(name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "null" | "list")
+                    matches!(name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "none" | "list")
             },
             CortexType::RefType { contained, mutable: _ } => {
                 contained.is_core()
@@ -160,26 +160,26 @@ impl CortexType {
         }
     }
 
-    pub fn to_nullable(self) -> Self {
-        self.to_nullable_value(true)
+    pub fn to_optional(self) -> Self {
+        self.to_optional_value(true)
     }
-    pub fn to_non_nullable(self) -> Self {
-        self.to_nullable_value(false)
+    pub fn to_non_optional(self) -> Self {
+        self.to_optional_value(false)
     }
-    pub fn to_nullable_value(self, value: bool) -> Self {
+    pub fn to_optional_value(self, value: bool) -> Self {
         match self {
-            CortexType::BasicType { nullable: _, name, type_args } => {
-                CortexType::BasicType { nullable: value, name: name, type_args: type_args }
+            CortexType::BasicType { optional: _, name, type_args } => {
+                CortexType::BasicType { optional: value, name: name, type_args: type_args }
             },
             CortexType::RefType { contained, mutable } => {
-                CortexType::RefType { contained: Box::new(contained.to_nullable_value(value)), mutable: mutable }
+                CortexType::RefType { contained: Box::new(contained.to_optional_value(value)), mutable: mutable }
             },
             CortexType::Unknown(_) => CortexType::Unknown(value),
         }
     }
-    pub fn to_nullable_if_true(self, value: bool) -> Self {
+    pub fn to_optional_if_true(self, value: bool) -> Self {
         if value {
-            self.to_nullable()
+            self.to_optional()
         } else {
             self
         }
@@ -187,29 +187,29 @@ impl CortexType {
 
     pub fn types(&self) -> Result<Vec<&PathIdent>, TypeError> {
         match self {
-            CortexType::BasicType { nullable: _, name, type_args: _ } => Ok(vec![name]),
+            CortexType::BasicType { optional: _, name, type_args: _ } => Ok(vec![name]),
             CortexType::RefType { contained, mutable: _ } => contained.types(),
             CortexType::Unknown(_) => Err(TypeError::UnknownTypeNotValid),
         }
     }
     pub fn name(&self) -> Result<&PathIdent, TypeError> {
         match self {
-            CortexType::BasicType { nullable: _, name, type_args: _ } => Ok(name),
+            CortexType::BasicType { optional: _, name, type_args: _ } => Ok(name),
             CortexType::RefType { contained, mutable: _ } => contained.name(),
             CortexType::Unknown(_) => Err(TypeError::UnknownTypeNotValid),
         }
     }
 
     pub fn combine_with(self, other: CortexType) -> Option<CortexType> {
-        let is_first_null_type = self == CortexType::null();
-        let is_second_null_type = other == CortexType::null();
-        if is_first_null_type {
-            Some(other.to_nullable())
-        } else if is_second_null_type {
-            Some(self.to_nullable())
+        let is_first_none_type = self == CortexType::none();
+        let is_second_none_type = other == CortexType::none();
+        if is_first_none_type {
+            Some(other.to_optional())
+        } else if is_second_none_type {
+            Some(self.to_optional())
         } else if let (
-            CortexType::BasicType { nullable: n1, name: name1, type_args: ta1 }, 
-            CortexType::BasicType { nullable: n2, name: name2, type_args: ta2 }
+            CortexType::BasicType { optional: n1, name: name1, type_args: ta1 }, 
+            CortexType::BasicType { optional: n2, name: name2, type_args: ta2 }
         ) = (&self, &other) {
             if name1 == name2 {
                 if !are_type_args_equal(ta1, ta2) {
@@ -238,22 +238,22 @@ impl CortexType {
                 None
             }
         } else if let CortexType::Unknown(optional) = &self {
-            Some(other.to_nullable_if_true(*optional))
+            Some(other.to_optional_if_true(*optional))
         } else {
             None
         }
     }
 
     pub fn is_subtype_of(&self, other: &CortexType) -> bool {
-        if other.nullable() && self == &CortexType::null() {
+        if other.optional() && self == &CortexType::none() {
             return true;
         }
         if !are_same_variant(self, other) {
             return false;
         }
         if let (
-            CortexType::BasicType { nullable: n1, name: name1, type_args: ta1 },
-            CortexType::BasicType { nullable: n2, name: name2, type_args: ta2 }
+            CortexType::BasicType { optional: n1, name: name1, type_args: ta1 },
+            CortexType::BasicType { optional: n2, name: name2, type_args: ta2 }
         ) = (self, other) {
             if name1 == name2 {
                 if *n1 && !*n2 {
@@ -285,7 +285,7 @@ impl CortexType {
             }
         } else if let CortexType::Unknown(optional) = self {
             if *optional {
-                other.nullable()
+                other.optional()
             } else {
                 true
             }

@@ -16,7 +16,7 @@ fn test_identity() -> Result<(), Box<dyn Error>> {
     }
     
     assert_exp("identity(5)", "5", &mut interpreter)?;
-    assert_exp("identity(null)", "null", &mut interpreter)?;
+    assert_exp("identity(none)", "none", &mut interpreter)?;
 
     Ok(())
 }

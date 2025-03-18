@@ -69,7 +69,7 @@ pub enum Atom {
     Number(f64),
     Boolean(bool),
     Void,
-    Null,
+    None,
     String(String),
     PathIdent(PathIdent),
     Call(PathIdent, Vec<Expression>),
@@ -97,7 +97,7 @@ impl SimpleCodeGen for Atom {
             Atom::Boolean(v) => format!("{}", v),
             Atom::String(v) => format!("\"{}\"", v),
             Atom::Void => String::from("void"),
-            Atom::Null => String::from("null"),
+            Atom::None => String::from("none"),
             Atom::PathIdent(path) => path.codegen(indent),
             Atom::Expression(expr) => format!("({})", expr.codegen(indent)),
             Atom::Call(path, args) => {

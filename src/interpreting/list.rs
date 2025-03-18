@@ -131,7 +131,7 @@ impl CortexInterpreter {
                         if let Some(i) = idx {
                             Ok(CortexValue::Number(i as f64))
                         } else {
-                            Ok(CortexValue::Null)
+                            Ok(CortexValue::None)
                         }
                     } else {
                         Err(Box::new(ListError::InvalidArg("this", "&list<T>")))

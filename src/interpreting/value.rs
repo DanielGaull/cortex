@@ -24,7 +24,7 @@ pub enum CortexValue {
     Boolean(bool),
     String(String),
     Void,
-    Null,
+    None,
     Composite {
         struct_name: PathIdent,
         field_values: HashMap<String, Rc<RefCell<CortexValue>>>,
@@ -43,7 +43,7 @@ impl Display for CortexValue {
             CortexValue::Boolean(v) => write!(f, "{}", v),
             CortexValue::String(v) => write!(f, "\"{}\"", v),
             CortexValue::Void => write!(f, "void"),
-            CortexValue::Null => write!(f, "null"),
+            CortexValue::None => write!(f, "none"),
             CortexValue::Composite { struct_name, field_values, type_arg_names: _, type_args: _ } => {
                 let mut s = String::new();
                 for (name, val) in field_values {
@@ -75,7 +75,7 @@ impl CortexValue {
             CortexValue::Boolean(_) => CortexType::boolean(false),
             CortexValue::String(_) => CortexType::string(false),
             CortexValue::Void => CortexType::void(false),
-            CortexValue::Null => CortexType::null(),
+            CortexValue::None => CortexType::none(),
             CortexValue::Composite { struct_name, field_values: _, type_arg_names: _, type_args } => CortexType::basic(struct_name.clone(), false, type_args.clone()),
             CortexValue::Reference(_, typ, mutable) => CortexType::reference(typ.clone(), *mutable),
             CortexValue::List(_, typ) => CortexType::list(typ.clone(), false),
@@ -87,7 +87,7 @@ impl CortexValue {
             CortexValue::Boolean(_) => "bool",
             CortexValue::String(_) => "string",
             CortexValue::Void => "void",
-            CortexValue::Null => "null",
+            CortexValue::None => "none",
             CortexValue::Composite { struct_name: _, field_values: _, type_args: _, type_arg_names: _ } => "composite",
             CortexValue::Reference(_, _, _) => "pointer",
             CortexValue::List(_, _) => "list",

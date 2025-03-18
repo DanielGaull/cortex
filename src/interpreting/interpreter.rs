@@ -62,8 +62,8 @@ pub enum InterpreterError {
     MultipleFieldAssignment(String),
     #[error("Fields not assigned on struct {0}: {1}")]
     NotAllFieldsAssigned(String, String),
-    #[error("Bang operator called on a null value")]
-    BangCalledOnNullValue,
+    #[error("Bang operator called on a none value")]
+    BangCalledOnNoneValue,
     #[error("If arm types do not match: expected {0} but found {1}")]
     IfArmsDoNotMatch(String, String),
     #[error("If an if arm returns a value, then there must be an else block")]
@@ -470,7 +470,7 @@ impl CortexInterpreter {
             Atom::Number(_) => Ok(CortexType::number(false)),
             Atom::Boolean(_) => Ok(CortexType::boolean(false)),
             Atom::Void => Ok(CortexType::void(false)),
-            Atom::Null => Ok(CortexType::null()),
+            Atom::None => Ok(CortexType::none()),
             Atom::String(_) => Ok(CortexType::string(false)),
             Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
             Atom::Call(path_ident, arg_exps) => {
@@ -586,7 +586,7 @@ impl CortexInterpreter {
         match tail {
             ExpressionTail::None => Ok(atom),
             ExpressionTail::PostfixBang { next } => {
-                let new_type = atom.to_non_nullable();
+                let new_type = atom.to_non_optional();
                 Ok(self.determine_type_tail(new_type, next)?)
             },
             ExpressionTail::MemberAccess { member, next } => {
@@ -808,7 +808,7 @@ impl CortexInterpreter {
             Atom::Number(v) => Ok(CortexValue::Number(*v)),
             Atom::String(v) => Ok(CortexValue::String(v.clone())),
             Atom::Void => Ok(CortexValue::Void),
-            Atom::Null => Ok(CortexValue::Null),
+            Atom::None => Ok(CortexValue::None),
             Atom::Expression(expr) => Ok(self.evaluate_expression(expr)?),
             Atom::PathIdent(path) => Ok(self.lookup_value(path)?),
             Atom::Call(path_ident, expressions) => {
@@ -925,8 +925,8 @@ impl CortexInterpreter {
         match tail {
             ExpressionTail::None => Ok(atom),
             ExpressionTail::PostfixBang { next } => {
-                if let CortexValue::Null = atom {
-                    Err(Box::new(InterpreterError::BangCalledOnNullValue))
+                if let CortexValue::None = atom {
+                    Err(Box::new(InterpreterError::BangCalledOnNoneValue))
                 } else {
                     Ok(self.handle_expr_tail(atom, next)?)
                 }
@@ -1096,7 +1096,7 @@ impl CortexInterpreter {
         let mut typ = typ.clone();
         let mut bindings = HashMap::new();
         while !type_args_handled {
-            if let CortexType::BasicType { nullable: _, name: _, type_args } = &typ {
+            if let CortexType::BasicType { optional: _, name: _, type_args } = &typ {
                 bindings = TypeEnvironment::create_bindings(type_param_names, type_args);
                 typ = TypeEnvironment::fill(typ, &bindings);
                 type_args_handled = true;
@@ -1121,12 +1121,12 @@ impl CortexInterpreter {
     fn infer_arg(&self, param_type: &CortexType, arg_type: &CortexType, type_param_names: &Vec<String>, bindings: &mut HashMap<String, CortexType>, param_name: &String) -> Result<(), CortexError> {
         let correct;
         match (&param_type, arg_type) {
-            (CortexType::BasicType { nullable, name: _, type_args }, arg_type) => {
+            (CortexType::BasicType { optional, name: _, type_args }, arg_type) => {
                 if let Some(name) = TypeEnvironment::does_arg_list_contain(type_param_names, &param_type) {
                     // If we take in a T? and passing a number?, then we want T = number, not T = number?
                     let mut bound_type = arg_type.clone();
-                    if *nullable {
-                        bound_type = bound_type.to_non_nullable();
+                    if *optional {
+                        bound_type = bound_type.to_non_optional();
                     }
                     if type_args.len() > 0 {
                         return Err(Box::new(InterpreterError::CannotHaveTypeArgsOnGeneric(param_type.codegen(0))));
@@ -1146,7 +1146,7 @@ impl CortexInterpreter {
                 } else {
                     // Try to match up type args (ex. list<T> to list<number>)
                     // If both are not BasicType, then we just ignore this
-                    if let CortexType::BasicType { nullable: _, name: _, type_args: type_args2 } = arg_type {
+                    if let CortexType::BasicType { optional: _, name: _, type_args: type_args2 } = arg_type {
                         if type_args.len() == type_args2.len() {
                             for (type_param, type_arg) in type_args.iter().zip(type_args2) {
                                 self.infer_arg(type_param, type_arg, type_param_names, bindings, param_name)?;

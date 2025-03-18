@@ -39,16 +39,16 @@ impl TypeEnvironment {
 
     pub fn fill_in(&self, typ: CortexType) -> CortexType {
         match typ {
-            CortexType::BasicType { nullable, name, type_args } => {
+            CortexType::BasicType { optional, name, type_args } => {
                 if name.is_final() {
                     let ident = name.get_back().unwrap();
                     if let Some(result) = self.find_binding(ident) {
-                        result.clone().to_nullable_if_true(nullable)
+                        result.clone().to_optional_if_true(optional)
                     } else {
-                        CortexType::BasicType { nullable: nullable, name: name, type_args: type_args.into_iter().map(|t| self.fill_in(t)).collect() }
+                        CortexType::BasicType { optional, name: name, type_args: type_args.into_iter().map(|t| self.fill_in(t)).collect() }
                     }
                 } else {
-                    CortexType::BasicType { nullable: nullable, name: name, type_args: type_args.into_iter().map(|t| self.fill_in(t)).collect() }
+                    CortexType::BasicType { optional, name: name, type_args: type_args.into_iter().map(|t| self.fill_in(t)).collect() }
                 }
             },
             CortexType::RefType { contained, mutable } => {
@@ -83,16 +83,16 @@ impl TypeEnvironment {
 
     pub fn fill(typ: CortexType, bindings: &HashMap<String, CortexType>) -> CortexType {
         match typ {
-            CortexType::BasicType { nullable, name, type_args } => {
+            CortexType::BasicType { optional, name, type_args } => {
                 if name.is_final() {
                     let ident = name.get_back().unwrap();
                     if let Some(result) = bindings.get(ident) {
-                        result.clone().to_nullable_if_true(nullable)
+                        result.clone().to_optional_if_true(optional)
                     } else {
-                        CortexType::BasicType { nullable: nullable, name: name, type_args: type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() }
+                        CortexType::BasicType { optional, name: name, type_args: type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() }
                     }
                 } else {
-                    CortexType::BasicType { nullable: nullable, name: name, type_args: type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() }
+                    CortexType::BasicType { optional, name: name, type_args: type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() }
                 }
             },
             CortexType::RefType { contained, mutable } => {

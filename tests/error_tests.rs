@@ -69,10 +69,10 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn test_null_related_errors() -> Result<(), Box<dyn Error>> {
+fn test_none_related_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("let notNullable: number = null;", InterpreterError::MismatchedType(String::from("number"), String::from("null?"), String::from("notNullable")), &mut interpreter)?;
-    assert_err("null!;", InterpreterError::BangCalledOnNullValue, &mut interpreter)?;
+    assert_err("let notOptional: number = none;", InterpreterError::MismatchedType(String::from("number"), String::from("none?"), String::from("notOptional")), &mut interpreter)?;
+    assert_err("none!;", InterpreterError::BangCalledOnNoneValue, &mut interpreter)?;
     Ok(())
 }
 

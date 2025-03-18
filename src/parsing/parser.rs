@@ -326,8 +326,8 @@ impl CortexParser {
             Rule::string => {
                 Ok(Atom::String(String::from(pair.into_inner().next().unwrap().as_str())))
             },
-            Rule::null => {
-                Ok(Atom::Null)
+            Rule::none => {
+                Ok(Atom::None)
             },
             Rule::void => {
                 Ok(Atom::Void)
@@ -505,7 +505,7 @@ impl CortexParser {
 
     fn parse_type_pair(pair: Pair<Rule>) -> Result<CortexType, ParseError> {
         let pair_str = pair.as_str();
-        let nullable = pair_str.ends_with("?");
+        let optional = pair_str.ends_with("?");
         let main = pair.into_inner().next().unwrap();
         match main.as_rule() {
             Rule::basicType => {
@@ -518,7 +518,7 @@ impl CortexParser {
                         type_args.push(Self::parse_type_pair(typ_pair)?);
                     }
                 }
-                Ok(CortexType::basic(ident, nullable, type_args))
+                Ok(CortexType::basic(ident, optional, type_args))
             },
             Rule::refType => {
                 let typ = Self::parse_type_pair(main.into_inner().next().unwrap())?;
