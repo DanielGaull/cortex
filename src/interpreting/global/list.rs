@@ -207,7 +207,7 @@ impl CortexInterpreter {
                     if let CortexValue::List(items, _) = &mut *rheap.borrow().get(addr).borrow_mut() {
                         if let CortexValue::Number(num) = env.get_value("index")? {
                             let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
-                            if index < items.len() {
+                            if index <= items.len() {
                                 let item = env.get_value("item")?;
                                 items.insert(index, item);
                                 Ok(CortexValue::Void)

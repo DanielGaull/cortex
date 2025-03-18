@@ -63,6 +63,11 @@ fn test_list_add_insert_remove() -> Result<(), Box<dyn Error>> {
     run("myList.remove(0);", &mut interpreter)?;
     assert("myList[0]", "1.5", &mut interpreter)?;
 
+    run("myList = [1, 2, 3];", &mut interpreter)?;
+    run("myList.insert(3, 10);", &mut interpreter)?;
+    assert("myList[0]", "1", &mut interpreter)?;
+    assert("myList[3]", "10", &mut interpreter)?;
+
     Ok(())
 }
 
