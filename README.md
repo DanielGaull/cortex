@@ -331,6 +331,12 @@ Structs and bundles can, like functions, have type arguments.
         }
     }
 
+You must explicitly provide type args when constructing a struct/bundle:
+
+    let box = Box<bool> {
+        item: false,
+    };
+
 ### Modules
 Modules are a way to package types and functions (or even other modules) under a shared namespace. Items in modules require paths to access them. Here's an example of a module:
 
