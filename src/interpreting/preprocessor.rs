@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, PathIdent, UnaryOperator}, top_level::{BasicBody, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, ConditionBody, Expression, ExpressionTail, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
 use super::{env::EnvError, error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, type_env::TypeEnvironment, value::ValueError};
 
@@ -83,6 +83,10 @@ impl CortexPreprocessor {
         Ok(module)
     }
 
+    fn check_statement(&mut self, statement: &mut Statement) -> Result<(), CortexError> {
+        todo!()
+    }
+
     fn check_exp(&mut self, exp: &mut Expression) -> CheckResult {
         let atom_type = self.check_atom(&mut exp.atom)?;
         let tail_type = self.check_tail(atom_type, &mut exp.tail)?;
@@ -103,7 +107,7 @@ impl CortexPreprocessor {
                 self.check_construction(name, type_args, assignments)
             },
             Atom::IfStatement { first, conds, last } => {
-                todo!()
+                self.check_if_statement(first, conds, last.as_deref_mut())
             },
             Atom::UnaryOperation { op, exp } => {
                 let typ = self.check_exp(exp)?;
@@ -249,6 +253,60 @@ impl CortexPreprocessor {
             Err(Box::new(PreprocessingError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
         }
     }
+    fn check_if_statement(&mut self, first: &mut ConditionBody, conds: &mut Vec<ConditionBody>, last: Option<&mut BasicBody>) -> CheckResult {
+        let cond_typ = self.check_exp(&mut first.condition)?;
+        if cond_typ != CortexType::boolean(false) {
+            return Err(
+                Box::new(
+                    PreprocessingError::MismatchedType(
+                        String::from("bool"),
+                        cond_typ.codegen(0),
+                        String::from("if condition"),
+                    )
+                )
+            );
+        }
+        let mut the_type = self.check_body(&mut first.body)?;
+        
+        for c in conds {
+            let cond_typ = self.check_exp(&mut c.condition)?;
+            if cond_typ != CortexType::boolean(false) {
+                return Err(
+                    Box::new(
+                        PreprocessingError::MismatchedType(
+                            String::from("bool"),
+                            cond_typ.codegen(0),
+                            String::from("if-else condition"),
+                        )
+                    )
+                );
+            }
+            let typ = self.check_body(&mut c.body)?;
+            let the_type_str = the_type.codegen(0);
+            let typ_str = typ.codegen(0);
+            let next = the_type.combine_with(typ);
+            if let Some(t) = next {
+                the_type = t;
+            } else {
+                return Err(Box::new(PreprocessingError::IfArmsDoNotMatch(the_type_str, typ_str)));
+            }
+        }
+        if let Some(fin) = last {
+            let typ = self.check_body(fin)?;
+            let the_type_str = the_type.codegen(0);
+            let typ_str = typ.codegen(0);
+            let next = the_type.combine_with(typ);
+            if let Some(t) = next {
+                the_type = t;
+            } else {
+                return Err(Box::new(PreprocessingError::IfArmsDoNotMatch(the_type_str, typ_str)));
+            }
+        } else if the_type != CortexType::void(false) {
+            return Err(Box::new(PreprocessingError::IfRequiresElseBlock));
+        }
+
+        Ok(the_type)
+    }
 
     fn check_tail(&mut self, atom_type: CortexType, tail: &mut ExpressionTail) -> CheckResult {
         match tail {
@@ -277,7 +335,14 @@ impl CortexPreprocessor {
         }
     }
     fn check_body(&mut self, body: &mut BasicBody) -> CheckResult {
-        todo!()
+        for st in &mut body.statements {
+            self.check_statement(st)?;
+        }
+        if let Some(exp) = &mut body.result {
+            Ok(self.check_exp(exp)?)
+        } else {
+            Ok(CortexType::void(false))
+        }
     }
 
     fn check_operator(&self, first: CortexType, op: &BinaryOperator, second: CortexType) -> CheckResult {

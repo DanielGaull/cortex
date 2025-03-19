@@ -230,187 +230,6 @@ impl CortexInterpreter {
         }
     }
 
-    pub fn determine_type(&self, expr: &Expression) -> Result<CortexType, CortexError> {
-        Ok(self.clean_type(self.determine_type_expression(expr)?))
-    }
-    fn determine_type_expression(&self, primary: &Expression) -> Result<CortexType, CortexError> {
-        let atom_result = self.determine_type_atom(&primary.atom)?;
-        let tail_result = self.determine_type_tail(atom_result, &primary.tail)?;
-        Ok(tail_result)
-    }
-    fn determine_type_atom(&self, atom: &Atom) -> Result<CortexType, CortexError> {
-        match atom {
-            Atom::Number(_) => Ok(CortexType::number(false)),
-            Atom::Boolean(_) => Ok(CortexType::boolean(false)),
-            Atom::Void => Ok(CortexType::void(false)),
-            Atom::None => Ok(CortexType::none()),
-            Atom::String(_) => Ok(CortexType::string(false)),
-            Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
-            Atom::Call(path_ident, arg_exps) => {
-                let func = self.lookup_function(path_ident)?;
-                let mut return_type = func
-                    .return_type
-                    .clone()
-                    .with_prefix_if_not_core(&self.current_context)
-                    .with_prefix_if_not_core(&path_ident.without_last());
-                let bindings = self.infer_type_args(&func, &arg_exps.iter().map(|a| self.determine_type(a)).collect::<Result<Vec<_>, _>>()?)?;
-                return_type = TypeEnvironment::fill(return_type, &bindings);
-                Ok(return_type)
-            },
-            Atom::Expression(expression) => Ok(self.determine_type(expression)?),
-            Atom::Construction { name, type_args, assignments: _ } => {
-                let composite = self.lookup_composite(name)?;
-                let base_type = CortexType::basic(name.clone(), false, type_args.clone()).with_prefix_if_not_core(&self.current_context);
-                if composite.is_heap_allocated {
-                    Ok(CortexType::reference(base_type, true))
-                } else {
-                    Ok(base_type)
-                }
-            },
-            Atom::IfStatement { first, conds, last } => {
-                let cond_typ = self.determine_type(&first.condition)?;
-                if cond_typ != CortexType::boolean(false) {
-                    return Err(
-                        Box::new(
-                            InterpreterError::MismatchedType(
-                                String::from("bool"),
-                                cond_typ.codegen(0),
-                                String::from("if condition"),
-                            )
-                        )
-                    );
-                }
-                let mut the_type = self.determine_type_body(&first.body)?;
-                
-                for c in conds {
-                    let cond_typ = self.determine_type(&c.condition)?;
-                    if cond_typ != CortexType::boolean(false) {
-                        return Err(
-                            Box::new(
-                                InterpreterError::MismatchedType(
-                                    String::from("bool"),
-                                    cond_typ.codegen(0),
-                                    String::from("while condition"),
-                                )
-                            )
-                        );
-                    }
-                    let typ = self.determine_type_body(&c.body)?;
-                    let the_type_str = the_type.codegen(0);
-                    let typ_str = typ.codegen(0);
-                    let next = the_type.combine_with(typ);
-                    if let Some(t) = next {
-                        the_type = t;
-                    } else {
-                        return Err(Box::new(InterpreterError::IfArmsDoNotMatch(the_type_str, typ_str)));
-                    }
-                }
-                if let Some(fin) = last {
-                    let typ = self.determine_type_body(fin)?;
-                    let the_type_str = the_type.codegen(0);
-                    let typ_str = typ.codegen(0);
-                    let next = the_type.combine_with(typ);
-                    if let Some(t) = next {
-                        the_type = t;
-                    } else {
-                        return Err(Box::new(InterpreterError::IfArmsDoNotMatch(the_type_str, typ_str)));
-                    }
-                } else if the_type != CortexType::void(false) {
-                    return Err(Box::new(InterpreterError::IfRequiresElseBlock));
-                }
-
-                Ok(the_type)
-            },
-            Atom::UnaryOperation { op, exp } => {
-                let typ = self.determine_type(exp)?;
-                match op {
-                    UnaryOperator::Negate => {
-                        if typ == CortexType::number(false) {
-                            Ok(CortexType::number(false))
-                        } else {
-                            Err(Box::new(InterpreterError::InvalidOperatorUnary("number")))
-                        }
-                    },
-                    UnaryOperator::Invert => {
-                        if typ == CortexType::boolean(false) {
-                            Ok(CortexType::boolean(false))
-                        } else {
-                            Err(Box::new(InterpreterError::InvalidOperatorUnary("bool")))
-                        }
-                    },
-                }
-            },
-            Atom::ListLiteral(items) => {
-                let mut typ = CortexType::Unknown(false);
-                for item in items {
-                    let item_type = self.determine_type(item)?;
-                    let item_type_str = item_type.codegen(0);
-                    let typ_str = typ.codegen(0);
-                    typ = typ
-                        .combine_with(item_type)
-                        .ok_or(InterpreterError::CannotDetermineListLiteralType(typ_str, item_type_str))?;
-                }
-                let true_type = CortexType::reference(CortexType::list(typ, false), true);
-                Ok(true_type)
-            },
-        }
-    }
-    fn determine_type_tail(&self, atom: CortexType, tail: &ExpressionTail) -> Result<CortexType, CortexError> {
-        match tail {
-            ExpressionTail::None => Ok(atom),
-            ExpressionTail::PostfixBang { next } => {
-                let new_type = atom.to_non_optional();
-                Ok(self.determine_type_tail(new_type, next)?)
-            },
-            ExpressionTail::MemberAccess { member, next } => {
-                let composite = self.lookup_composite(atom.name()?)?;
-                if !composite.fields.contains_key(member) {
-                    Err(Box::new(ValueError::FieldDoesNotExist(member.clone(), atom.codegen(0))))
-                } else {
-                    let mut member_type = composite.fields.get(member).unwrap().clone();
-                    let bindings = Self::get_bindings(&composite.type_param_names, &atom)?;
-                    member_type = TypeEnvironment::fill(member_type, &bindings);
-                    member_type = member_type.with_prefix_if_not_core(&atom.prefix());
-                    member_type = self.determine_type_tail(member_type, next)?;
-                    Ok(member_type)
-                }
-            },
-            ExpressionTail::MemberCall { member, args, next } => {
-                let caller_type = atom.name()?;
-                let caller_func_prefix = caller_type.without_last();
-                let caller_func_base = caller_type.get_back()?;
-                let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
-                let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
-                    .subtract(&self.current_context)?;
-                let func = self.lookup_function(&member_func_path)?;
-                let mut return_type = func.return_type.clone();
-
-                let mut arg_types = args.iter().map(|a| self.determine_type(a)).collect::<Result<Vec<_>, _>>()?;
-                arg_types.insert(0, atom.clone());
-                let bindings = self.infer_type_args(&func, &arg_types)?;
-                return_type = TypeEnvironment::fill(return_type, &bindings);
-
-                return_type = self.determine_type_tail(return_type, next)?;
-                return_type = return_type
-                    .with_prefix_if_not_core(&self.current_context)
-                    .with_prefix_if_not_core(&caller_func_prefix);
-                Ok(return_type)
-            },
-            ExpressionTail::BinOp { op, right, next } => {
-                let op_type = self.determine_type_operator(atom, op, self.determine_type(right)?)?;
-                let next_type = self.determine_type_tail(op_type, next)?;
-                Ok(next_type)
-            },
-        }
-    }
-    fn determine_type_body(&self, body: &BasicBody) -> Result<CortexType, CortexError> {
-        if let Some(expr) = &body.result {
-            self.determine_type(expr)
-        } else {
-            Ok(CortexType::void(false))
-        }
-    }
-
     pub fn evaluate_expression(&mut self, primary: &Expression) -> Result<CortexValue, CortexError> {
         let atom_result = self.evaluate_atom(&primary.atom)?;
         let tail_result = self.handle_expr_tail(atom_result, &primary.tail)?;
@@ -573,7 +392,6 @@ impl CortexInterpreter {
         }
     }
     fn evaluate_atom(&mut self, atom: &Atom) -> Result<CortexValue, CortexError> {
-        let _atom_type = self.determine_type_atom(atom)?;
         match atom {
             Atom::Boolean(v) => Ok(CortexValue::Boolean(*v)),
             Atom::Number(v) => Ok(CortexValue::Number(*v)),
@@ -584,9 +402,7 @@ impl CortexInterpreter {
             Atom::PathIdent(path) => Ok(self.lookup_value(path)?),
             Atom::Call(path_ident, expressions) => {
                 let func = self.lookup_function(path_ident)?;
-                let context_to_return_to = std::mem::replace(&mut self.current_context, path_ident.without_last());
                 let func_result = self.run_function(&func, expressions.iter().collect());
-                self.current_context = context_to_return_to;
                 Ok(func_result?)
             },
             Atom::Construction { name, type_args, assignments } => {
@@ -613,45 +429,17 @@ impl CortexInterpreter {
                                     return Ok(self.evaluate_body(&Body::Basic(c.body.clone()))?);
                                 }
                             } else {
-                                return Err(
-                                    Box::new(
-                                        InterpreterError::MismatchedType(
-                                            String::from("bool"),
-                                            self.determine_type(&first.condition)?.codegen(0),
-                                            String::from("if condition")
-                                        )
-                                    )
-                                );
+                                return Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess));
                             }
                         }
                         if let Some(c) = last {
                             Ok(self.evaluate_body(&Body::Basic(*c.clone()))?)
                         } else {
-                            // If all arms return void, then we're fine to return void here
-                            // Otherwise, need to throw an error
-                            if self.determine_type_body(&first.body)? != CortexType::void(false) {
-                                Err(Box::new(InterpreterError::IfRequiresElseBlock))
-                            } else {
-                                for c in conds {
-                                    if self.determine_type_body(&c.body)? != CortexType::void(false) {
-                                        return Err(Box::new(InterpreterError::IfRequiresElseBlock));
-                                    }
-                                }
-                                // If we've made it here, all arms return void
-                                Ok(CortexValue::Void)
-                            }
+                            Ok(CortexValue::Void)
                         }
                     }
                 } else {
-                    Err(
-                        Box::new(
-                            InterpreterError::MismatchedType(
-                                String::from("bool"),
-                                self.determine_type(&first.condition)?.codegen(0),
-                                String::from("if condition")
-                            )
-                        )
-                    )
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             Atom::UnaryOperation { op, exp } => {

@@ -18,6 +18,8 @@ pub enum InterpreterError {
     BangCalledOnNoneValue,
     #[error("Value not found: {0} (module constants are currently not supported)")]
     ValueNotFound(String),
+    #[error("Mismatched type found: please run preprocessing on code before executing it")]
+    MismatchedTypeNoPreprocess,
 }
 
 #[derive(Error, Debug, PartialEq)]
