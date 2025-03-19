@@ -1,13 +1,13 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parsing::{ast::{expression::{Atom, Expression, ExpressionTail, PathIdent}, top_level::{Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, PathIdent, UnaryOperator}, top_level::{BasicBody, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
-use super::{env::EnvError, error::{CortexError, PreprocessingError}, module::Module, type_env::TypeEnvironment};
+use super::{env::EnvError, error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, type_env::TypeEnvironment, value::ValueError};
 
 pub type CheckResult = Result<CortexType, CortexError>;
 
 pub struct CortexPreprocessor {
-    current_var_env: Option<Box<TypeEnvironment>>,
+    current_env: Option<Box<TypeEnvironment>>,
     base_module: Module,
     current_context: PathIdent,
     current_type_env: Option<Box<TypeEnvironment>>,
@@ -18,7 +18,7 @@ impl CortexPreprocessor {
     pub fn new() -> Result<Self, CortexError> {
         let mut this = CortexPreprocessor {
             base_module: Module::new(),
-            current_var_env: Some(Box::new(TypeEnvironment::base())),
+            current_env: Some(Box::new(TypeEnvironment::base())),
             current_context: PathIdent::empty(),
             current_type_env: Some(Box::new(TypeEnvironment::base())),
             global_module: Module::new(),
@@ -95,11 +95,35 @@ impl CortexPreprocessor {
             Atom::Void => Ok(CortexType::void(false)),
             Atom::None => Ok(CortexType::none()),
             Atom::String(_) => Ok(CortexType::string(false)),
-            Atom::PathIdent(path_ident) => todo!(),
-            Atom::Call(path_ident, expressions) => todo!(),
-            Atom::Construction { name, type_args, assignments } => todo!(),
-            Atom::IfStatement { first, conds, last } => todo!(),
-            Atom::UnaryOperation { op, exp } => todo!(),
+            Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
+            Atom::Call(path_ident, arg_exps) => {
+                self.check_call(path_ident, arg_exps)
+            },
+            Atom::Construction { name, type_args, assignments } => {
+                self.check_construction(name, type_args, assignments)
+            },
+            Atom::IfStatement { first, conds, last } => {
+                todo!()
+            },
+            Atom::UnaryOperation { op, exp } => {
+                let typ = self.check_exp(exp)?;
+                match op {
+                    UnaryOperator::Negate => {
+                        if typ == CortexType::number(false) {
+                            Ok(CortexType::number(false))
+                        } else {
+                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("number")))
+                        }
+                    },
+                    UnaryOperator::Invert => {
+                        if typ == CortexType::boolean(false) {
+                            Ok(CortexType::boolean(false))
+                        } else {
+                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("bool")))
+                        }
+                    },
+                }
+            },
             Atom::ListLiteral(items) => {
                 let mut typ = CortexType::Unknown(false);
                 for item in items {
@@ -116,13 +140,240 @@ impl CortexPreprocessor {
             Atom::Expression(expression) => Ok(self.check_exp(expression)?),
         }
     }
+    fn check_call(&mut self, path_ident: &mut PathIdent, arg_exps: &mut Vec<Expression>) -> CheckResult {
+        let func = self.lookup_function(path_ident)?;
+
+        if arg_exps.len() != func.params.len() {
+            return Err(Box::new(
+                PreprocessingError::MismatchedArgumentCount(func.name.codegen(0), func.params.len(), arg_exps.len())
+            ));
+        }
+
+        let mut return_type = func
+            .return_type
+            .clone()
+            .with_prefix_if_not_core(&self.current_context)
+            .with_prefix_if_not_core(&path_ident.without_last());
+        let mut arg_types = Vec::new();
+        for a in arg_exps.iter_mut() {
+            arg_types.push(self.check_exp(a)?);
+        }
+
+        let mut param_names = Vec::<String>::with_capacity(func.params.len());
+        let mut param_types = Vec::<CortexType>::with_capacity(func.params.len());
+        for param in &func.params {
+            param_names.push(param.name.clone());
+            param_types.push(param.typ.clone());
+        }
+
+        let bindings = self.infer_type_args(&func, &arg_types)?;
+        let parent_type_env = self.current_type_env.take().ok_or(PreprocessingError::NoParentEnv)?;
+        let mut new_type_env = TypeEnvironment::new(*parent_type_env);
+        for (name, typ) in &bindings {
+            new_type_env.add(name.clone(), typ.clone());
+        }
+        self.current_type_env = Some(Box::new(new_type_env));
+
+        for (i, arg) in arg_exps.iter_mut().enumerate() {
+            let arg_type = self.check_exp(arg)?;
+            let arg_type = self.clean_type(arg_type);
+            let param_type = self.clean_type(param_types.get(i).unwrap().clone().with_prefix_if_not_core(&self.current_context));
+            if !arg_type.is_subtype_of(&param_type) {
+                return Err(
+                    Box::new(
+                        PreprocessingError::MismatchedType(
+                            param_type.codegen(0),
+                            arg_type.codegen(0),
+                            param_names.get(i).unwrap().clone(),
+                        )
+                    )
+                );
+            }
+        }
+
+        return_type = self.clean_type(return_type);
+        Ok(return_type)
+    }
+    fn check_construction(&mut self, name: &mut PathIdent, type_args: &mut Vec<CortexType>, assignments: &mut Vec<(String, Expression)>) -> CheckResult {
+        let composite = self.lookup_composite(name)?;
+        let base_type = CortexType::basic(name.clone(), false, type_args.clone()).with_prefix_if_not_core(&self.current_context);
+
+        if type_args.len() != composite.type_param_names.len() {
+            return Err(Box::new(PreprocessingError::MismatchedTypeArgCount(name.codegen(0), composite.type_param_names.len(), type_args.len())));
+        }
+        let mut fields_to_assign = Vec::new();
+        for k in composite.fields.keys() {
+            fields_to_assign.push(k.clone());
+        }
+
+        let bindings = TypeEnvironment::create_bindings(&composite.type_param_names, type_args);
+        for (fname, fvalue) in assignments {
+            let opt_typ = composite.fields
+                .get(fname)
+                .map(|t| t.clone());
+            if let Some(typ) = opt_typ {
+                let typ = TypeEnvironment::fill(typ, &bindings)
+                    .with_prefix_if_not_core(&self.current_context)
+                    .with_prefix_if_not_core(&name.without_last());
+                let assigned_type = self.check_exp(fvalue)?;
+                if !assigned_type.is_subtype_of(&typ) {
+                    return Err(
+                        Box::new(
+                            PreprocessingError::MismatchedType(
+                                typ.codegen(0),
+                                assigned_type.codegen(0),
+                                fname.clone(),
+                            )
+                        )
+                    );
+                }
+
+                let index_opt = fields_to_assign.iter().position(|x| *x == *fname);
+                if let Some(index) = index_opt {
+                    fields_to_assign.remove(index);
+                } else {
+                    return Err(Box::new(PreprocessingError::MultipleFieldAssignment(fname.clone())));
+                }
+            } else {
+                return Err(Box::new(ValueError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
+            }
+        }
+
+        if fields_to_assign.is_empty() {
+            if composite.is_heap_allocated {
+                Ok(CortexType::reference(base_type, true))
+            } else {
+                Ok(base_type)
+            }
+        } else {
+            Err(Box::new(PreprocessingError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
+        }
+    }
+
     fn check_tail(&mut self, atom_type: CortexType, tail: &mut ExpressionTail) -> CheckResult {
         match tail {
             ExpressionTail::None => Ok(atom_type),
             ExpressionTail::PostfixBang { next } => Ok(self.check_tail(atom_type.to_non_optional(), next)?),
-            ExpressionTail::MemberAccess { member, next } => todo!(),
+            ExpressionTail::MemberAccess { member, next } => {
+                let composite = self.lookup_composite(atom_type.name()?)?;
+                if !composite.fields.contains_key(member) {
+                    Err(Box::new(ValueError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
+                } else {
+                    let mut member_type = composite.fields.get(member).unwrap().clone();
+                    let bindings = Self::get_bindings(&composite.type_param_names, &atom_type)?;
+                    member_type = TypeEnvironment::fill(member_type, &bindings);
+                    member_type = member_type.with_prefix_if_not_core(&atom_type.prefix());
+                    member_type = self.check_tail(member_type, next)?;
+                    Ok(member_type)
+                }
+            },
             ExpressionTail::MemberCall { member, args, next } => todo!(),
-            ExpressionTail::BinOp { op, right, next } => todo!(),
+            ExpressionTail::BinOp { op, right, next } => {
+                let right_type = self.check_exp(right)?;
+                let op_type = self.check_operator(atom_type, op, right_type)?;
+                let next_type = self.check_tail(op_type, next)?;
+                Ok(next_type)
+            },
+        }
+    }
+    fn check_body(&mut self, body: &mut BasicBody) -> CheckResult {
+        todo!()
+    }
+
+    fn check_operator(&self, first: CortexType, op: &BinaryOperator, second: CortexType) -> CheckResult {
+        let number = CortexType::number(false);
+        let string = CortexType::string(false);
+        let boolean = CortexType::boolean(false);
+        match op {
+            BinaryOperator::Add => {
+                if first == number && second == number {
+                    Ok(number)
+                } else if first == string && second == string {
+                    Ok(string)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("number, string", "number, string")))
+                }
+            },
+            BinaryOperator::Subtract => {
+                if first == number && second == number {
+                    Ok(number)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                }
+            },
+            BinaryOperator::Multiply => {
+                if first == number && second == number {
+                    Ok(number)
+                } else if first == number && second == string {
+                    Ok(string)
+                } else if first == string && second == number {
+                    Ok(string)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "string")))
+                }
+            },
+            BinaryOperator::Divide => {
+                if first == number && second == number {
+                    Ok(number)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                }
+            },
+            BinaryOperator::Remainder => {
+                if first == number && second == number {
+                    Ok(number)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                }
+            },
+            BinaryOperator::LogicAnd => {
+                if first == boolean && second == boolean {
+                    Ok(boolean)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("boolean", "boolean")))
+                }
+            },
+            BinaryOperator::LogicOr => {
+                if first == boolean && second == boolean {
+                    Ok(boolean)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("boolean", "boolean")))
+                }
+            },
+            BinaryOperator::IsEqual => {
+                Ok(boolean)
+            },
+            BinaryOperator::IsNotEqual => {
+                Ok(boolean)
+            },
+            BinaryOperator::IsLessThan => {
+                if first == number && second == number {
+                    Ok(boolean)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                }
+            },
+            BinaryOperator::IsGreaterThan => {
+                if first == number && second == number {
+                    Ok(boolean)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                }
+            },
+            BinaryOperator::IsLessThanOrEqualTo => {
+                if first == number && second == number {
+                    Ok(boolean)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                }
+            },
+            BinaryOperator::IsGreaterThanOrEqualTo => {
+                if first == number && second == number {
+                    Ok(boolean)
+                } else {
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                }
+            },
         }
     }
 
@@ -224,7 +475,7 @@ impl CortexPreprocessor {
         if path.is_final() {
             // Search in our environment for it
             let front = path.get_front()?;
-            Ok(self.current_var_env.as_ref().unwrap().get(front).ok_or(EnvError::VariableDoesNotExist(front.clone()))?.clone())
+            Ok(self.current_env.as_ref().unwrap().get(front).ok_or(EnvError::VariableDoesNotExist(front.clone()))?.clone())
         } else {
             Err(Box::new(PreprocessingError::ValueNotFound(path.codegen(0))))
         }

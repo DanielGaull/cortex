@@ -6,9 +6,7 @@ use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap
 pub struct CortexInterpreter {
     base_module: Module,
     current_env: Option<Box<Environment>>,
-    current_context: PathIdent,
     heap: Rc<RefCell<Heap>>,
-    current_type_env: Option<Box<TypeEnvironment>>,
     global_module: Module,
 }
 
@@ -17,9 +15,7 @@ impl CortexInterpreter {
         let mut this = CortexInterpreter {
             base_module: Module::new(),
             current_env: Some(Box::new(Environment::base())),
-            current_context: PathIdent::empty(),
             heap: Rc::new(RefCell::new(Heap::new())),
-            current_type_env: Some(Box::new(TypeEnvironment::base())),
             global_module: Module::new(),
         };
 
@@ -241,102 +237,6 @@ impl CortexInterpreter {
         let atom_result = self.determine_type_atom(&primary.atom)?;
         let tail_result = self.determine_type_tail(atom_result, &primary.tail)?;
         Ok(tail_result)
-    }
-    fn determine_type_operator(&self, first: CortexType, op: &BinaryOperator, second: CortexType) -> Result<CortexType, CortexError> {
-        let number = CortexType::number(false);
-        let string = CortexType::string(false);
-        let boolean = CortexType::boolean(false);
-        match op {
-            BinaryOperator::Add => {
-                if first == number && second == number {
-                    Ok(number)
-                } else if first == string && second == string {
-                    Ok(string)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number, string", "number, string")))
-                }
-            },
-            BinaryOperator::Subtract => {
-                if first == number && second == number {
-                    Ok(number)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                }
-            },
-            BinaryOperator::Multiply => {
-                if first == number && second == number {
-                    Ok(number)
-                } else if first == number && second == string {
-                    Ok(string)
-                } else if first == string && second == number {
-                    Ok(string)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "string")))
-                }
-            },
-            BinaryOperator::Divide => {
-                if first == number && second == number {
-                    Ok(number)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                }
-            },
-            BinaryOperator::Remainder => {
-                if first == number && second == number {
-                    Ok(number)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                }
-            },
-            BinaryOperator::LogicAnd => {
-                if first == boolean && second == boolean {
-                    Ok(boolean)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("boolean", "boolean")))
-                }
-            },
-            BinaryOperator::LogicOr => {
-                if first == boolean && second == boolean {
-                    Ok(boolean)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("boolean", "boolean")))
-                }
-            },
-            BinaryOperator::IsEqual => {
-                Ok(boolean)
-            },
-            BinaryOperator::IsNotEqual => {
-                Ok(boolean)
-            },
-            BinaryOperator::IsLessThan => {
-                if first == number && second == number {
-                    Ok(boolean)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                }
-            },
-            BinaryOperator::IsGreaterThan => {
-                if first == number && second == number {
-                    Ok(boolean)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                }
-            },
-            BinaryOperator::IsLessThanOrEqualTo => {
-                if first == number && second == number {
-                    Ok(boolean)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                }
-            },
-            BinaryOperator::IsGreaterThanOrEqualTo => {
-                if first == number && second == number {
-                    Ok(boolean)
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                }
-            },
-        }
     }
     fn determine_type_atom(&self, atom: &Atom) -> Result<CortexType, CortexError> {
         match atom {
@@ -692,7 +592,7 @@ impl CortexInterpreter {
             Atom::Construction { name, type_args, assignments } => {
                 let composite = self.lookup_composite(name)?;
                 if !composite.is_heap_allocated {
-                    Ok(self.construct_struct(name, assignments, &composite.fields, &composite.type_param_names, type_args)?)
+                    Ok(self.construct_struct(name, assignments, &composite.type_param_names, type_args)?)
                 } else {
                     let value = self.construct_struct(name, assignments, &composite.fields, &composite.type_param_names, type_args)?;
                     let typ = value.get_type();
@@ -857,63 +757,22 @@ impl CortexInterpreter {
         &mut self,
         name: &PathIdent,
         assignments: &Vec<(String, Expression)>,
-        fields: &HashMap<String, CortexType>,
         type_param_names: &Vec<String>,
         type_args: &Vec<CortexType>,
     ) -> Result<CortexValue, CortexError> {
-        if type_args.len() != type_param_names.len() {
-            return Err(Box::new(InterpreterError::MismatchedTypeArgCount(name.codegen(0), type_param_names.len(), type_args.len())));
-        }
-        let mut fields_to_assign = Vec::new();
-        for k in fields.keys() {
-            fields_to_assign.push(k.clone());
-        }
         let mut values = HashMap::<String, Rc<RefCell<CortexValue>>>::new();
-        let bindings = TypeEnvironment::create_bindings(type_param_names, type_args);
         for (fname, value) in assignments {
-            let opt_typ = fields
-                .get(fname)
-                .map(|t| t.clone());
-            if let Some(typ) = opt_typ {
-                let typ = TypeEnvironment::fill(typ, &bindings)
-                    .with_prefix_if_not_core(&self.current_context)
-                    .with_prefix_if_not_core(&name.without_last());
-                let assigned_type = self.determine_type(value)?;
-                if !assigned_type.is_subtype_of(&typ) {
-                    return Err(
-                        Box::new(
-                            InterpreterError::MismatchedType(
-                                typ.codegen(0),
-                                assigned_type.codegen(0),
-                                fname.clone(),
-                            )
-                        )
-                    );
-                }
-                let assigned_value = self.evaluate_expression(value)?;
-                values.insert(fname.clone(), Rc::new(RefCell::new(assigned_value)));
-                let index_opt = fields_to_assign.iter().position(|x| *x == *fname);
-                if let Some(index) = index_opt {
-                    fields_to_assign.remove(index);
-                } else {
-                    return Err(Box::new(InterpreterError::MultipleFieldAssignment(fname.clone())));
-                }
-            } else {
-                return Err(Box::new(ValueError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
+            let assigned_value = self.evaluate_expression(value)?;
+            values.insert(fname.clone(), Rc::new(RefCell::new(assigned_value)));
+        }
+        Ok(
+            CortexValue::Composite {
+                struct_name: PathIdent::concat(&self.current_context, name),
+                field_values: values,
+                type_arg_names: type_param_names.clone(),
+                type_args: type_args.clone(),
             }
-        }
-        if fields_to_assign.is_empty() {
-            Ok(
-                CortexValue::Composite {
-                    struct_name: PathIdent::concat(&self.current_context, name),
-                    field_values: values,
-                    type_arg_names: type_param_names.clone(),
-                    type_args: type_args.clone(),
-                }
-            )
-        } else {
-            Err(Box::new(InterpreterError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
-        }
+        )
     }
     
     fn set_field_path(&mut self, mut base: Rc<RefCell<CortexValue>>, mut path: Vec<String>, value: CortexValue) -> Result<(), ValueError> {
@@ -953,37 +812,6 @@ impl CortexInterpreter {
         let mut param_types = Vec::<CortexType>::with_capacity(func.params.len());
         for param in &func.params {
             param_names.push(param.name.clone());
-            param_types.push(param.typ.clone());
-        }
-
-        if args.len() != func.params.len() {
-            return Err(Box::new(
-                InterpreterError::MismatchedArgumentCount(func.name.codegen(0), func.params.len(), args.len())
-            ));
-        }
-
-        let type_bindings = self.infer_type_args(func, &args.iter().map(|a| a.get_type()).collect())?;
-        let parent_type_env = self.current_type_env.take().ok_or(InterpreterError::NoParentEnv)?;
-        let mut new_type_env = TypeEnvironment::new(*parent_type_env);
-        for (name, typ) in type_bindings {
-            new_type_env.add(name, typ);
-        }
-        self.current_type_env = Some(Box::new(new_type_env));
-
-        for (i, arg) in args.iter().enumerate() {
-            let arg_type = self.clean_type(arg.get_type());
-            let param_type = self.clean_type(param_types.get(i).unwrap().clone().with_prefix_if_not_core(&self.current_context));
-            if !arg_type.is_subtype_of(&param_type) {
-                return Err(
-                    Box::new(
-                        InterpreterError::MismatchedType(
-                            param_type.codegen(0),
-                            arg_type.codegen(0),
-                            param_names.get(i).unwrap().clone(),
-                        )
-                    )
-                );
-            }
         }
 
         // Four steps:
@@ -999,13 +827,7 @@ impl CortexInterpreter {
         for i in 0..args.len() {
             let value = args.remove(0);
             let param_name = param_names.get(i).unwrap();
-            let param_type = self.clean_type(param_types.remove(0));
-            new_env
-                .add_var(
-                    param_name.clone(),
-                    param_type,
-                    value
-                )?;
+            new_env.add_var(param_name.clone(), value)?;
         }
         self.current_env = Some(Box::new(new_env));
 
@@ -1049,14 +871,6 @@ impl CortexInterpreter {
         }
     }
 
-    fn lookup_type(&self, path: &PathIdent) -> Result<CortexType, CortexError> {
-        if path.is_final() {
-            // Search in our environment for it
-            Ok(self.current_env.as_ref().unwrap().get_type_of(path.get_front()?)?.clone())
-        } else {
-            Err(Box::new(InterpreterError::ValueNotFound(path.codegen(0))))
-        }
-    }
     fn lookup_value(&self, path: &PathIdent) -> Result<CortexValue, CortexError> {
         if path.is_final() {
             // Search in our environment for it

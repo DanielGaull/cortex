@@ -2,8 +2,6 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use thiserror::Error;
 
-use crate::parsing::ast::r#type::CortexType;
-
 use super::value::CortexValue;
 
 #[derive(Error, Debug, PartialEq)]
@@ -70,33 +68,24 @@ impl Environment {
         }
     }
 
-    pub fn add_var(&mut self, name: String, typ: CortexType, value: CortexValue) -> Result<(), EnvError> {
+    pub fn add_var(&mut self, name: String, value: CortexValue) -> Result<(), EnvError> {
         // Check that value doesn't exist yet
         if let Some(_) = self.variables.get(&name) {
             Err(EnvError::VariableAlreadyExists(name.clone()))
         } else {
-            let var = Variable::var(name.clone(), typ, value);
+            let var = Variable::var(name.clone(), value);
             self.variables.insert(name, var);
             Ok(())
         }
     }
-    pub fn add_const(&mut self, name: String, typ: CortexType, value: CortexValue) -> Result<(), EnvError> {
+    pub fn add_const(&mut self, name: String, value: CortexValue) -> Result<(), EnvError> {
         // Check that value doesn't exist yet
         if let Some(_) = self.get_variable(&name) {
             Err(EnvError::VariableAlreadyExists(name.clone()))
         } else {
-            let var = Variable::constant(name.clone(), typ, value);
+            let var = Variable::constant(name.clone(), value);
             self.variables.insert(name, var);
             Ok(())
-        }
-    }
-
-    pub fn get_type_of(&self, name: &String) -> Result<&CortexType, EnvError> {
-        let search_result = self.get_variable(name);
-        if let Some(var) = search_result {
-            Ok(var.typ())
-        } else {
-            Err(EnvError::VariableDoesNotExist(name.clone()))
         }
     }
 
@@ -128,33 +117,27 @@ impl Environment {
 
 struct Variable {
     is_const: bool,
-    declared_type: CortexType,
     value: Rc<RefCell<CortexValue>>,
     name: String,
 }
 impl Variable {
-    fn var(name: String, typ: CortexType, value: CortexValue) -> Self {
+    fn var(name: String, value: CortexValue) -> Self {
         Variable {
             name: name,
             is_const: false,
-            declared_type: typ,
             value: Rc::new(RefCell::new(value)),
         }
     }
-    fn constant(name: String, typ: CortexType, value: CortexValue) -> Self {
+    fn constant(name: String, value: CortexValue) -> Self {
         Variable {
             name: name,
             is_const: true,
-            declared_type: typ,
             value: Rc::new(RefCell::new(value)),
         }
     }
 
     fn value(&self) -> &Rc<RefCell<CortexValue>> {
         &self.value
-    }
-    fn typ(&self) -> &CortexType {
-        &self.declared_type
     }
     fn set(&mut self, value: CortexValue) -> Result<(), EnvError> {
         // Does not check the type, that is the interpreter's job before
