@@ -26,6 +26,9 @@ impl TypeEnvironment {
     pub fn add(&mut self, name: String, typ: CortexType) {
         self.bindings.insert(name, typ);
     }
+    pub fn has(&self, name: &String) -> bool {
+        self.bindings.contains_key(name)
+    }
 
     pub fn get(&self, name: &String) -> Option<&CortexType> {
         if let Some(result) = self.bindings.get(name) {

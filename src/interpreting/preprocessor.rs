@@ -1,13 +1,13 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, ConditionBody, Expression, ExpressionTail, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, ConditionBody, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
-use super::{env::EnvError, error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, type_env::TypeEnvironment, value::ValueError};
+use super::{env::EnvError, error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment, value::ValueError};
 
 pub type CheckResult = Result<CortexType, CortexError>;
 
 pub struct CortexPreprocessor {
-    current_env: Option<Box<TypeEnvironment>>,
+    current_env: Option<Box<TypeCheckingEnvironment>>,
     base_module: Module,
     current_context: PathIdent,
     current_type_env: Option<Box<TypeEnvironment>>,
@@ -18,7 +18,7 @@ impl CortexPreprocessor {
     pub fn new() -> Result<Self, CortexError> {
         let mut this = CortexPreprocessor {
             base_module: Module::new(),
-            current_env: Some(Box::new(TypeEnvironment::base())),
+            current_env: Some(Box::new(TypeCheckingEnvironment::base())),
             current_context: PathIdent::empty(),
             current_type_env: Some(Box::new(TypeEnvironment::base())),
             global_module: Module::new(),
@@ -84,7 +84,49 @@ impl CortexPreprocessor {
     }
 
     fn check_statement(&mut self, statement: &mut Statement) -> Result<(), CortexError> {
-        todo!()
+        match statement {
+            Statement::Expression(expression) => {
+                self.check_exp(expression)?;
+                Ok(())
+            },
+            Statement::Throw(expression) => {
+                self.check_exp(expression)?;
+                Ok(())
+            },
+            Statement::VariableDeclaration { name, is_const, typ, initial_value } => {
+                match name {
+                    OptionalIdentifier::Ident(ident) => {
+                        let assigned_type = self.check_exp(initial_value)?;
+                        let type_of_var = if let Some(declared_type) = typ {
+                            if !assigned_type.is_subtype_of(&declared_type) {
+                                return Err(
+                                    Box::new(
+                                        PreprocessingError::MismatchedType(
+                                            declared_type.codegen(0),
+                                            assigned_type.codegen(0),
+                                            ident.clone(),
+                                        )
+                                    )
+                                );
+                            }
+                            declared_type.clone()
+                        } else {
+                            assigned_type
+                        };
+
+                        self.current_env.as_mut().unwrap().add(ident.clone(), type_of_var, *is_const);
+
+                        Ok(())
+                    },
+                    OptionalIdentifier::Ignore => {
+                        self.check_exp(initial_value)?;
+                        Ok(())
+                    },
+                }
+            },
+            Statement::Assignment { name, value } => todo!(),
+            Statement::WhileLoop(condition_body) => todo!(),
+        }
     }
 
     fn check_exp(&mut self, exp: &mut Expression) -> CheckResult {
