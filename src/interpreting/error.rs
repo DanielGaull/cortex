@@ -58,4 +58,6 @@ pub enum PreprocessingError {
     MismatchedArgumentCount(String, usize, usize),
     #[error("Parent environment not found")]
     NoParentEnv,
+    #[error("Cannot modify constant variable {0}")]
+    CannotModifyConst(String),
 }

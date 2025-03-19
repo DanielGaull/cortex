@@ -33,23 +33,23 @@ impl TypeCheckingEnvironment {
         }
     }
 
-    pub fn get(&self, name: &String) -> Option<&CortexType> {
+    pub fn get(&self, name: &String) -> Result<&CortexType, EnvError> {
         if let Some(result) = self.vars.get(name) {
-            Some(&result.typ)
+            Ok(&result.typ)
         } else if let Some(parent) = &self.parent {
             parent.get(name)
         } else {
-            None
+            Err(EnvError::VariableDoesNotExist(name.clone()))
         }
     }
 
-    pub fn is_const(&self, name: &String) -> Option<bool> {
+    pub fn is_const(&self, name: &String) -> Result<bool, EnvError> {
         if let Some(result) = self.vars.get(name) {
-            Some(result.is_const)
+            Ok(result.is_const)
         } else if let Some(parent) = &self.parent {
             parent.is_const(name)
         } else {
-            None
+            Err(EnvError::VariableDoesNotExist(name.clone()))
         }
     }
 

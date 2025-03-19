@@ -124,8 +124,77 @@ impl CortexPreprocessor {
                     },
                 }
             },
-            Statement::Assignment { name, value } => todo!(),
-            Statement::WhileLoop(condition_body) => todo!(),
+            Statement::Assignment { name, value } => {
+                if name.is_simple() {
+                    let var_name = &name.base;
+                    let assigned_type = self.check_exp(value)?;
+                    let var_type = &self.current_env.as_ref().unwrap().get(var_name)?.clone();
+                    if !assigned_type.is_subtype_of(var_type) {
+                        return Err(
+                            Box::new(
+                                PreprocessingError::MismatchedType(
+                                    var_type.codegen(0),
+                                    assigned_type.codegen(0),
+                                    var_name.clone(),
+                                )
+                            )
+                        );
+                    }
+                    
+                    if self.current_env.as_ref().unwrap().is_const(var_name)? {
+                        return Err(
+                            Box::new(
+                                PreprocessingError::CannotModifyConst(var_name.clone())
+                            )
+                        )
+                    }
+
+                    Ok(())
+                } else {
+                    let mut name_expr = name.clone().to_member_access_expr();
+                    let var_type = self.check_exp(&mut name_expr)?;
+                    // let var_name = &name.base;
+                    let chain = name.chain.clone();
+                    let assigned_type = self.check_exp(value)?;
+                    if !assigned_type.is_subtype_of(&var_type) {
+                        return Err(
+                            Box::new(
+                                PreprocessingError::MismatchedType(
+                                    var_type.codegen(0),
+                                    assigned_type.codegen(0),
+                                    chain.last().unwrap().clone(),
+                                )
+                            )
+                        );
+                    }
+                    Ok(())
+                }
+            },
+            Statement::WhileLoop(condition_body) => {
+                let cond = self.check_exp(&mut condition_body.condition)?;
+                if !cond.is_subtype_of(&CortexType::boolean(false)) {
+                    return Err(
+                        Box::new(
+                            PreprocessingError::MismatchedType(
+                                String::from("bool"),
+                                cond.codegen(0),
+                                String::from("while condition"),
+                            )
+                        )
+                    );
+                }
+
+                let body = self.check_body(&mut condition_body.body)?;
+                if !body.is_subtype_of(&CortexType::void(false)) {
+                    return Err(
+                        Box::new(
+                            PreprocessingError::LoopCannotHaveReturnValue
+                        )
+                    );
+                }
+
+                Ok(())
+            },
         }
     }
 
@@ -312,13 +381,13 @@ impl CortexPreprocessor {
         
         for c in conds {
             let cond_typ = self.check_exp(&mut c.condition)?;
-            if cond_typ != CortexType::boolean(false) {
+            if !cond_typ.is_subtype_of(&CortexType::boolean(false)) {
                 return Err(
                     Box::new(
                         PreprocessingError::MismatchedType(
                             String::from("bool"),
                             cond_typ.codegen(0),
-                            String::from("if-else condition"),
+                            String::from("else-if condition"),
                         )
                     )
                 );
@@ -582,7 +651,7 @@ impl CortexPreprocessor {
         if path.is_final() {
             // Search in our environment for it
             let front = path.get_front()?;
-            Ok(self.current_env.as_ref().unwrap().get(front).ok_or(EnvError::VariableDoesNotExist(front.clone()))?.clone())
+            Ok(self.current_env.as_ref().unwrap().get(front)?.clone())
         } else {
             Err(Box::new(PreprocessingError::ValueNotFound(path.codegen(0))))
         }
