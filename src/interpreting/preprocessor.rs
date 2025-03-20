@@ -214,8 +214,8 @@ impl CortexPreprocessor {
             Expression::Call(path_ident, arg_exps) => {
                 self.check_call(path_ident, arg_exps)
             },
-            Expression::Construction { name, type_args, assignments } => {
-                self.check_construction(name, type_args, assignments)
+            Expression::Construction { name, type_args, assignments, is_heap_allocated } => {
+                self.check_construction(name, type_args, assignments, is_heap_allocated)
             },
             Expression::IfStatement { first, conds, last } => {
                 self.check_if_statement(first, conds, last.as_deref_mut())
@@ -360,7 +360,7 @@ impl CortexPreprocessor {
 
         Ok(return_type)
     }
-    fn check_construction(&mut self, name: &mut PathIdent, type_args: &mut Vec<CortexType>, assignments: &mut Vec<(String, Expression)>) -> CheckResult {
+    fn check_construction(&mut self, name: &mut PathIdent, type_args: &mut Vec<CortexType>, assignments: &mut Vec<(String, Expression)>, is_heap_allocated: &mut Option<bool>) -> CheckResult {
         let composite = self.lookup_composite(name)?;
         let base_type = CortexType::basic(name.clone(), false, type_args.clone()).with_prefix_if_not_core(&self.current_context);
 
@@ -407,8 +407,10 @@ impl CortexPreprocessor {
 
         if fields_to_assign.is_empty() {
             if composite.is_heap_allocated {
+                *is_heap_allocated = Some(true);
                 Ok(CortexType::reference(base_type, true))
             } else {
+                *is_heap_allocated = Some(false);
                 Ok(base_type)
             }
         } else {

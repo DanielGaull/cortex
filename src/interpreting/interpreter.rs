@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
 use crate::parsing::{ast::{expression::{Expression, BinaryOperator, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{Body, Function, TopLevel}}, codegen::r#trait::SimpleCodeGen};
-use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, module::{CompositeType, Module, ModuleError}, value::{CortexValue, ValueError}};
+use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, module::{Module, ModuleError}, value::{CortexValue, ValueError}};
 
 pub struct CortexInterpreter {
     base_module: Module,
@@ -285,14 +285,17 @@ impl CortexInterpreter {
                 let func_result = self.run_function(&func, expressions.iter().collect());
                 Ok(func_result?)
             },
-            Expression::Construction { name, type_args: _, assignments } => {
-                let composite = self.lookup_composite(name)?;
-                if !composite.is_heap_allocated {
-                    Ok(self.construct_struct(assignments)?)
+            Expression::Construction { name: _, type_args: _, assignments, is_heap_allocated } => {
+                if let Some(is_heap_allocated) = is_heap_allocated {
+                    if !*is_heap_allocated {
+                        Ok(self.construct_struct(assignments)?)
+                    } else {
+                        let value = self.construct_struct(assignments)?;
+                        let addr = self.allocate(value);
+                        Ok(CortexValue::Reference(addr))
+                    }
                 } else {
-                    let value = self.construct_struct(assignments)?;
-                    let addr = self.allocate(value);
-                    Ok(CortexValue::Reference(addr))
+                    Err(Box::new(InterpreterError::InvalidObject("construction")))
                 }
             },
             Expression::IfStatement { first, conds, last } => {
@@ -509,16 +512,6 @@ impl CortexInterpreter {
         match result {
             Ok(f) => Ok(f),
             Err(ModuleError::FunctionDoesNotExist(_)) => Ok(self.global_module.get_function(last)?),
-            Err(e) => Err(Box::new(e)),
-        }
-    }
-    fn lookup_composite(&self, path: &PathIdent) -> Result<Rc<CompositeType>, CortexError> {
-        let last = path.get_back()?;
-        let module = self.base_module.get_module_for(path)?;
-        let result = module.get_composite(last);
-        match result {
-            Ok(f) => Ok(f),
-            Err(ModuleError::TypeDoesNotExist(_)) => Ok(self.global_module.get_composite(last)?),
             Err(e) => Err(Box::new(e)),
         }
     }

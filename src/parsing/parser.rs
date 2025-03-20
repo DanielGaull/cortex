@@ -403,7 +403,7 @@ impl CortexParser {
                     let expr = Self::parse_expr_pair(member_init.next().unwrap())?;
                     assignments.push((String::from(name), expr));
                 }
-                Ok(Expression::Construction { name: name, assignments: assignments, type_args: type_args })
+                Ok(Expression::Construction { name: name, assignments: assignments, type_args: type_args, is_heap_allocated: None })
             },
             Rule::r#if => {
                 let mut pairs = pair.into_inner();
