@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
 use super::{error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment, value::ValueError};
 
@@ -85,6 +85,28 @@ impl CortexPreprocessor {
 
     pub fn preprocess_statement(&mut self, statement: &mut Statement) -> Result<(), CortexError> {
         self.check_statement(statement)?;
+        Ok(())
+    }
+
+    pub fn check_function(&mut self, function: &mut Function) -> Result<(), CortexError> {
+        let parent_env = self.current_env.take().ok_or(PreprocessingError::NoParentEnv)?;
+        let mut new_env = TypeCheckingEnvironment::new(*parent_env);
+        for p in &function.params {
+            let param_type = self.clean_type(p.typ.clone().with_prefix_if_not_core(&self.current_context));
+            new_env.add(p.name.clone(), param_type, false)?;
+        }
+        self.current_env = Some(Box::new(new_env));
+
+        // Do check body
+        if let Body::Basic(body) = &mut function.body {
+            let body_type = self.check_body(body)?;
+            if !body_type.is_subtype_of(&function.return_type) {
+                return Err(Box::new(PreprocessingError::ReturnTypeMismatch(function.return_type.codegen(0), body_type.codegen(0))));
+            }
+        }
+
+        self.current_env = Some(Box::new(self.current_env.take().unwrap().exit()?));
+
         Ok(())
     }
 
@@ -327,8 +349,6 @@ impl CortexPreprocessor {
         }
         self.current_type_env = Some(Box::new(new_type_env));
 
-        let parent_env = self.current_env.take().ok_or(PreprocessingError::NoParentEnv)?;
-        let mut new_env = TypeCheckingEnvironment::new(*parent_env);
         for (i, arg) in arg_exps.iter_mut().enumerate() {
             let arg_type = self.check_exp(arg)?;
             let arg_type = self.clean_type(arg_type);
@@ -344,19 +364,11 @@ impl CortexPreprocessor {
                     )
                 );
             }
-            new_env.add(param_names.get(i).unwrap().clone(), arg_type, false)?;
         }
-        self.current_env = Some(Box::new(new_env));
 
         return_type = self.clean_type(return_type);
 
-        // if let Body::Basic(body) = func.body {
-        //     let body_return_type = self.check_body(body)?;
-
-        // }
-
         self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
-        self.current_env = Some(Box::new(self.current_env.take().unwrap().exit()?));
 
         Ok(return_type)
     }

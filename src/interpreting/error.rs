@@ -62,4 +62,6 @@ pub enum PreprocessingError {
     NoParentEnv,
     #[error("Cannot modify constant variable {0}")]
     CannotModifyConst(String),
+    #[error("Function declared to return {0} but actually returns {1}")]
+    ReturnTypeMismatch(String, String),
 }
