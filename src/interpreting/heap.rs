@@ -61,22 +61,22 @@ impl Heap {
     }
 
     fn mark_children(&self, marked: &mut HashSet<usize>, value: Rc<RefCell<CortexValue>>) {
-        if let CortexValue::Composite { struct_name: _, field_values, type_arg_names: _, type_args: _ } = &*value.borrow() {
+        if let CortexValue::Composite { field_values } = &*value.borrow() {
             for (_, fvalue_ref) in field_values {
                 let fvalue = fvalue_ref.borrow();
-                if let CortexValue::Reference(addr, _, _) = *fvalue {
+                if let CortexValue::Reference(addr) = *fvalue {
                     self.mark(marked, addr);
-                } else if let CortexValue::Composite { struct_name: _, field_values: _, type_arg_names: _, type_args: _ } = *fvalue {
+                } else if let CortexValue::Composite { field_values: _ } = *fvalue {
                     // NOTE: we are allowed to clone fields of composites
                     // We are only not allowed to clone values that directly appear on the heap
                     self.mark_children(marked, Rc::new(RefCell::new(fvalue.clone())));
                 }
             }
-        } else if let CortexValue::List(items, _) = &*value.borrow() {
+        } else if let CortexValue::List(items) = &*value.borrow() {
             for fvalue in items {
-                if let CortexValue::Reference(addr, _, _) = fvalue {
+                if let CortexValue::Reference(addr) = fvalue {
                     self.mark(marked, *addr);
-                } else if let CortexValue::Composite { struct_name: _, field_values: _, type_arg_names: _, type_args: _ } = fvalue {
+                } else if let CortexValue::Composite { field_values: _ } = fvalue {
                     // NOTE: we are allowed to clone fields of composites
                     // We are only not allowed to clone values that directly appear on the heap
                     self.mark_children(marked, Rc::new(RefCell::new(fvalue.clone())));

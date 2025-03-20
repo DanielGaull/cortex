@@ -1,6 +1,6 @@
 use std::{cell::RefCell, error::Error, rc::Rc};
 
-use crate::{interpreting::{heap::Heap, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen}};
+use crate::{interpreting::{heap::Heap, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}};
 
 impl CortexInterpreter {
     pub(crate) fn add_string_funcs(global: &mut Module, heap: Rc<RefCell<Heap>>) -> Result<(), Box<dyn Error>> {
@@ -26,19 +26,8 @@ fn to_string(val: CortexValue, heap: &Rc<RefCell<Heap>>) -> String {
         CortexValue::String(s) => s,
         CortexValue::Void => String::from("void"),
         CortexValue::None => String::from("none"),
-        CortexValue::Composite { struct_name, field_values, type_arg_names: _, type_args } => {
+        CortexValue::Composite { field_values } => {
             let mut s = String::new();
-            s.push_str(&struct_name.codegen(0));
-            if type_args.len() > 0 {
-                s.push_str("<");
-                s.push_str(&type_args
-                    .iter()
-                    .map(|a| a.codegen(0))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-                );
-                s.push_str(">");
-            }
             s.push_str(" {");
             s.push_str(&field_values
                 .iter()
@@ -49,10 +38,10 @@ fn to_string(val: CortexValue, heap: &Rc<RefCell<Heap>>) -> String {
             s.push_str("}");
             s
         },
-        CortexValue::Reference(addr, _, mutable) => {
-            format!("&{}({})", if mutable {"mut "} else {""}, to_string(heap.borrow().get(addr).borrow().clone(), heap))
+        CortexValue::Reference(addr) => {
+            format!("&({})", to_string(heap.borrow().get(addr).borrow().clone(), heap))
         },
-        CortexValue::List(items, _) => {
+        CortexValue::List(items) => {
             format!("[{}]", items.iter().map(|i| to_string(i.clone(), heap)).collect::<Vec<_>>().join(", "))
         },
     }
