@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, ConditionBody, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Expression, BinaryOperator, ConditionBody, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
 use super::{error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment, value::ValueError};
 
@@ -204,28 +204,23 @@ impl CortexPreprocessor {
     }
 
     fn check_exp(&mut self, exp: &mut Expression) -> CheckResult {
-        let atom_type = self.check_atom(&mut exp.atom)?;
-        let tail_type = self.check_tail(atom_type, &mut exp.tail)?;
-        Ok(tail_type)
-    }
-    fn check_atom(&mut self, atom: &mut Atom) -> CheckResult {
-        match atom {
-            Atom::Number(_) => Ok(CortexType::number(false)),
-            Atom::Boolean(_) => Ok(CortexType::boolean(false)),
-            Atom::Void => Ok(CortexType::void(false)),
-            Atom::None => Ok(CortexType::none()),
-            Atom::String(_) => Ok(CortexType::string(false)),
-            Atom::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
-            Atom::Call(path_ident, arg_exps) => {
+        match exp {
+            Expression::Number(_) => Ok(CortexType::number(false)),
+            Expression::Boolean(_) => Ok(CortexType::boolean(false)),
+            Expression::Void => Ok(CortexType::void(false)),
+            Expression::None => Ok(CortexType::none()),
+            Expression::String(_) => Ok(CortexType::string(false)),
+            Expression::PathIdent(path_ident) => Ok(self.lookup_type(path_ident)?),
+            Expression::Call(path_ident, arg_exps) => {
                 self.check_call(path_ident, arg_exps)
             },
-            Atom::Construction { name, type_args, assignments } => {
+            Expression::Construction { name, type_args, assignments } => {
                 self.check_construction(name, type_args, assignments)
             },
-            Atom::IfStatement { first, conds, last } => {
+            Expression::IfStatement { first, conds, last } => {
                 self.check_if_statement(first, conds, last.as_deref_mut())
             },
-            Atom::UnaryOperation { op, exp } => {
+            Expression::UnaryOperation { op, exp } => {
                 let typ = self.check_exp(exp)?;
                 match op {
                     UnaryOperator::Negate => {
@@ -244,7 +239,7 @@ impl CortexPreprocessor {
                     },
                 }
             },
-            Atom::ListLiteral(items) => {
+            Expression::ListLiteral(items) => {
                 let mut typ = CortexType::Unknown(false);
                 for item in items {
                     let item_type = self.check_exp(item)?;
@@ -257,7 +252,29 @@ impl CortexPreprocessor {
                 let true_type = CortexType::reference(CortexType::list(typ, false), true);
                 Ok(true_type)
             },
-            Atom::Expression(expression) => Ok(self.check_exp(expression)?),
+            Expression::Bang(inner) => Ok(self.check_exp(inner)?.to_non_optional()),
+            Expression::MemberAccess(inner, member) => {
+                let atom_type = self.check_exp(inner)?;
+                let composite = self.lookup_composite(atom_type.name()?)?;
+                if !composite.fields.contains_key(member) {
+                    Err(Box::new(ValueError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
+                } else {
+                    let mut member_type = composite.fields.get(member).unwrap().clone();
+                    let bindings = Self::get_bindings(&composite.type_param_names, &atom_type)?;
+                    member_type = TypeEnvironment::fill(member_type, &bindings);
+                    member_type = member_type.with_prefix_if_not_core(&atom_type.prefix());
+                    Ok(member_type)
+                }
+            },
+            Expression::MemberCall { callee: _, member: _, args: _ } => {
+                todo!()
+            },
+            Expression::BinaryOperation { left, op, right } => {
+                let left_type = self.check_exp(left)?;
+                let right_type = self.check_exp(right)?;
+                let op_type = self.check_operator(left_type, op, right_type)?;
+                Ok(op_type)
+            },
         }
     }
     fn check_call(&mut self, path_ident: &mut PathIdent, arg_exps: &mut Vec<Expression>) -> CheckResult {
@@ -437,34 +454,6 @@ impl CortexPreprocessor {
         Ok(the_type)
     }
 
-    fn check_tail(&mut self, atom_type: CortexType, tail: &mut ExpressionTail) -> CheckResult {
-        match tail {
-            ExpressionTail::None => Ok(atom_type),
-            ExpressionTail::PostfixBang { next } => Ok(self.check_tail(atom_type.to_non_optional(), next)?),
-            ExpressionTail::MemberAccess { member, next } => {
-                let composite = self.lookup_composite(atom_type.name()?)?;
-                if !composite.fields.contains_key(member) {
-                    Err(Box::new(ValueError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
-                } else {
-                    let mut member_type = composite.fields.get(member).unwrap().clone();
-                    let bindings = Self::get_bindings(&composite.type_param_names, &atom_type)?;
-                    member_type = TypeEnvironment::fill(member_type, &bindings);
-                    member_type = member_type.with_prefix_if_not_core(&atom_type.prefix());
-                    member_type = self.check_tail(member_type, next)?;
-                    Ok(member_type)
-                }
-            },
-            ExpressionTail::MemberCall { member, args, next } => {
-                todo!()
-            },
-            ExpressionTail::BinOp { op, right, next } => {
-                let right_type = self.check_exp(right)?;
-                let op_type = self.check_operator(atom_type, op, right_type)?;
-                let next_type = self.check_tail(op_type, next)?;
-                Ok(next_type)
-            },
-        }
-    }
     fn check_body(&mut self, body: &mut BasicBody) -> CheckResult {
         for st in &mut body.statements {
             self.check_statement(st)?;

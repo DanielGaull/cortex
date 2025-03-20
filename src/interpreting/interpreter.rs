@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{Body, Function, TopLevel}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Expression, BinaryOperator, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{Body, Function, TopLevel}}, codegen::r#trait::SimpleCodeGen};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, module::{CompositeType, Module, ModuleError}, value::{CortexValue, ValueError}};
 
 pub struct CortexInterpreter {
@@ -164,11 +164,6 @@ impl CortexInterpreter {
         }
     }
 
-    pub fn evaluate_expression(&mut self, primary: &Expression) -> Result<CortexValue, CortexError> {
-        let atom_result = self.evaluate_atom(&primary.atom)?;
-        let tail_result = self.handle_expr_tail(atom_result, &primary.tail)?;
-        Ok(tail_result)
-    }
     fn evaluate_op(&mut self, first: CortexValue, op: &BinaryOperator, second: CortexValue) -> Result<CortexValue, CortexError> {
         match op {
             BinaryOperator::Add => {
@@ -277,21 +272,20 @@ impl CortexInterpreter {
             },
         }
     }
-    fn evaluate_atom(&mut self, atom: &Atom) -> Result<CortexValue, CortexError> {
-        match atom {
-            Atom::Boolean(v) => Ok(CortexValue::Boolean(*v)),
-            Atom::Number(v) => Ok(CortexValue::Number(*v)),
-            Atom::String(v) => Ok(CortexValue::String(v.clone())),
-            Atom::Void => Ok(CortexValue::Void),
-            Atom::None => Ok(CortexValue::None),
-            Atom::Expression(expr) => Ok(self.evaluate_expression(expr)?),
-            Atom::PathIdent(path) => Ok(self.lookup_value(path)?),
-            Atom::Call(path_ident, expressions) => {
+    pub fn evaluate_expression(&mut self, exp: &Expression) -> Result<CortexValue, CortexError> {
+        match exp {
+            Expression::Boolean(v) => Ok(CortexValue::Boolean(*v)),
+            Expression::Number(v) => Ok(CortexValue::Number(*v)),
+            Expression::String(v) => Ok(CortexValue::String(v.clone())),
+            Expression::Void => Ok(CortexValue::Void),
+            Expression::None => Ok(CortexValue::None),
+            Expression::PathIdent(path) => Ok(self.lookup_value(path)?),
+            Expression::Call(path_ident, expressions) => {
                 let func = self.lookup_function(path_ident)?;
                 let func_result = self.run_function(&func, expressions.iter().collect());
                 Ok(func_result?)
             },
-            Atom::Construction { name, type_args: _, assignments } => {
+            Expression::Construction { name, type_args: _, assignments } => {
                 let composite = self.lookup_composite(name)?;
                 if !composite.is_heap_allocated {
                     Ok(self.construct_struct(assignments)?)
@@ -301,7 +295,7 @@ impl CortexInterpreter {
                     Ok(CortexValue::Reference(addr))
                 }
             },
-            Atom::IfStatement { first, conds, last } => {
+            Expression::IfStatement { first, conds, last } => {
                 let cond = self.evaluate_expression(&first.condition)?;
                 if let CortexValue::Boolean(b) = cond {
                     if b {
@@ -327,7 +321,7 @@ impl CortexInterpreter {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
-            Atom::UnaryOperation { op, exp } => {
+            Expression::UnaryOperation { op, exp } => {
                 let val = self.evaluate_expression(exp)?;
                 match op {
                     UnaryOperator::Negate => {
@@ -346,7 +340,7 @@ impl CortexInterpreter {
                     },
                 }
             },
-            Atom::ListLiteral(items) => {
+            Expression::ListLiteral(items) => {
                 let values = items
                     .iter()
                     .map(|e| self.evaluate_expression(e))
@@ -354,20 +348,17 @@ impl CortexInterpreter {
                 let addr = self.heap.borrow_mut().allocate(CortexValue::List(values));
                 Ok(CortexValue::Reference(addr))
             },
-        }
-    }
-    fn handle_expr_tail(&mut self, atom: CortexValue, tail: &ExpressionTail) -> Result<CortexValue, CortexError> {
-        match tail {
-            ExpressionTail::None => Ok(atom),
-            ExpressionTail::PostfixBang { next } => {
-                if let CortexValue::None = atom {
+            Expression::Bang(inner) => {
+                let inner = self.evaluate_expression(inner)?;
+                if let CortexValue::None = inner {
                     Err(Box::new(InterpreterError::BangCalledOnNoneValue))
                 } else {
-                    Ok(self.handle_expr_tail(atom, next)?)
+                    Ok(inner)
                 }
             },
-            ExpressionTail::MemberAccess { member, next } => {
-                if let CortexValue::Reference(addr) = atom {
+            Expression::MemberAccess(inner, member) => {
+                let inner = self.evaluate_expression(inner)?;
+                if let CortexValue::Reference(addr) = inner {
                     let val = self.heap
                         .borrow()
                         .get(addr)
@@ -375,12 +366,12 @@ impl CortexInterpreter {
                         .get_field(member)?
                         .borrow()
                         .clone();
-                    Ok(self.handle_expr_tail(val, next)?)
+                    Ok(val)
                 } else {
-                    Ok(self.handle_expr_tail(atom.get_field(member)?.borrow().clone(), next)?)
+                    Ok(inner.get_field(member)?.borrow().clone())
                 }
             },
-            ExpressionTail::MemberCall { member: _, args: _, next: _ } => {
+            Expression::MemberCall { callee: _, member: _, args: _ } => {
                 todo!()
                 // let atom_type = atom.get_type();
                 // let caller_type = atom_type.name()?;
@@ -402,10 +393,11 @@ impl CortexInterpreter {
 
                 // Ok(self.handle_expr_tail(result?, next)?)
             },
-            ExpressionTail::BinOp { op, right, next } => {
+            Expression::BinaryOperation { left, op, right } => {
+                let left = self.evaluate_expression(left)?;
                 let right = self.evaluate_expression(right)?;
-                let result = self.evaluate_op(atom, op, right)?;
-                Ok(self.handle_expr_tail(result, next)?)
+                let result = self.evaluate_op(left, op, right)?;
+                Ok(result)
             },
         }
     }

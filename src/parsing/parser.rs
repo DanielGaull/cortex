@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::constants::{INDEX_SET_FN_NAME, INDEX_GET_FN_NAME};
 
-use super::ast::{expression::{Atom, BinaryOperator, ConditionBody, Expression, ExpressionTail, IdentExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, ThisArg, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{Expression, BinaryOperator, ConditionBody, IdentExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, ThisArg, TopLevel}, r#type::CortexType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -216,9 +216,10 @@ impl CortexParser {
                         let left_as_expr = left.clone().to_member_access_expr();
                         let op = Self::parse_binop(next.into_inner().next().unwrap())?;
                         let right = Self::parse_expr_pair(pairs.next().unwrap())?;
-                        value = Expression {
-                            atom: Atom::Expression(Box::new(left_as_expr)),
-                            tail: ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) }
+                        value = Expression::BinaryOperation { 
+                            left: Box::new(left_as_expr),
+                            op,
+                            right: Box::new(right),
                         };
                     },
                     Rule::expr => {
@@ -241,15 +242,17 @@ impl CortexParser {
                 match next.as_rule() {
                     Rule::arithLogicBinOp => {
                         let left_as_expr = left.clone().to_member_access_expr();
-                        let full_left_expr = Expression {
-                            atom: Atom::Expression(Box::new(left_as_expr)),
-                            tail: ExpressionTail::MemberCall { member: String::from(INDEX_GET_FN_NAME), args: args.clone(), next: Box::new(ExpressionTail::None) }
+                        let full_left_expr = Expression::MemberCall { 
+                            callee: Box::new(left_as_expr),
+                            member: String::from(INDEX_GET_FN_NAME), 
+                            args: args.clone()
                         };
                         let op = Self::parse_binop(next.into_inner().next().unwrap())?;
                         let right = Self::parse_expr_pair(pairs.next().unwrap())?;
-                        value = Expression {
-                            atom: Atom::Expression(Box::new(full_left_expr)),
-                            tail: ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) }
+                        value = Expression::BinaryOperation { 
+                            left: Box::new(full_left_expr), 
+                            op, 
+                            right: Box::new(right), 
                         };
                     },
                     Rule::expr => {
@@ -261,9 +264,10 @@ impl CortexParser {
                 args.push(value);
 
                 Ok(Statement::Expression(
-                    Expression {
-                        atom: Atom::Expression(Box::new(left.to_member_access_expr())),
-                        tail: ExpressionTail::MemberCall { member: String::from(INDEX_SET_FN_NAME), args: args, next: Box::new(ExpressionTail::None) },
+                    Expression::MemberCall { 
+                        callee: Box::new(left.to_member_access_expr()), 
+                        member: String::from(INDEX_SET_FN_NAME), 
+                        args, 
                     }
                 ))
             },
@@ -286,7 +290,11 @@ impl CortexParser {
         while pairs.peek() != None {
             let op = Self::parse_binop(pairs.next().unwrap())?;
             let right = Self::parse_eq_result(pairs.next().unwrap())?;
-            result.append_tail(ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) });
+            result = Expression::BinaryOperation { 
+                left: Box::new(result), 
+                op, 
+                right: Box::new(right),
+            };
         }
         Ok(result)
     }
@@ -296,7 +304,11 @@ impl CortexParser {
         while pairs.peek() != None {
             let op = Self::parse_binop(pairs.next().unwrap())?;
             let right = Self::parse_sum_result(pairs.next().unwrap())?;
-            result.append_tail(ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) });
+            result = Expression::BinaryOperation { 
+                left: Box::new(result), 
+                op, 
+                right: Box::new(right),
+            };
         }
         Ok(result)
     }
@@ -306,7 +318,11 @@ impl CortexParser {
         while pairs.peek() != None {
             let op = Self::parse_binop(pairs.next().unwrap())?;
             let right = Self::parse_mul_result(pairs.next().unwrap())?;
-            result.append_tail(ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) });
+            result = Expression::BinaryOperation { 
+                left: Box::new(result), 
+                op, 
+                right: Box::new(right),
+            };
         }
         Ok(result)
     }
@@ -316,7 +332,11 @@ impl CortexParser {
         while pairs.peek() != None {
             let op = Self::parse_binop(pairs.next().unwrap())?;
             let right = Self::parse_primary(pairs.next().unwrap())?;
-            result.append_tail(ExpressionTail::BinOp { op: op, right: Box::new(right), next: Box::new(ExpressionTail::None) });
+            result = Expression::BinaryOperation { 
+                left: Box::new(result), 
+                op, 
+                right: Box::new(right),
+            };
         }
         Ok(result)
     }
@@ -325,42 +345,39 @@ impl CortexParser {
         let mut pairs = pair.into_inner();
         let atom_pair = pairs.next().unwrap();
         let atom = Self::parse_atom_pair(atom_pair.into_inner().next().unwrap())?;
-        let mut expr_tail = ExpressionTail::None;
         let next = pairs.next();
         if next.is_some() {
             let expr_tail_pair = next.unwrap();
-            expr_tail = Self::parse_expr_tail_pair(expr_tail_pair)?;
+            Ok(Self::handle_expr_tail_pair(expr_tail_pair, atom)?)
+        } else {
+            Ok(atom)
         }
-        Ok(Expression {
-            atom: atom,
-            tail: expr_tail,
-        })
     }
 
-    fn parse_atom_pair(pair: Pair<Rule>) -> Result<Atom, ParseError> {
+    fn parse_atom_pair(pair: Pair<Rule>) -> Result<Expression, ParseError> {
         match pair.as_rule() {
             Rule::number => {
                 let value: f64 = pair.as_str().parse().unwrap();
-                Ok(Atom::Number(value))
+                Ok(Expression::Number(value))
             },
             Rule::boolean => {
                 let value: bool = pair.as_str().parse().unwrap();
-                Ok(Atom::Boolean(value))
+                Ok(Expression::Boolean(value))
             },
             Rule::string => {
-                Ok(Atom::String(String::from(pair.into_inner().next().unwrap().as_str())))
+                Ok(Expression::String(String::from(pair.into_inner().next().unwrap().as_str())))
             },
             Rule::none => {
-                Ok(Atom::None)
+                Ok(Expression::None)
             },
             Rule::void => {
-                Ok(Atom::Void)
+                Ok(Expression::Void)
             },
             Rule::pathIdent => {
-                Ok(Atom::PathIdent(Self::parse_path_ident(pair)?))
+                Ok(Expression::PathIdent(Self::parse_path_ident(pair)?))
             },
             Rule::expr => {
-                Ok(Atom::Expression(Box::new(Self::parse_expr_pair(pair)?)))
+                Ok(Self::parse_expr_pair(pair)?)
             },
             Rule::call => {
                 let mut pairs = pair.into_inner();
@@ -368,7 +385,7 @@ impl CortexParser {
                 let name = Self::parse_path_ident(first_pair)?;
                 let args_pair = pairs.next().unwrap();
                 let args = Self::parse_expr_list(args_pair)?;
-                Ok(Atom::Call(name, args))
+                Ok(Expression::Call(name, args))
             },
             Rule::structConstruction => {
                 let mut pairs = pair.into_inner().peekable();
@@ -386,7 +403,7 @@ impl CortexParser {
                     let expr = Self::parse_expr_pair(member_init.next().unwrap())?;
                     assignments.push((String::from(name), expr));
                 }
-                Ok(Atom::Construction { name: name, assignments: assignments, type_args: type_args })
+                Ok(Expression::Construction { name: name, assignments: assignments, type_args: type_args })
             },
             Rule::r#if => {
                 let mut pairs = pair.into_inner();
@@ -406,7 +423,7 @@ impl CortexParser {
                         None
                     };
 
-                Ok(Atom::IfStatement { 
+                Ok(Expression::IfStatement { 
                     first: Box::new(ConditionBody { condition: first_cond, body: first_body }),
                     conds: elifs,
                     last: else_body,
@@ -416,51 +433,59 @@ impl CortexParser {
                 let mut pairs = pair.into_inner();
                 let unop = Self::parse_unop(pairs.next().unwrap())?;
                 let expr = Self::parse_expr_pair(pairs.next().unwrap())?;
-                Ok(Atom::UnaryOperation { op: unop, exp: Box::new(expr) })
+                Ok(Expression::UnaryOperation { op: unop, exp: Box::new(expr) })
             },
             Rule::listLiteral => {
                 let mut pairs = pair.into_inner();
                 let items = Self::parse_expr_list(pairs.next().unwrap())?;
-                Ok(Atom::ListLiteral(items))
+                Ok(Expression::ListLiteral(items))
             },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }
 
-    fn parse_expr_tail_pair(pair: Pair<Rule>) -> Result<ExpressionTail, ParseError> {
+    fn handle_expr_tail_pair(pair: Pair<Rule>, exp: Expression) -> Result<Expression, ParseError> {
         match pair.as_rule() {
             Rule::exprTail => {
                 if let Some(tail_pair) = pair.into_inner().next() {
                     match tail_pair.as_rule() {
                         Rule::postfixBangTail => {
-                            let next = Self::parse_expr_tail_pair(tail_pair.into_inner().next().unwrap())?;
-                            Ok(ExpressionTail::PostfixBang { next: Box::new(next) })
+                            Ok(Self::handle_expr_tail_pair(
+                                tail_pair.into_inner().next().unwrap(),
+                                Expression::Bang(Box::new(exp))
+                            )?)
                         },
                         Rule::memberAccessTail => {
                             let mut pairs = tail_pair.into_inner();
                             let member = pairs.next().unwrap().as_str();
-                            let next = Self::parse_expr_tail_pair(pairs.next().unwrap())?;
-                            Ok(ExpressionTail::MemberAccess { member: String::from(member), next: Box::new(next) })
+                            Ok(Self::handle_expr_tail_pair(
+                                pairs.next().unwrap(),
+                                Expression::MemberAccess(Box::new(exp), String::from(member))
+                            )?)
                         },
                         Rule::memberCallTail => {
                             let mut pairs = tail_pair.into_inner();
                             let member = pairs.next().unwrap().as_str();
                             let args_pair = pairs.next().unwrap();
                             let args = Self::parse_expr_list(args_pair)?;
-                            let next = Self::parse_expr_tail_pair(pairs.next().unwrap())?;
-                            Ok(ExpressionTail::MemberCall { member: String::from(member), args: args, next: Box::new(next) })
+                            Ok(Self::handle_expr_tail_pair(
+                                pairs.next().unwrap(),
+                                Expression::MemberCall { callee: Box::new(exp), member: String::from(member), args }
+                            )?)
                         },
                         Rule::indexTail => {
                             let mut pairs = tail_pair.into_inner();
                             let args_pair = pairs.next().unwrap();
                             let args = Self::parse_expr_list(args_pair)?;
-                            let next = Self::parse_expr_tail_pair(pairs.next().unwrap())?;
-                            Ok(ExpressionTail::MemberCall { member: String::from(INDEX_GET_FN_NAME), args: args, next: Box::new(next) })
+                            Ok(Self::handle_expr_tail_pair(
+                                pairs.next().unwrap(),
+                                Expression::MemberCall { callee: Box::new(exp), member: String::from(INDEX_GET_FN_NAME), args }
+                            )?)
                         },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }
                 } else {
-                    Ok(ExpressionTail::None)
+                    Ok(exp)
                 }
             }
             _ => Err(ParseError::FailTail(String::from(pair.as_str()))),

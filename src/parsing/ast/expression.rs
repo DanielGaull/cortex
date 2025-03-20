@@ -5,37 +5,6 @@ use crate::parsing::codegen::r#trait::SimpleCodeGen;
 use super::{top_level::BasicBody, r#type::CortexType};
 
 #[derive(Clone)]
-pub struct Expression {
-    pub(crate) atom: Atom,
-    pub(crate) tail: ExpressionTail,
-}
-impl SimpleCodeGen for Expression {
-    fn codegen(&self, indent: usize) -> String {
-        let mut s = String::new();
-        s.push_str(&self.atom.codegen(indent));
-        s.push_str(&self.tail.codegen(indent));
-        s
-    }
-}
-impl Expression {
-    pub(crate) fn append_tail(&mut self, tail: ExpressionTail) {
-        if self.tail.is_none() {
-            self.tail = tail;
-        } else {
-            let mut last: &mut ExpressionTail = &mut self.tail;
-            while !last.is_next_none() {
-                last = last.next_ref();
-            }
-            last.append(tail);
-        }
-    }
-
-    pub(crate) fn is_atomic(&self) -> bool {
-        self.tail.is_none()
-    }
-}
-
-#[derive(Clone)]
 pub struct ConditionBody {
     pub(crate) condition: Expression,
     pub(crate) body: BasicBody,
@@ -53,7 +22,7 @@ impl SimpleCodeGen for ConditionBody {
 }
 
 #[derive(Clone)]
-pub enum Atom {
+pub enum Expression {
     Number(f64),
     Boolean(bool),
     Void,
@@ -76,25 +45,30 @@ pub enum Atom {
         exp: Box<Expression>,
     },
     ListLiteral(Vec<Expression>),
-    Expression(Box<Expression>),
+    Bang(Box<Expression>),
+    MemberAccess(Box<Expression>, String),
+    MemberCall {
+        callee: Box<Expression>,
+        member: String,
+        args: Vec<Expression>,
+    },
+    BinaryOperation {
+        left: Box<Expression>,
+        op: BinaryOperator,
+        right: Box<Expression>,
+    },
+    // Expression(Box<Expression>),
 }
-impl SimpleCodeGen for Atom {
+impl SimpleCodeGen for Expression {
     fn codegen(&self, indent: usize) -> String {
         match self {
-            Atom::Number(v) => format!("{}", v),
-            Atom::Boolean(v) => format!("{}", v),
-            Atom::String(v) => format!("\"{}\"", v),
-            Atom::Void => String::from("void"),
-            Atom::None => String::from("none"),
-            Atom::PathIdent(path) => path.codegen(indent),
-            Atom::Expression(expr) => {
-                if !expr.is_atomic() {
-                    format!("({})", expr.codegen(indent))
-                } else {
-                    expr.codegen(indent)
-                }
-            },
-            Atom::Call(path, args) => {
+            Expression::Number(v) => format!("{}", v),
+            Expression::Boolean(v) => format!("{}", v),
+            Expression::String(v) => format!("\"{}\"", v),
+            Expression::Void => String::from("void"),
+            Expression::None => String::from("none"),
+            Expression::PathIdent(path) => path.codegen(indent),
+            Expression::Call(path, args) => {
                 let mut s = String::new();
                 s.push_str(&path.codegen(indent));
                 s.push_str("(");
@@ -107,7 +81,7 @@ impl SimpleCodeGen for Atom {
                 s.push_str(")");
                 s
             },
-            Atom::Construction { name, type_args, assignments } => {
+            Expression::Construction { name, type_args, assignments } => {
                 let mut s = String::new();
                 s.push_str(&name.codegen(0));
                 if type_args.len() > 0 {
@@ -125,7 +99,7 @@ impl SimpleCodeGen for Atom {
                 s.push_str("}");
                 s
             },
-            Atom::IfStatement { first, conds, last } => {
+            Expression::IfStatement { first, conds, last } => {
                 let mut s = String::new();
                 let indent_prefix = "    ".repeat(indent);
                 s.push_str(&indent_prefix);
@@ -143,13 +117,13 @@ impl SimpleCodeGen for Atom {
                 }
                 s
             },
-            Atom::UnaryOperation { op, exp } => {
+            Expression::UnaryOperation { op, exp } => {
                 let mut s = String::new();
                 s.push_str(&op.codegen(indent));
                 s.push_str(&exp.codegen(indent));
                 s
             },
-            Atom::ListLiteral(items) => {
+            Expression::ListLiteral(items) => {
                 let mut s = String::new();
                 s.push_str("[");
                 s.push_str(
@@ -162,94 +136,18 @@ impl SimpleCodeGen for Atom {
                 s.push_str("]");
                 s
             },
-        }
-    }
-}
-
-#[derive(Clone)]
-pub enum ExpressionTail {
-    None,
-    PostfixBang {
-        next: Box<ExpressionTail>,
-    },
-    MemberAccess {
-        member: String,
-        next: Box<ExpressionTail>,
-    },
-    MemberCall {
-        member: String,
-        args: Vec<Expression>,
-        next: Box<ExpressionTail>,
-    },
-    BinOp {
-        op: BinaryOperator,
-        right: Box<Expression>,
-        next: Box<ExpressionTail>,
-    }
-}
-impl SimpleCodeGen for ExpressionTail {
-    fn codegen(&self, indent: usize) -> String {
-        match self {
-            ExpressionTail::None => String::new(),
-            ExpressionTail::PostfixBang { next } => {
-                let next = next.codegen(indent);
-                format!("!{}", next)
+            Expression::Bang(ex) => format!("{}!", ex.codegen(indent)),
+            Expression::BinaryOperation { left, op, right } => {
+                format!("({}) {} ({})", left.codegen(indent), op.codegen(indent), right.codegen(indent))
             },
-            ExpressionTail::MemberAccess { member, next } => {
-                let next = next.codegen(indent);
-                format!(".{}{}", member, next)
-            },
-            ExpressionTail::MemberCall { member, args, next } => {
-                let next = next.codegen(indent);
-                let args = args.iter().map(|x| x.codegen(0)).collect::<Vec<_>>().join(", ");
-                format!(".{}({}){}", member, args, next)
-            },
-            ExpressionTail::BinOp { op, right, next } => {
-                let op = op.codegen(indent);
-                let right = right.codegen(indent);
-                let next = next.codegen(indent);
-                format!(" {} {}{}", op, right, next)
+            Expression::MemberAccess(ex, member) => format!("{}.{}", ex.codegen(indent), member),
+            Expression::MemberCall { callee, member: member_name, args } => {
+                format!("{}.{}({})", 
+                    callee.codegen(indent), 
+                    member_name, 
+                    args.iter().map(|a| a.codegen(indent)).collect::<Vec<_>>().join(", ")
+                )
             }
-        }
-    }
-}
-impl ExpressionTail {
-    fn is_next_none(&self) -> bool {
-        match self {
-            ExpressionTail::None => false,
-            ExpressionTail::PostfixBang { next } => next.is_none(),
-            ExpressionTail::MemberAccess { member: _, next } => next.is_none(),
-            ExpressionTail::MemberCall { member: _, args: _, next } => next.is_none(),
-            ExpressionTail::BinOp { op: _, right: _, next } => next.is_none(),
-        }
-    }
-    fn is_none(&self) -> bool {
-        matches!(self, ExpressionTail::None)
-    }
-    fn next_ref(&mut self) -> &mut ExpressionTail {
-        match self {
-            ExpressionTail::None => panic!(),
-            ExpressionTail::PostfixBang { next } => next,
-            ExpressionTail::MemberAccess { member: _, next } => next,
-            ExpressionTail::MemberCall { member: _, args: _, next } => next,
-            ExpressionTail::BinOp { op: _, right: _, next } => next,
-        }
-    }
-    fn append(&mut self, new_next: ExpressionTail) {
-        match self {
-            ExpressionTail::None => (),
-            ExpressionTail::PostfixBang { next } => {
-                *next = Box::new(new_next);
-            },
-            ExpressionTail::MemberAccess { member: _, next } => {
-                *next = Box::new(new_next);
-            },
-            ExpressionTail::MemberCall { member: _, args: _, next } => {
-                *next = Box::new(new_next);
-            },
-            ExpressionTail::BinOp { op: _, right: _, next } => {
-                *next = Box::new(new_next);
-            },
         }
     }
 }
@@ -306,17 +204,18 @@ impl IdentExpression {
     }
 
     pub fn to_member_access_expr(self) -> Expression {
-        let mut tail: ExpressionTail = ExpressionTail::None;
-        let mut chain = self.chain;
-        chain.reverse();
-        for link in chain {
-            tail = ExpressionTail::MemberAccess { member: link, next: Box::new(tail) };
-        }
+        todo!()
+        // let mut expr: Expression;
+        // let mut chain = self.chain;
+        // chain.reverse();
+        // for link in chain {
+        //     tail = ExpressionTail::MemberAccess { member: link, next: Box::new(tail) };
+        // }
 
-        Expression {
-            atom: Atom::PathIdent(PathIdent::simple(self.base)),
-            tail: tail,
-        }
+        // Expression {
+        //     atom: Expression::PathIdent(PathIdent::simple(self.base)),
+        //     tail: tail,
+        // }
     }
 }
 
