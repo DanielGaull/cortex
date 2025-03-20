@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, ConditionBody, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, ConditionBody, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
 use super::{error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment, value::ValueError};
 

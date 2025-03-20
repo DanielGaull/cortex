@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::{EnvError, Environment}, interpreter::CortexInterpreter, error::InterpreterError, module::{Module, ModuleError}, value::{CortexValue, ValueError}}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
+use cortex_lang::{interpreting::{env::{EnvError, Environment}, error::{InterpreterError, PreprocessingError}, interpreter::CortexInterpreter, module::{Module, ModuleError}, value::{CortexValue, ValueError}}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -24,9 +24,9 @@ fn test_variable_errors() -> Result<(), Box<dyn Error>> {
     assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
     assert_err("x = 7;", EnvError::ModifyConstant(String::from("x")), &mut interpreter)?;
 
-    assert_err("let y: string = 5;", InterpreterError::MismatchedType(String::from("string"), String::from("number"), String::from("y")), &mut interpreter)?;
+    assert_err("let y: string = 5;", PreprocessingError::MismatchedType(String::from("string"), String::from("number"), String::from("y")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("let myNum = 7;")?)?;
-    assert_err("myNum = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool"), String::from("myNum")), &mut interpreter)?;
+    assert_err("myNum = true;", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("myNum")), &mut interpreter)?;
     // assert_err("dne::value;", ModuleError::ModuleDoesNotExist(String::from("dne")), &mut interpreter)?;
     // assert_err("dne::constantValue = 5;", InterpreterError::CannotModifyModuleEnvironment(String::from("dne::constantValue")), &mut interpreter)?;
     Ok(())
@@ -35,7 +35,7 @@ fn test_variable_errors() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_operator_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("5 - \"foo\";", InterpreterError::InvalidOperator("number", "number"), &mut interpreter)?;
+    assert_err("5 - \"foo\";", PreprocessingError::InvalidOperator("number", "number"), &mut interpreter)?;
     assert_err("5.2 * \"foo\";", InterpreterError::ExpectedInteger(5.2f64), &mut interpreter)?;
     Ok(())
 }
@@ -44,10 +44,10 @@ fn test_operator_errors() -> Result<(), Box<dyn Error>> {
 fn test_function_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_err("simple::hi();", ModuleError::FunctionDoesNotExist(String::from("hi")), &mut interpreter)?;
-    assert_err("simple::add(1);", InterpreterError::MismatchedArgumentCount(String::from("add"), 2, 1), &mut interpreter)?;
+    assert_err("simple::add(1);", PreprocessingError::MismatchedArgumentCount(String::from("add"), 2, 1), &mut interpreter)?;
 
-    assert_err("simple::add(1, 2, 3);", InterpreterError::MismatchedArgumentCount(String::from("add"), 2, 3), &mut interpreter)?;
-    assert_err("simple::add(1, true);", InterpreterError::MismatchedType(String::from("number"), String::from("bool"), String::from("b")), &mut interpreter)?;
+    assert_err("simple::add(1, 2, 3);", PreprocessingError::MismatchedArgumentCount(String::from("add"), 2, 3), &mut interpreter)?;
+    assert_err("simple::add(1, true);", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("b")), &mut interpreter)?;
     Ok(())
 }
 
@@ -58,11 +58,11 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     interpreter.run_statement(&CortexParser::parse_statement("let myTime = simple::Time { m: 5, s: 2 };")?)?;
     assert_err("myTime.z;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
-    assert_err("myTime.m = true;", InterpreterError::MismatchedType(String::from("number"), String::from("bool"), String::from("m")), &mut interpreter)?;
+    assert_err("myTime.m = true;", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("m")), &mut interpreter)?;
     assert_err("5.foo;", ValueError::CannotAccessMemberOfNonComposite("number"), &mut interpreter)?;
     assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
-    assert_err("simple::Time { m: 2 };", InterpreterError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
-    assert_err("simple::Time { m: 2, m: 3 };", InterpreterError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
+    assert_err("simple::Time { m: 2 };", PreprocessingError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
+    assert_err("simple::Time { m: 2, m: 3 };", PreprocessingError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
     interpreter.run_statement(&CortexParser::parse_statement("let box: &simple::IntBox = simple::IntBox { v: 100 };")?)?;
     assert_err("box.v = 7;", ValueError::CannotModifyNonMutableReference, &mut interpreter)?;
     Ok(())
@@ -71,7 +71,7 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_none_related_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("let notOptional: number = none;", InterpreterError::MismatchedType(String::from("number"), String::from("none?"), String::from("notOptional")), &mut interpreter)?;
+    assert_err("let notOptional: number = none;", PreprocessingError::MismatchedType(String::from("number"), String::from("none?"), String::from("notOptional")), &mut interpreter)?;
     assert_err("none!;", InterpreterError::BangCalledOnNoneValue, &mut interpreter)?;
     Ok(())
 }
@@ -79,9 +79,9 @@ fn test_none_related_errors() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_conditional_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("if true { 5 } else { \"hi\" };", InterpreterError::IfArmsDoNotMatch(String::from("number"), String::from("string")), &mut interpreter)?;
-    assert_err("if true { 5 } elif true { 1 };", InterpreterError::IfRequiresElseBlock, &mut interpreter)?;
-    assert_err("while true { 5 }", InterpreterError::LoopCannotHaveReturnValue, &mut interpreter)?;
+    assert_err("if true { 5 } else { \"hi\" };", PreprocessingError::IfArmsDoNotMatch(String::from("number"), String::from("string")), &mut interpreter)?;
+    assert_err("if true { 5 } elif true { 1 };", PreprocessingError::IfRequiresElseBlock, &mut interpreter)?;
+    assert_err("while true { 5 }", PreprocessingError::LoopCannotHaveReturnValue, &mut interpreter)?;
     Ok(())
 }
 
@@ -123,13 +123,13 @@ fn test_type_argument_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
 
     interpreter.run_top_level(CortexParser::parse_top_level("fn a<T>(){}")?)?;
-    assert_err("a();", InterpreterError::CouldNotInferTypeBinding(String::from("a")), &mut interpreter)?;
+    assert_err("a();", PreprocessingError::CouldNotInferTypeBinding(String::from("a")), &mut interpreter)?;
     assert_err_toplevel("fn b<T, T>(){}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
     assert_err_toplevel("bundle www<T, T>{}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
     assert_err_toplevel("bundle abc<T> {\nfn x<T>(&this) {\n}\n}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
 
     interpreter.run_top_level(CortexParser::parse_top_level("bundle GenericBundle<T, R>{}")?)?;
-    assert_err("GenericBundle<number>{};", InterpreterError::MismatchedTypeArgCount(String::from("GenericBundle"), 2, 1), &mut interpreter)?;
+    assert_err("GenericBundle<number>{};", PreprocessingError::MismatchedTypeArgCount(String::from("GenericBundle"), 2, 1), &mut interpreter)?;
 
     Ok(())
 }
