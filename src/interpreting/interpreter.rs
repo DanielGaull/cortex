@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
-use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, module::{CompositeType, Module, ModuleError}, type_env::TypeEnvironment, value::{CortexValue, ValueError}};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{Body, Function, TopLevel}}, codegen::r#trait::SimpleCodeGen};
+use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, module::{CompositeType, Module, ModuleError}, value::{CortexValue, ValueError}};
 
 pub struct CortexInterpreter {
     base_module: Module,
@@ -37,11 +37,11 @@ impl CortexInterpreter {
     }
     fn find_reachables(&self, current: &mut HashSet<usize>, value: Rc<RefCell<CortexValue>>) {
         let value_ref = value.borrow();
-        if let CortexValue::Composite { struct_name: _, field_values, type_args: _, type_arg_names: _ } = &*value_ref {
+        if let CortexValue::Composite { field_values } = &*value_ref {
             for (_, fvalue) in field_values {
                 self.find_reachables(current, fvalue.clone());
             }
-        } else if let CortexValue::Reference(addr, _, _) = *value_ref {
+        } else if let CortexValue::Reference(addr) = *value_ref {
             current.insert(addr);
         }
     }
@@ -113,38 +113,15 @@ impl CortexInterpreter {
                 Err(Box::new(InterpreterError::ProgramThrow(val)))
             },
             Statement::VariableDeclaration { 
-                name, is_const, typ, initial_value 
+                name, is_const, typ: _, initial_value 
             } => {
                 match name {
                     OptionalIdentifier::Ident(ident) => {
-                        let mut value = self.evaluate_expression(initial_value)?;
-                        let true_type = if let Some(the_type) = typ {
-                            // Check that the declared type and type of the result match
-                            let value_type = self.determine_type(initial_value)?;
-                            if !value_type.is_subtype_of(the_type) {
-                                return Err(
-                                    Box::new(
-                                        InterpreterError::MismatchedType(
-                                            the_type.codegen(0),
-                                            value_type.codegen(0),
-                                            ident.clone(),
-                                        )
-                                    )
-                                );
-                            }
-                            the_type.clone()
-                        } else {
-                            self.determine_type(initial_value)?
-                        };
-
-                        if let CortexType::RefType { contained: _, mutable } = &true_type {
-                            value = value.forward_mutability(*mutable);
-                        }
-
+                        let value = self.evaluate_expression(initial_value)?;
                         if *is_const {
-                            self.current_env.as_mut().unwrap().add_const(ident.clone(), true_type, value)?;
+                            self.current_env.as_mut().unwrap().add_const(ident.clone(), value)?;
                         } else {
-                            self.current_env.as_mut().unwrap().add_var(ident.clone(), true_type, value)?;
+                            self.current_env.as_mut().unwrap().add_var(ident.clone(), value)?;
                         }
                         Ok(())
                     },
@@ -157,52 +134,19 @@ impl CortexInterpreter {
             Statement::Assignment { name, value } => {
                 if name.is_simple() {
                     let var_name = &name.base;
-                    let assigned_type = self.determine_type(value)?;
-                    let var_type = &self.current_env.as_ref().unwrap().get_type_of(var_name)?.clone();
-                    if !assigned_type.is_subtype_of(var_type) {
-                        return Err(
-                            Box::new(
-                                InterpreterError::MismatchedType(
-                                    var_type.codegen(0),
-                                    assigned_type.codegen(0),
-                                    var_name.clone(),
-                                )
-                            )
-                        );
-                    }
                     let value = self.evaluate_expression(value)?;
                     self.current_env.as_mut().unwrap().set_value(var_name, value)?;
                     Ok(())
                 } else {
-                    let name_expr = name.clone().to_member_access_expr();
-                    let var_type = self.determine_type(&name_expr)?;
                     let var_name = &name.base;
                     let chain = name.chain.clone();
-                    let assigned_type = self.determine_type(value)?;
-                    if !assigned_type.is_subtype_of(&var_type) {
-                        return Err(
-                            Box::new(
-                                InterpreterError::MismatchedType(
-                                    var_type.codegen(0),
-                                    assigned_type.codegen(0),
-                                    chain.last().unwrap().clone(),
-                                )
-                            )
-                        );
-                    }
-                    let mut value = self.evaluate_expression(value)?;
-                    if let CortexType::RefType { contained: _, mutable } = &var_type {
-                        value = value.forward_mutability(*mutable);
-                    }
+                    let value = self.evaluate_expression(value)?;
                     let base = self.current_env.as_mut().unwrap().get_cell(var_name)?;
                     self.set_field_path(base, chain, value)?;
                     Ok(())
                 }
             },
             Statement::WhileLoop(condition_body) => {
-                if condition_body.body.has_result() {
-                    return Err(Box::new(InterpreterError::LoopCannotHaveReturnValue));
-                }
                 loop {
                     let cond = self.evaluate_expression(&condition_body.condition)?;
                     if let CortexValue::Boolean(b) = cond {
@@ -213,16 +157,6 @@ impl CortexInterpreter {
                         } else {
                             break;
                         }
-                    } else {
-                        return Err(
-                            Box::new(
-                                InterpreterError::MismatchedType(
-                                    String::from("bool"),
-                                    cond.get_type().codegen(0),
-                                    String::from("if condition")
-                                )
-                            )
-                        );
                     }
                 }
                 Ok(())
@@ -238,34 +172,22 @@ impl CortexInterpreter {
     fn evaluate_op(&mut self, first: CortexValue, op: &BinaryOperator, second: CortexValue) -> Result<CortexValue, CortexError> {
         match op {
             BinaryOperator::Add => {
-                if let CortexValue::Number(n1) = first {
-                    if let CortexValue::Number(n2) = second {
-                        Ok(CortexValue::Number(n1 + n2))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number, string", "number, string")))
-                    }
-                } else if let CortexValue::String(s1) = first {
-                    if let CortexValue::String(s2) = second {
+                match (first, second) {
+                    (CortexValue::Number(n1), CortexValue::Number(n2)) => Ok(CortexValue::Number(n1 + n2)),
+                    (CortexValue::String(s1), CortexValue::String(s2)) => {
                         let mut s = String::new();
                         s.push_str(&s1);
                         s.push_str(&s2);
                         Ok(CortexValue::String(s))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number, string", "number, string")))
-                    }
-                } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number, string", "number, string")))
+                    },
+                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess)),
                 }
             },
             BinaryOperator::Subtract => {
-                if let CortexValue::Number(n1) = first {
-                    if let CortexValue::Number(n2) = second {
-                        Ok(CortexValue::Number(n1 - n2))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                    }
+                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                    Ok(CortexValue::Number(n1 - n2))
                 } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::Multiply => {
@@ -279,64 +201,44 @@ impl CortexInterpreter {
                             Err(Box::new(InterpreterError::ExpectedInteger(n1)))
                         }
                     } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number", "number, string")))
+                        Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                     }
-                } else if let CortexValue::String(s1) = first {
-                    if let CortexValue::Number(n2) = second {
-                        if n2.fract() == 0.0 {
-                            Ok(CortexValue::String(s1.repeat(n2 as usize)))
-                        } else {
-                            Err(Box::new(InterpreterError::ExpectedInteger(n2)))
-                        }
+                } else if let (CortexValue::String(s1), CortexValue::Number(n2)) = (first, second) {
+                    if n2.fract() == 0.0 {
+                        Ok(CortexValue::String(s1.repeat(n2 as usize)))
                     } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number", "number, string")))
+                        Err(Box::new(InterpreterError::ExpectedInteger(n2)))
                     }
                 } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number, string")))
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::Divide => {
-                if let CortexValue::Number(n1) = first {
-                    if let CortexValue::Number(n2) = second {
-                        Ok(CortexValue::Number(n1 / n2))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                    }
+                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                    Ok(CortexValue::Number(n1 / n2))
                 } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::Remainder => {
-                if let CortexValue::Number(n1) = first {
-                    if let CortexValue::Number(n2) = second {
-                        Ok(CortexValue::Number(n1 % n2))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                    }
+                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                    Ok(CortexValue::Number(n1 % n2))
                 } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::LogicAnd => {
-                if let CortexValue::Boolean(b1) = first {
-                    if let CortexValue::Boolean(b2) = second {
-                        Ok(CortexValue::Boolean(b1 && b2))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("bool", "bool")))
-                    }
+                if let (CortexValue::Boolean(b1), CortexValue::Boolean(b2)) = (first, second) {
+                    Ok(CortexValue::Boolean(b1 && b2))
                 } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("bool", "bool")))
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::LogicOr => {
-                if let CortexValue::Boolean(b1) = first {
-                    if let CortexValue::Boolean(b2) = second {
-                        Ok(CortexValue::Boolean(b1 || b2))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("bool", "bool")))
-                    }
+                if let (CortexValue::Boolean(b1), CortexValue::Boolean(b2)) = (first, second) {
+                    Ok(CortexValue::Boolean(b1 || b2))
                 } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("bool", "bool")))
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::IsEqual => {
@@ -346,47 +248,31 @@ impl CortexInterpreter {
                 Ok(CortexValue::Boolean(first != second))
             },
             BinaryOperator::IsLessThan => {
-                if let CortexValue::Number(n1) = first {
-                    if let CortexValue::Number(n2) = second {
-                        Ok(CortexValue::Boolean(n1 < n2))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                    }
+                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                    Ok(CortexValue::Boolean(n1 < n2))
                 } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::IsGreaterThan => {
-                if let CortexValue::Number(n1) = first {
-                    if let CortexValue::Number(n2) = second {
-                        Ok(CortexValue::Boolean(n1 > n2))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                    }
+                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                    Ok(CortexValue::Boolean(n1 > n2))
                 } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::IsLessThanOrEqualTo => {
-                if let CortexValue::Number(n1) = first {
-                    if let CortexValue::Number(n2) = second {
-                        Ok(CortexValue::Boolean(n1 <= n2))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                    }
+                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                    Ok(CortexValue::Boolean(n1 <= n2))
                 } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::IsGreaterThanOrEqualTo => {
-                if let CortexValue::Number(n1) = first {
-                    if let CortexValue::Number(n2) = second {
-                        Ok(CortexValue::Boolean(n1 >= n2))
-                    } else {
-                        Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
-                    }
+                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                    Ok(CortexValue::Boolean(n1 >= n2))
                 } else {
-                    Err(Box::new(InterpreterError::InvalidOperator("number", "number")))
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
         }
@@ -405,15 +291,14 @@ impl CortexInterpreter {
                 let func_result = self.run_function(&func, expressions.iter().collect());
                 Ok(func_result?)
             },
-            Atom::Construction { name, type_args, assignments } => {
+            Atom::Construction { name, type_args: _, assignments } => {
                 let composite = self.lookup_composite(name)?;
                 if !composite.is_heap_allocated {
-                    Ok(self.construct_struct(name, assignments, &composite.type_param_names, type_args)?)
+                    Ok(self.construct_struct(assignments)?)
                 } else {
-                    let value = self.construct_struct(name, assignments, &composite.fields, &composite.type_param_names, type_args)?;
-                    let typ = value.get_type();
+                    let value = self.construct_struct(assignments)?;
                     let addr = self.allocate(value);
-                    Ok(CortexValue::Reference(addr, typ, true))
+                    Ok(CortexValue::Reference(addr))
                 }
             },
             Atom::IfStatement { first, conds, last } => {
@@ -449,14 +334,14 @@ impl CortexInterpreter {
                         if let CortexValue::Number(n) = val {
                             Ok(CortexValue::Number(-n))
                         } else {
-                            Err(Box::new(InterpreterError::InvalidOperatorUnary("number")))
+                            Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                         }
                     },
                     UnaryOperator::Invert => {
                         if let CortexValue::Boolean(b) = val {
                             Ok(CortexValue::Boolean(!b))
                         } else {
-                            Err(Box::new(InterpreterError::InvalidOperatorUnary("bool")))
+                            Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                         }
                     },
                 }
@@ -466,17 +351,8 @@ impl CortexInterpreter {
                     .iter()
                     .map(|e| self.evaluate_expression(e))
                     .collect::<Result<Vec<_>, _>>()?;
-                let mut typ = CortexType::Unknown(false);
-                for item in items {
-                    let item_type = self.determine_type(item)?;
-                    let item_type_str = item_type.codegen(0);
-                    let typ_str = typ.codegen(0);
-                    typ = typ
-                        .combine_with(item_type)
-                        .ok_or(InterpreterError::CannotDetermineListLiteralType(typ_str, item_type_str))?;
-                }
-                let addr = self.heap.borrow_mut().allocate(CortexValue::List(values, typ.clone()));
-                Ok(CortexValue::Reference(addr, CortexType::list(typ, false), true))
+                let addr = self.heap.borrow_mut().allocate(CortexValue::List(values));
+                Ok(CortexValue::Reference(addr))
             },
         }
     }
@@ -491,40 +367,40 @@ impl CortexInterpreter {
                 }
             },
             ExpressionTail::MemberAccess { member, next } => {
-                if let CortexValue::Reference(addr, _, mutable) = atom {
+                if let CortexValue::Reference(addr) = atom {
                     let val = self.heap
                         .borrow()
                         .get(addr)
                         .borrow()
                         .get_field(member)?
                         .borrow()
-                        .clone()
-                        .forward_mutability(mutable);
+                        .clone();
                     Ok(self.handle_expr_tail(val, next)?)
                 } else {
                     Ok(self.handle_expr_tail(atom.get_field(member)?.borrow().clone(), next)?)
                 }
             },
-            ExpressionTail::MemberCall { member, args, next } => {
-                let atom_type = atom.get_type();
-                let caller_type = atom_type.name()?;
-                let caller_func_prefix = caller_type.without_last();
-                let caller_func_base = caller_type.get_back()?;
-                let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
-                let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
-                    .subtract(&self.current_context)?;
-                let func = self.lookup_function(&member_func_path)?;
-                let mut args = args
-                    .iter()
-                    .map(|e| self.evaluate_expression(e))
-                    .collect::<Result<Vec<CortexValue>, _>>()?;
-                args.insert(0, atom);
+            ExpressionTail::MemberCall { member: _, args: _, next: _ } => {
+                todo!()
+                // let atom_type = atom.get_type();
+                // let caller_type = atom_type.name()?;
+                // let caller_func_prefix = caller_type.without_last();
+                // let caller_func_base = caller_type.get_back()?;
+                // let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
+                // let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
+                //     .subtract(&self.current_context)?;
+                // let func = self.lookup_function(&member_func_path)?;
+                // let mut args = args
+                //     .iter()
+                //     .map(|e| self.evaluate_expression(e))
+                //     .collect::<Result<Vec<CortexValue>, _>>()?;
+                // args.insert(0, atom);
                 
-                let context_to_return_to = std::mem::replace(&mut self.current_context, caller_func_prefix);
-                let result = self.call_function(&func, args);
-                self.current_context = context_to_return_to;
+                // let context_to_return_to = std::mem::replace(&mut self.current_context, caller_func_prefix);
+                // let result = self.call_function(&func, args);
+                // self.current_context = context_to_return_to;
 
-                Ok(self.handle_expr_tail(result?, next)?)
+                // Ok(self.handle_expr_tail(result?, next)?)
             },
             ExpressionTail::BinOp { op, right, next } => {
                 let right = self.evaluate_expression(right)?;
@@ -543,10 +419,7 @@ impl CortexInterpreter {
     }
     fn construct_struct(
         &mut self,
-        name: &PathIdent,
         assignments: &Vec<(String, Expression)>,
-        type_param_names: &Vec<String>,
-        type_args: &Vec<CortexType>,
     ) -> Result<CortexValue, CortexError> {
         let mut values = HashMap::<String, Rc<RefCell<CortexValue>>>::new();
         for (fname, value) in assignments {
@@ -555,20 +428,14 @@ impl CortexInterpreter {
         }
         Ok(
             CortexValue::Composite {
-                struct_name: PathIdent::concat(&self.current_context, name),
                 field_values: values,
-                type_arg_names: type_param_names.clone(),
-                type_args: type_args.clone(),
             }
         )
     }
     
     fn set_field_path(&mut self, mut base: Rc<RefCell<CortexValue>>, mut path: Vec<String>, value: CortexValue) -> Result<(), ValueError> {
         let first_option = path.get(0);
-        if let CortexValue::Reference(addr, _, mutable) = &*base.clone().borrow() {
-            if !mutable {
-                return Err(ValueError::CannotModifyNonMutableReference);
-            }
+        if let CortexValue::Reference(addr) = &*base.clone().borrow() {
             base = self.heap.borrow().get(*addr);
         }
         if let Some(first) = first_option {
@@ -597,7 +464,6 @@ impl CortexInterpreter {
     pub fn call_function(&mut self, func: &Rc<Function>, mut args: Vec<CortexValue>) -> Result<CortexValue, CortexError> {
         let body = &func.body;
         let mut param_names = Vec::<String>::with_capacity(func.params.len());
-        let mut param_types = Vec::<CortexType>::with_capacity(func.params.len());
         for param in &func.params {
             param_names.push(param.name.clone());
         }
@@ -625,11 +491,6 @@ impl CortexInterpreter {
         // Deconstruct environment
         self.current_env = Some(Box::new(
             self.current_env
-                .take()
-                .ok_or(InterpreterError::NoParentEnv)?
-                .exit()?));
-        self.current_type_env = Some(Box::new(
-            self.current_type_env
                 .take()
                 .ok_or(InterpreterError::NoParentEnv)?
                 .exit()?));
@@ -670,7 +531,7 @@ impl CortexInterpreter {
 
     fn lookup_function(&self, path: &PathIdent) -> Result<Rc<Function>, CortexError> {
         let last = path.get_back()?;
-        let module = self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?;
+        let module = self.base_module.get_module_for(path)?;
         let result = module.get_function(last);
         match result {
             Ok(f) => Ok(f),
@@ -680,7 +541,7 @@ impl CortexInterpreter {
     }
     fn lookup_composite(&self, path: &PathIdent) -> Result<Rc<CompositeType>, CortexError> {
         let last = path.get_back()?;
-        let module = self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?;
+        let module = self.base_module.get_module_for(path)?;
         let result = module.get_composite(last);
         match result {
             Ok(f) => Ok(f),

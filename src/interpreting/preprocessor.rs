@@ -1,8 +1,8 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parsing::{ast::{expression::{Atom, BinaryOperator, ConditionBody, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{Atom, BinaryOperator, ConditionBody, Expression, ExpressionTail, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
-use super::{env::EnvError, error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment, value::ValueError};
+use super::{error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment, value::ValueError};
 
 pub type CheckResult = Result<CortexType, CortexError>;
 
@@ -83,6 +83,11 @@ impl CortexPreprocessor {
         Ok(module)
     }
 
+    pub fn preprocess_statement(&mut self, statement: &mut Statement) -> Result<(), CortexError> {
+        self.check_statement(statement)?;
+        Ok(())
+    }
+
     fn check_statement(&mut self, statement: &mut Statement) -> Result<(), CortexError> {
         match statement {
             Statement::Expression(expression) => {
@@ -114,7 +119,7 @@ impl CortexPreprocessor {
                             assigned_type
                         };
 
-                        self.current_env.as_mut().unwrap().add(ident.clone(), type_of_var, *is_const);
+                        self.current_env.as_mut().unwrap().add(ident.clone(), type_of_var, *is_const)?;
 
                         Ok(())
                     },
@@ -289,6 +294,8 @@ impl CortexPreprocessor {
         }
         self.current_type_env = Some(Box::new(new_type_env));
 
+        let parent_env = self.current_env.take().ok_or(PreprocessingError::NoParentEnv)?;
+        let mut new_env = TypeCheckingEnvironment::new(*parent_env);
         for (i, arg) in arg_exps.iter_mut().enumerate() {
             let arg_type = self.check_exp(arg)?;
             let arg_type = self.clean_type(arg_type);
@@ -304,9 +311,20 @@ impl CortexPreprocessor {
                     )
                 );
             }
+            new_env.add(param_names.get(i).unwrap().clone(), arg_type, false)?;
         }
+        self.current_env = Some(Box::new(new_env));
 
         return_type = self.clean_type(return_type);
+
+        // if let Body::Basic(body) = func.body {
+        //     let body_return_type = self.check_body(body)?;
+
+        // }
+
+        self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
+        self.current_env = Some(Box::new(self.current_env.take().unwrap().exit()?));
+
         Ok(return_type)
     }
     fn check_construction(&mut self, name: &mut PathIdent, type_args: &mut Vec<CortexType>, assignments: &mut Vec<(String, Expression)>) -> CheckResult {
@@ -436,7 +454,9 @@ impl CortexPreprocessor {
                     Ok(member_type)
                 }
             },
-            ExpressionTail::MemberCall { member, args, next } => todo!(),
+            ExpressionTail::MemberCall { member, args, next } => {
+                todo!()
+            },
             ExpressionTail::BinOp { op, right, next } => {
                 let right_type = self.check_exp(right)?;
                 let op_type = self.check_operator(atom_type, op, right_type)?;
