@@ -57,7 +57,6 @@ pub enum Expression {
         op: BinaryOperator,
         right: Box<Expression>,
     },
-    // Expression(Box<Expression>),
 }
 impl SimpleCodeGen for Expression {
     fn codegen(&self, indent: usize) -> String {

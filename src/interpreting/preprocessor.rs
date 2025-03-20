@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parsing::{ast::{expression::{Expression, BinaryOperator, ConditionBody, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
 use super::{error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment, value::ValueError};
 
@@ -266,8 +266,24 @@ impl CortexPreprocessor {
                     Ok(member_type)
                 }
             },
-            Expression::MemberCall { callee: _, member: _, args: _ } => {
-                todo!()
+            Expression::MemberCall { callee, member, args } => {
+                let atom_type = self.check_exp(callee)?;
+                let caller_type = atom_type.name()?;
+                let caller_func_prefix = caller_type.without_last();
+                let caller_func_base = caller_type.get_back()?;
+                let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
+                let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
+                    .subtract(&self.current_context)?;
+                let func = self.lookup_function(&member_func_path)?;
+                let mut args = args.clone();
+
+                args.insert(0, *callee.clone());
+
+                let return_type = self.clean_type(func.return_type().clone());
+
+                *exp = Expression::Call(member_func_path, args);
+
+                Ok(return_type)
             },
             Expression::BinaryOperation { left, op, right } => {
                 let left_type = self.check_exp(left)?;

@@ -20,6 +20,8 @@ pub enum InterpreterError {
     ValueNotFound(String),
     #[error("Mismatched type found: please run preprocessing on code before executing it")]
     MismatchedTypeNoPreprocess,
+    #[error("Invalid {0} found: please run preprocessing on code before executing it")]
+    InvalidObject(&'static str),
 }
 
 #[derive(Error, Debug, PartialEq)]

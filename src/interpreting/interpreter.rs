@@ -372,26 +372,7 @@ impl CortexInterpreter {
                 }
             },
             Expression::MemberCall { callee: _, member: _, args: _ } => {
-                todo!()
-                // let atom_type = atom.get_type();
-                // let caller_type = atom_type.name()?;
-                // let caller_func_prefix = caller_type.without_last();
-                // let caller_func_base = caller_type.get_back()?;
-                // let member_func_name = Bundle::get_bundle_func_name(caller_func_base, member);
-                // let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
-                //     .subtract(&self.current_context)?;
-                // let func = self.lookup_function(&member_func_path)?;
-                // let mut args = args
-                //     .iter()
-                //     .map(|e| self.evaluate_expression(e))
-                //     .collect::<Result<Vec<CortexValue>, _>>()?;
-                // args.insert(0, atom);
-                
-                // let context_to_return_to = std::mem::replace(&mut self.current_context, caller_func_prefix);
-                // let result = self.call_function(&func, args);
-                // self.current_context = context_to_return_to;
-
-                // Ok(self.handle_expr_tail(result?, next)?)
+                Err(Box::new(InterpreterError::InvalidObject("expression")))
             },
             Expression::BinaryOperation { left, op, right } => {
                 let left = self.evaluate_expression(left)?;
