@@ -233,7 +233,7 @@ impl SimpleCodeGen for OptionalIdentifier {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PathIdent {
     pub(crate) path: Vec<String>,
 }
