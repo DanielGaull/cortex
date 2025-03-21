@@ -1,4 +1,4 @@
-use super::expression::RExpression;
+use super::{expression::{RExpression, RIdentExpression}, function::RInterpretedBody};
 
 pub enum RStatement {
     Expression(RExpression),
@@ -8,10 +8,14 @@ pub enum RStatement {
         is_const: bool,
         initial_value: RExpression,
     },
-    // TODO: add these
-    // Assignment {
-    //     name: IdentExpression,
-    //     value: RExpression,
-    // },
-    // WhileLoop(ConditionBody),
+    Assignment {
+        name: RIdentExpression,
+        value: RExpression,
+    },
+    WhileLoop(RConditionBody),
+}
+
+pub struct RConditionBody {
+    condition: RExpression,
+    body: RInterpretedBody,
 }

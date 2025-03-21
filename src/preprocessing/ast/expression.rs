@@ -1,5 +1,7 @@
 use crate::parsing::ast::expression::{BinaryOperator, UnaryOperator};
 
+use super::{function::RInterpretedBody, statement::RConditionBody};
+
 pub enum RExpression {
     Number(f64),
     Boolean(bool),
@@ -12,12 +14,11 @@ pub enum RExpression {
         assignments: Vec<(String, RExpression)>,
         is_heap_allocated: Option<bool>,
     },
-    // TODO: if statement
-    // IfStatement {
-    //     first: Box<ConditionBody>,
-    //     conds: Vec<ConditionBody>,
-    //     last: Option<Box<BasicBody>>,
-    // },
+    IfStatement {
+        first: Box<RConditionBody>,
+        conds: Vec<RConditionBody>,
+        last: Option<Box<RInterpretedBody>>,
+    },
     UnaryOperation {
         op: UnaryOperator,
         exp: Box<RExpression>,
@@ -30,4 +31,9 @@ pub enum RExpression {
         op: BinaryOperator,
         right: Box<RExpression>,
     },
+}
+
+pub struct RIdentExpression {
+    pub(crate) base: String,
+    pub(crate) chain: Vec<String>,
 }
