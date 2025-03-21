@@ -20,39 +20,38 @@ pub struct RFunction {
 }
 
 pub struct FunctionDictBuilder {
-    functions: HashMap<usize, RFunction>,
+    all_functions: HashMap<PathIdent, RFunction>,
     name_mappings: HashMap<PathIdent, usize>,
     next_id: usize,
 }
 impl FunctionDictBuilder {
     pub fn new() -> Self {
         Self {
-            functions: HashMap::new(),
+            all_functions: HashMap::new(),
             name_mappings: HashMap::new(),
             next_id: 0,
         }
     }
 
-    pub fn add(&mut self, name: PathIdent, function: RFunction) {
-        self.functions.insert(self.next_id, function);
-        self.name_mappings.insert(name, self.next_id);
-        self.next_id += 1;
+    pub fn add_function(&mut self, name: PathIdent, function: RFunction) {
+        self.all_functions.insert(name, function);
     }
-    pub fn get(&self, name: &PathIdent) -> Option<usize> {
-        let id = self.name_mappings.get(name)?;
-        Some(*id)
-    }
-    pub fn add_if_not_exists(&mut self, name: PathIdent, function: RFunction) {
-        if let None = self.get(&name) {
-            self.add(name, function);
+    pub fn add_call(&mut self, name: PathIdent) -> usize {
+        if let Some(id) = self.name_mappings.get(&name) {
+            *id
+        } else {
+            self.name_mappings.insert(name.clone(), self.next_id);
+            let result = self.next_id;
+            self.next_id += 1;
+            result
         }
     }
 
-    pub fn build(self) -> FunctionDict {
+    pub fn build(mut self) -> FunctionDict {
         FunctionDict::new(
-            self.functions
+            self.name_mappings
                 .into_iter()
-                .map(|(k, v)| (k, Rc::new(v)))
+                .map(|(k, v)| (v, Rc::new(self.all_functions.remove(&k).unwrap())))
                 .collect()
         )
     }

@@ -12,7 +12,7 @@ pub enum RExpression {
     Call(usize, Vec<RExpression>),
     Construction {
         assignments: Vec<(String, RExpression)>,
-        is_heap_allocated: Option<bool>,
+        is_heap_allocated: bool,
     },
     IfStatement {
         first: Box<RConditionBody>,

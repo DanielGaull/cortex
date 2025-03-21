@@ -34,7 +34,6 @@ pub enum Expression {
         name: PathIdent,
         type_args: Vec<CortexType>,
         assignments: Vec<(String, Expression)>,
-        is_heap_allocated: Option<bool>,
     },
     IfStatement {
         first: Box<ConditionBody>,
@@ -81,7 +80,7 @@ impl SimpleCodeGen for Expression {
                 s.push_str(")");
                 s
             },
-            Expression::Construction { name, type_args, assignments, is_heap_allocated: _ } => {
+            Expression::Construction { name, type_args, assignments } => {
                 let mut s = String::new();
                 s.push_str(&name.codegen(0));
                 if type_args.len() > 0 {
