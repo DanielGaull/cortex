@@ -3,8 +3,5 @@ pub mod value;
 pub mod env;
 pub mod module;
 mod heap;
-mod type_env;
 pub mod global;
 pub mod error;
-pub mod preprocessor;
-mod type_checking_env;

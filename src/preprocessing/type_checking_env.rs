@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parsing::ast::r#type::CortexType;
-
-use super::env::EnvError;
-
+use crate::{interpreting::env::EnvError, parsing::ast::r#type::CortexType};
 
 pub struct TypeCheckingEnvironment {
     vars: HashMap<String, Var>,
