@@ -1,8 +1,8 @@
-use std::{collections::HashMap, path, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{interpreting::{error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, value::ValueError}, parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen}};
 
-use super::{ast::{expression::RExpression, function::FunctionDictBuilder, statement::RStatement}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
+use super::{ast::{expression::RExpression, function::{FunctionDictBuilder, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
 
 pub type CheckResult<T> = Result<(T, CortexType), CortexError>;
@@ -86,47 +86,55 @@ impl CortexPreprocessor {
         Ok(module)
     }
 
-    pub fn preprocess_statement(&mut self, statement: &mut Statement) -> Result<(), CortexError> {
-        self.check_statement(statement)?;
-        Ok(())
+    pub fn preprocess_statement(&mut self, statement: Statement) -> Result<RStatement, CortexError> {
+        Ok(self.check_statement(statement)?)
     }
 
-    pub fn check_function(&mut self, function: &mut Function) -> Result<(), CortexError> {
+    pub fn check_function(&mut self, function: Function) -> Result<RFunction, CortexError> {
         let parent_env = self.current_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         let mut new_env = TypeCheckingEnvironment::new(*parent_env);
-        for p in &function.params {
+        let mut params = Vec::new();
+        for p in function.params {
             let param_type = self.clean_type(p.typ.clone().with_prefix_if_not_core(&self.current_context));
             new_env.add(p.name.clone(), param_type, false)?;
+            params.push(p.name);
         }
         self.current_env = Some(Box::new(new_env));
 
         // Do check body
-        if let Body::Basic(body) = &mut function.body {
-            let body_type = self.check_body(body)?;
-            if !body_type.is_subtype_of(&function.return_type) {
-                return Err(Box::new(PreprocessingError::ReturnTypeMismatch(function.return_type.codegen(0), body_type.codegen(0))));
-            }
+        let final_fn_body;
+        match function.body {
+            Body::Basic(body) => {
+                let (new_body, body_type) = self.check_body(body)?;
+                if !body_type.is_subtype_of(&function.return_type) {
+                    return Err(Box::new(PreprocessingError::ReturnTypeMismatch(function.return_type.codegen(0), body_type.codegen(0))));
+                }
+                final_fn_body = RBody::Interpreted(new_body);
+            },
+            Body::Native(native_body) => {
+                final_fn_body = RBody::Native(native_body);
+            },
         }
 
         self.current_env = Some(Box::new(self.current_env.take().unwrap().exit()?));
 
-        Ok(())
+        Ok(RFunction::new(params, final_fn_body))
     }
 
     fn check_statement(&mut self, statement: Statement) -> Result<RStatement, CortexError> {
         match statement {
             Statement::Expression(expression) => {
-                self.check_exp(expression)?;
-                Ok(())
+                let (exp, _) = self.check_exp(expression)?;
+                Ok(RStatement::Expression(exp))
             },
             Statement::Throw(expression) => {
-                self.check_exp(expression)?;
-                Ok(())
+                let (exp, _) = self.check_exp(expression)?;
+                Ok(RStatement::Throw(exp))
             },
             Statement::VariableDeclaration { name, is_const, typ, initial_value } => {
                 match name {
                     OptionalIdentifier::Ident(ident) => {
-                        let assigned_type = self.check_exp(initial_value)?;
+                        let (assigned_exp, assigned_type) = self.check_exp(initial_value)?;
                         let type_of_var = if let Some(declared_type) = typ {
                             if !assigned_type.is_subtype_of(&declared_type) {
                                 return Err(
@@ -144,20 +152,20 @@ impl CortexPreprocessor {
                             assigned_type
                         };
 
-                        self.current_env.as_mut().unwrap().add(ident.clone(), type_of_var, *is_const)?;
+                        self.current_env.as_mut().unwrap().add(ident.clone(), type_of_var, is_const)?;
 
-                        Ok(())
+                        Ok(RStatement::VariableDeclaration { name: ident, is_const: is_const, initial_value: assigned_exp })
                     },
                     OptionalIdentifier::Ignore => {
-                        self.check_exp(initial_value)?;
-                        Ok(())
+                        let (exp, _) = self.check_exp(initial_value)?;
+                        Ok(RStatement::Expression(exp))
                     },
                 }
             },
             Statement::Assignment { name, value } => {
+                let (assigned_exp, assigned_type) = self.check_exp(value)?;
                 if name.is_simple() {
                     let var_name = &name.base;
-                    let assigned_type = self.check_exp(value)?;
                     let var_type = &self.current_env.as_ref().unwrap().get(var_name)?.clone();
                     if !assigned_type.is_subtype_of(var_type) {
                         return Err(
@@ -178,14 +186,10 @@ impl CortexPreprocessor {
                             )
                         )
                     }
-
-                    Ok(())
                 } else {
-                    let mut name_expr = name.clone().to_member_access_expr();
-                    let var_type = self.check_exp(&mut name_expr)?;
-                    // let var_name = &name.base;
+                    let name_expr = name.clone().to_member_access_expr();
+                    let (_, var_type) = self.check_exp(name_expr)?;
                     let chain = name.chain.clone();
-                    let assigned_type = self.check_exp(value)?;
                     if !assigned_type.is_subtype_of(&var_type) {
                         return Err(
                             Box::new(
@@ -197,25 +201,26 @@ impl CortexPreprocessor {
                             )
                         );
                     }
-                    Ok(())
                 }
+
+                Ok(RStatement::Assignment { name: name.into(), value: assigned_exp })
             },
             Statement::WhileLoop(condition_body) => {
-                let cond = self.check_exp(&mut condition_body.condition)?;
-                if !cond.is_subtype_of(&CortexType::boolean(false)) {
+                let (cond, cond_type) = self.check_exp(condition_body.condition)?;
+                if !cond_type.is_subtype_of(&CortexType::boolean(false)) {
                     return Err(
                         Box::new(
                             PreprocessingError::MismatchedType(
                                 String::from("bool"),
-                                cond.codegen(0),
+                                cond_type.codegen(0),
                                 String::from("while condition"),
                             )
                         )
                     );
                 }
 
-                let body = self.check_body(&mut condition_body.body)?;
-                if !body.is_subtype_of(&CortexType::void(false)) {
+                let (body, body_type) = self.check_body(condition_body.body)?;
+                if !body_type.is_subtype_of(&CortexType::void(false)) {
                     return Err(
                         Box::new(
                             PreprocessingError::LoopCannotHaveReturnValue
@@ -223,7 +228,7 @@ impl CortexPreprocessor {
                     );
                 }
 
-                Ok(())
+                Ok(RStatement::WhileLoop(RConditionBody::new(cond, body)))
             },
         }
     }
@@ -342,9 +347,13 @@ impl CortexPreprocessor {
             .clone()
             .with_prefix_if_not_core(&self.current_context)
             .with_prefix_if_not_core(&path_ident.without_last());
+
+        let mut processed_args = Vec::new();
         let mut arg_types = Vec::new();
-        for a in arg_exps.iter_mut() {
-            arg_types.push(self.check_exp(a)?);
+        for a in arg_exps.into_iter() {
+            let (arg, typ) = self.check_exp(a)?;
+            arg_types.push(typ);
+            processed_args.push(arg);
         }
 
         let mut param_names = Vec::<String>::with_capacity(func.params.len());
@@ -362,8 +371,7 @@ impl CortexPreprocessor {
         }
         self.current_type_env = Some(Box::new(new_type_env));
 
-        for (i, arg) in arg_exps.iter_mut().enumerate() {
-            let arg_type = self.check_exp(arg)?;
+        for (i, arg_type) in arg_types.into_iter().enumerate() {
             let arg_type = self.clean_type(arg_type);
             let param_type = self.clean_type(param_types.get(i).unwrap().clone().with_prefix_if_not_core(&self.current_context));
             if !arg_type.is_subtype_of(&param_type) {
@@ -384,15 +392,8 @@ impl CortexPreprocessor {
         self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
 
         let func_id = self.function_dict_builder.add_call(path_ident);
-        let args = arg_exps
-            .into_iter()
-            .map(|e| self.check_exp(e))
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .map(|r| r.0)
-            .collect();
 
-        Ok((RExpression::Call(func_id, args), return_type))
+        Ok((RExpression::Call(func_id, processed_args), return_type))
     }
     fn check_construction(&mut self, name: PathIdent, type_args: Vec<CortexType>, assignments: Vec<(String, Expression)>) -> CheckResult<RExpression> {
         let composite = self.lookup_composite(&name)?;
@@ -406,7 +407,7 @@ impl CortexPreprocessor {
             fields_to_assign.push(k.clone());
         }
 
-        let bindings = TypeEnvironment::create_bindings(&composite.type_param_names, type_args);
+        let bindings = TypeEnvironment::create_bindings(&composite.type_param_names, &type_args);
         let mut new_assignments = Vec::new();
         for (fname, fvalue) in assignments {
             let opt_typ = composite.fields
@@ -429,7 +430,7 @@ impl CortexPreprocessor {
                     );
                 }
 
-                new_assignments.push((fname, exp));
+                new_assignments.push((fname.clone(), exp));
 
                 let index_opt = fields_to_assign.iter().position(|x| *x == *fname);
                 if let Some(index) = index_opt {
@@ -465,10 +466,11 @@ impl CortexPreprocessor {
                 )
             );
         }
-        let mut the_type = self.check_body(&mut first.body)?;
+        let (first_body, mut the_type) = self.check_body(first.body)?;
         
+        let mut condition_bodies = Vec::<RConditionBody>::new();
         for c in conds {
-            let cond_typ = self.check_exp(&mut c.condition)?;
+            let (cond, cond_typ) = self.check_exp(c.condition)?;
             if !cond_typ.is_subtype_of(&CortexType::boolean(false)) {
                 return Err(
                     Box::new(
@@ -480,18 +482,21 @@ impl CortexPreprocessor {
                     )
                 );
             }
-            let typ = self.check_body(&mut c.body)?;
+            let (body, typ) = self.check_body(c.body)?;
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
             let next = the_type.combine_with(typ);
             if let Some(t) = next {
                 the_type = t;
+                condition_bodies.push(RConditionBody::new(cond, body));
             } else {
                 return Err(Box::new(PreprocessingError::IfArmsDoNotMatch(the_type_str, typ_str)));
             }
         }
+        let mut final_body = None;
         if let Some(fin) = last {
-            let typ = self.check_body(fin)?;
+            let (body, typ) = self.check_body(fin)?;
+            final_body = Some(Box::new(body));
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
             let next = the_type.combine_with(typ);
@@ -504,17 +509,24 @@ impl CortexPreprocessor {
             return Err(Box::new(PreprocessingError::IfRequiresElseBlock));
         }
 
-        Ok(the_type)
+        Ok((RExpression::IfStatement { 
+            first: Box::new(RConditionBody::new(cond_exp, first_body)),
+            conds: condition_bodies,
+            last: final_body,
+        }, the_type))
     }
 
-    fn check_body(&mut self, body: &mut BasicBody) -> CheckResult {
-        for st in &mut body.statements {
-            self.check_statement(st)?;
+    fn check_body(&mut self, body: BasicBody) -> CheckResult<RInterpretedBody> {
+        let mut statements = Vec::new();
+        for st in body.statements {
+            let s = self.check_statement(st)?;
+            statements.push(s);
         }
-        if let Some(exp) = &mut body.result {
-            Ok(self.check_exp(exp)?)
+        if let Some(exp) = body.result {
+            let (exp, typ) = self.check_exp(exp)?;
+            Ok((RInterpretedBody::new(statements, Some(exp)), typ))
         } else {
-            Ok(CortexType::void(false))
+            Ok((RInterpretedBody::new(statements, None), CortexType::void(false)))
         }
     }
 

@@ -19,3 +19,11 @@ pub struct RConditionBody {
     condition: RExpression,
     body: RInterpretedBody,
 }
+impl RConditionBody {
+    pub fn new(condition: RExpression, body: RInterpretedBody) -> Self {
+        RConditionBody {
+            condition,
+            body,
+        }
+    }
+}

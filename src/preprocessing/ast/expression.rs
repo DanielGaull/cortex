@@ -1,4 +1,4 @@
-use crate::parsing::ast::expression::{BinaryOperator, UnaryOperator};
+use crate::parsing::ast::expression::{BinaryOperator, IdentExpression, UnaryOperator};
 
 use super::{function::RInterpretedBody, statement::RConditionBody};
 
@@ -36,4 +36,12 @@ pub enum RExpression {
 pub struct RIdentExpression {
     pub(crate) base: String,
     pub(crate) chain: Vec<String>,
+}
+impl From<IdentExpression> for RIdentExpression {
+    fn from(value: IdentExpression) -> Self {
+        RIdentExpression {
+            base: value.base,
+            chain: value.chain,
+        }
+    }
 }

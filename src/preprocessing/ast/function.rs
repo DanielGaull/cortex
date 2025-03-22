@@ -13,10 +13,32 @@ pub struct RInterpretedBody {
     statements: Vec<RStatement>,
     result: Option<RExpression>,
 }
+impl RInterpretedBody {
+    pub(crate) fn empty() -> Self {
+        RInterpretedBody {
+            statements: Vec::new(),
+            result: None
+        }
+    }
+    pub(crate) fn new(statements: Vec<RStatement>, result: Option<RExpression>) -> Self {
+        RInterpretedBody {
+            statements,
+            result,
+        }
+    }
+}
 
 pub struct RFunction {
     params: Vec<String>,
     body: RBody,
+}
+impl RFunction {
+    pub(crate) fn new(params: Vec<String>, body: RBody) -> Self {
+        RFunction {
+            params,
+            body,
+        }
+    }
 }
 
 pub struct FunctionDictBuilder {
