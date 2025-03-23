@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, rc::Rc};
 
 use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
-use super::{ast::{expression::RExpression, function::{FunctionDictBuilder, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{CompositeType, Module, ModuleError}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
+use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{CompositeType, Module, ModuleError}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
 type CortexError = Box<dyn Error>;
 pub type CheckResult<T> = Result<(T, CortexType), CortexError>;
@@ -13,7 +13,7 @@ pub struct CortexPreprocessor {
     current_context: PathIdent,
     current_type_env: Option<Box<TypeEnvironment>>,
     global_module: Module,
-    function_dict_builder: FunctionDictBuilder,
+    function_dict: FunctionDict,
 }
 
 impl CortexPreprocessor {
@@ -24,7 +24,7 @@ impl CortexPreprocessor {
             current_context: PathIdent::empty(),
             current_type_env: Some(Box::new(TypeEnvironment::base())),
             global_module: Module::new(),
-            function_dict_builder: FunctionDictBuilder::new(),
+            function_dict: FunctionDict::new(),
         };
 
         Self::add_list_funcs(&mut this.global_module)?;
@@ -63,23 +63,22 @@ impl CortexPreprocessor {
         }
     }
 
-    pub fn preprocess(mut self, statements: Vec<Statement>) -> Result<Program, CortexError> {
+    pub fn preprocess(&mut self, statements: Vec<Statement>) -> Result<(Program, &FunctionDict), CortexError> {
         let mut processed_statements = Vec::new();
         for st in statements {
             let pst = self.check_statement(st)?;
             processed_statements.push(pst);
         }
 
-        for p in self.function_dict_builder.referenced_functions() {
+        for p in self.function_dict.referenced_functions() {
             let f = self.take_function(&p)?;
             let processed = self.check_function(f)?;
-            self.function_dict_builder.add_function(p, processed);
+            self.function_dict.add_function(p, processed);
         }
 
-        Ok(Program {
-            functions: self.function_dict_builder.build(),
+        Ok((Program {
             code: processed_statements,
-        })
+        }, &self.function_dict))
     }
 
     fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
@@ -336,7 +335,7 @@ impl CortexPreprocessor {
 
                 let return_type = self.clean_type(func.return_type().clone());
 
-                let id = self.function_dict_builder.add_call(member_func_path);
+                let id = self.function_dict.add_call(member_func_path);
 
                 Ok((RExpression::Call(id, args), return_type))
             },
@@ -407,7 +406,7 @@ impl CortexPreprocessor {
 
         self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
 
-        let func_id = self.function_dict_builder.add_call(path_ident);
+        let func_id = self.function_dict.add_call(path_ident);
 
         Ok((RExpression::Call(func_id, processed_args), return_type))
     }

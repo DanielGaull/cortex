@@ -41,28 +41,31 @@ impl RFunction {
     }
 }
 
-pub struct FunctionDictBuilder {
+pub struct FunctionDict {
     all_functions: HashMap<PathIdent, RFunction>,
-    name_mappings: HashMap<PathIdent, usize>,
+    name_to_id: HashMap<PathIdent, usize>,
+    id_to_name: HashMap<usize, PathIdent>,
     next_id: usize,
 }
-impl FunctionDictBuilder {
+impl FunctionDict {
     pub fn new() -> Self {
         Self {
             all_functions: HashMap::new(),
-            name_mappings: HashMap::new(),
+            name_to_id: HashMap::new(),
+            id_to_name: HashMap::new(),
             next_id: 0,
         }
     }
 
-    pub fn add_function(&mut self, name: PathIdent, function: RFunction) {
+    pub(crate) fn add_function(&mut self, name: PathIdent, function: RFunction) {
         self.all_functions.insert(name, function);
     }
-    pub fn add_call(&mut self, name: PathIdent) -> usize {
-        if let Some(id) = self.name_mappings.get(&name) {
+    pub(crate) fn add_call(&mut self, name: PathIdent) -> usize {
+        if let Some(id) = self.name_to_id.get(&name) {
             *id
         } else {
-            self.name_mappings.insert(name.clone(), self.next_id);
+            self.name_to_id.insert(name.clone(), self.next_id);
+            self.id_to_name.insert(self.next_id, name);
             let result = self.next_id;
             self.next_id += 1;
             result
@@ -70,30 +73,12 @@ impl FunctionDictBuilder {
     }
 
     pub(crate) fn referenced_functions(&self) -> Vec<PathIdent> {
-        self.name_mappings.keys().cloned().collect()
+        self.name_to_id.keys().cloned().collect()
     }
 
-    pub fn build(mut self) -> FunctionDict {
-        FunctionDict::new(
-            self.name_mappings
-                .into_iter()
-                .map(|(k, v)| (v, Rc::new(self.all_functions.remove(&k).unwrap())))
-                .collect()
-        )
-    }
-}
-
-pub struct FunctionDict {
-    functions: HashMap<usize, Rc<RFunction>>,
-}
-impl FunctionDict {
-    pub fn new(map: HashMap<usize, Rc<RFunction>>) -> Self {
-        Self {
-            functions: map,
-        }
-    }
-
-    pub fn get(&self, id: usize) -> Option<&Rc<RFunction>> {
-        self.functions.get(&id)
+    pub(crate) fn get(&self, id: usize) -> Option<&RFunction> {
+        let name = self.id_to_name.get(&id)?;
+        let func = self.all_functions.get(name)?;
+        Some(func)
     }
 }
