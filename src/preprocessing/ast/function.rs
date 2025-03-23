@@ -69,6 +69,10 @@ impl FunctionDictBuilder {
         }
     }
 
+    pub(crate) fn referenced_functions(&self) -> Vec<PathIdent> {
+        self.name_mappings.keys().cloned().collect()
+    }
+
     pub fn build(mut self) -> FunctionDict {
         FunctionDict::new(
             self.name_mappings

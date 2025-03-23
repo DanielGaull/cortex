@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, rc::Rc};
 
 use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
-use super::{ast::{expression::RExpression, function::{FunctionDictBuilder, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{CompositeType, Module, ModuleError}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
+use super::{ast::{expression::RExpression, function::{FunctionDictBuilder, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{CompositeType, Module, ModuleError}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
 type CortexError = Box<dyn Error>;
 pub type CheckResult<T> = Result<(T, CortexType), CortexError>;
@@ -63,6 +63,25 @@ impl CortexPreprocessor {
         }
     }
 
+    pub fn preprocess(mut self, statements: Vec<Statement>) -> Result<Program, CortexError> {
+        let mut processed_statements = Vec::new();
+        for st in statements {
+            let pst = self.check_statement(st)?;
+            processed_statements.push(pst);
+        }
+
+        for p in self.function_dict_builder.referenced_functions() {
+            let f = self.take_function(&p)?;
+            let processed = self.check_function(f)?;
+            self.function_dict_builder.add_function(p, processed);
+        }
+
+        Ok(Program {
+            functions: self.function_dict_builder.build(),
+            code: processed_statements,
+        })
+    }
+
     fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
         let mut module = Module::new();
         for item in contents.into_iter() {
@@ -86,11 +105,7 @@ impl CortexPreprocessor {
         Ok(module)
     }
 
-    pub fn preprocess_statement(&mut self, statement: Statement) -> Result<RStatement, CortexError> {
-        Ok(self.check_statement(statement)?)
-    }
-
-    pub fn check_function(&mut self, function: Function) -> Result<RFunction, CortexError> {
+    fn check_function(&mut self, function: Function) -> Result<RFunction, CortexError> {
         let parent_env = self.current_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         let mut new_env = TypeCheckingEnvironment::new(*parent_env);
         let mut params = Vec::new();
@@ -309,7 +324,6 @@ impl CortexPreprocessor {
                 let member_func_name = Bundle::get_bundle_func_name(caller_func_base, &member);
                 let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
                     .subtract(&self.current_context)?;
-                let func = self.lookup_function(&member_func_path)?;
                 let mut args: Vec<RExpression> = args
                     .into_iter()
                     .map(|a| self.check_exp(a))
@@ -317,6 +331,7 @@ impl CortexPreprocessor {
                     .into_iter()
                     .map(|a| a.0)
                     .collect();
+                let func = self.lookup_function(&member_func_path)?;
                 args.push(atom_exp);
 
                 let return_type = self.clean_type(func.return_type().clone());
@@ -334,11 +349,20 @@ impl CortexPreprocessor {
         }
     }
     fn check_call(&mut self, path_ident: PathIdent, arg_exps: Vec<Expression>) -> CheckResult<RExpression> {
+        let provided_arg_count = arg_exps.len();
+        let mut processed_args = Vec::new();
+        let mut arg_types = Vec::new();
+        for a in arg_exps.into_iter() {
+            let (arg, typ) = self.check_exp(a)?;
+            arg_types.push(typ);
+            processed_args.push(arg);
+        }
+        
         let func = self.lookup_function(&path_ident)?;
 
-        if arg_exps.len() != func.params.len() {
+        if provided_arg_count != func.params.len() {
             return Err(Box::new(
-                PreprocessingError::MismatchedArgumentCount(func.name.codegen(0), func.params.len(), arg_exps.len())
+                PreprocessingError::MismatchedArgumentCount(func.name.codegen(0), func.params.len(), provided_arg_count)
             ));
         }
 
@@ -348,14 +372,6 @@ impl CortexPreprocessor {
             .with_prefix_if_not_core(&self.current_context)
             .with_prefix_if_not_core(&path_ident.without_last());
 
-        let mut processed_args = Vec::new();
-        let mut arg_types = Vec::new();
-        for a in arg_exps.into_iter() {
-            let (arg, typ) = self.check_exp(a)?;
-            arg_types.push(typ);
-            processed_args.push(arg);
-        }
-
         let mut param_names = Vec::<String>::with_capacity(func.params.len());
         let mut param_types = Vec::<CortexType>::with_capacity(func.params.len());
         for param in &func.params {
@@ -363,7 +379,7 @@ impl CortexPreprocessor {
             param_types.push(param.typ.clone());
         }
 
-        let bindings = self.infer_type_args(&func, &arg_types)?;
+        let bindings = self.infer_type_args(func, &arg_types)?;
         let parent_type_env = self.current_type_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         let mut new_type_env = TypeEnvironment::new(*parent_type_env);
         for (name, typ) in &bindings {
@@ -648,7 +664,7 @@ impl CortexPreprocessor {
         }
         Ok(bindings)
     }
-    fn infer_type_args(&self, func: &Rc<Function>, args: &Vec<CortexType>) -> Result<HashMap<String, CortexType>, CortexError> {
+    fn infer_type_args(&self, func: &Function, args: &Vec<CortexType>) -> Result<HashMap<String, CortexType>, CortexError> {
         let mut bindings = HashMap::<String, CortexType>::new();
         for (arg, param) in args.iter().zip(&func.params) {
             self.infer_arg(&param.typ, &arg, &func.type_param_names, &mut bindings, param.name())?;
@@ -731,7 +747,7 @@ impl CortexPreprocessor {
         }
     }
     
-    fn lookup_function(&self, path: &PathIdent) -> Result<Rc<Function>, CortexError> {
+    fn lookup_function(&self, path: &PathIdent) -> Result<&Function, CortexError> {
         let last = path.get_back()?;
         let module = self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?;
         let result = module.get_function(last);
@@ -741,6 +757,17 @@ impl CortexPreprocessor {
             Err(e) => Err(Box::new(e)),
         }
     }
+    fn take_function(&mut self, path: &PathIdent) -> Result<Function, CortexError> {
+        let last = path.get_back()?;
+        let module = self.base_module.get_module_for_mut(&PathIdent::concat(&self.current_context, path))?;
+        let result = module.take_function(last);
+        match result {
+            Ok(f) => Ok(f),
+            Err(ModuleError::FunctionDoesNotExist(_)) => Ok(self.global_module.take_function(last)?),
+            Err(e) => Err(Box::new(e)),
+        }
+    }
+
     fn lookup_composite(&self, path: &PathIdent) -> Result<Rc<CompositeType>, CortexError> {
         let last = path.get_back()?;
         let module = self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?;
