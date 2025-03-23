@@ -16,8 +16,8 @@ pub enum RStatement {
 }
 
 pub struct RConditionBody {
-    condition: RExpression,
-    body: RInterpretedBody,
+    pub(crate) condition: RExpression,
+    pub(crate) body: RInterpretedBody,
 }
 impl RConditionBody {
     pub fn new(condition: RExpression, body: RInterpretedBody) -> Self {

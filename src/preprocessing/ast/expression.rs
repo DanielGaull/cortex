@@ -45,3 +45,8 @@ impl From<IdentExpression> for RIdentExpression {
         }
     }
 }
+impl RIdentExpression {
+    pub fn is_simple(&self) -> bool {
+        self.chain.is_empty()
+    }
+}

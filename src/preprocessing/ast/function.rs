@@ -10,16 +10,10 @@ pub enum RBody {
 }
 
 pub struct RInterpretedBody {
-    statements: Vec<RStatement>,
-    result: Option<RExpression>,
+    pub(crate) statements: Vec<RStatement>,
+    pub(crate) result: Option<RExpression>,
 }
 impl RInterpretedBody {
-    pub(crate) fn empty() -> Self {
-        RInterpretedBody {
-            statements: Vec::new(),
-            result: None
-        }
-    }
     pub(crate) fn new(statements: Vec<RStatement>, result: Option<RExpression>) -> Self {
         RInterpretedBody {
             statements,
@@ -29,8 +23,8 @@ impl RInterpretedBody {
 }
 
 pub struct RFunction {
-    params: Vec<String>,
-    body: RBody,
+    pub(crate) params: Vec<String>,
+    pub(crate) body: RBody,
 }
 impl RFunction {
     pub(crate) fn new(params: Vec<String>, body: RBody) -> Self {
@@ -42,7 +36,7 @@ impl RFunction {
 }
 
 pub struct FunctionDict {
-    all_functions: HashMap<PathIdent, RFunction>,
+    all_functions: HashMap<PathIdent, Rc<RFunction>>,
     name_to_id: HashMap<PathIdent, usize>,
     id_to_name: HashMap<usize, PathIdent>,
     next_id: usize,
@@ -58,7 +52,7 @@ impl FunctionDict {
     }
 
     pub(crate) fn add_function(&mut self, name: PathIdent, function: RFunction) {
-        self.all_functions.insert(name, function);
+        self.all_functions.insert(name, Rc::new(function));
     }
     pub(crate) fn add_call(&mut self, name: PathIdent) -> usize {
         if let Some(id) = self.name_to_id.get(&name) {
@@ -76,7 +70,7 @@ impl FunctionDict {
         self.name_to_id.keys().cloned().collect()
     }
 
-    pub(crate) fn get(&self, id: usize) -> Option<&RFunction> {
+    pub(crate) fn get(&self, id: usize) -> Option<&Rc<RFunction>> {
         let name = self.id_to_name.get(&id)?;
         let func = self.all_functions.get(name)?;
         Some(func)

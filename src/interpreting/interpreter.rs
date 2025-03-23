@@ -1,23 +1,25 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::{parsing::{ast::{expression::{BinaryOperator, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{Body, Function, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::module::{Module, ModuleError}};
+use crate::{parsing::ast::{expression::{BinaryOperator, PathIdent, UnaryOperator}, top_level::TopLevel}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement}, module::Module, preprocessor::CortexPreprocessor, program::Program}};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
 
 pub struct CortexInterpreter {
-    base_module: Module,
+    preprocessor: CortexPreprocessor,
     current_env: Option<Box<Environment>>,
     heap: Heap,
-    global_module: Module,
 }
 
 impl CortexInterpreter {
     pub fn new() -> Result<Self, CortexError> {
         Ok(CortexInterpreter {
-            base_module: Module::new(),
+            preprocessor: CortexPreprocessor::new()?,
             current_env: Some(Box::new(Environment::base())),
             heap: Heap::new(),
-            global_module: Module::new(),
         })
+    }
+
+    pub fn execute(&mut self, program: Program) -> Result<(), CortexError> {
+        todo!()
     }
 
     pub fn gc(&mut self) {
@@ -45,88 +47,35 @@ impl CortexInterpreter {
     }
 
     pub fn register_module(&mut self, path: &PathIdent, module: Module) -> Result<(), CortexError> {
-        self.base_module.add_module(path, module)?;
-        Ok(())
+        self.preprocessor.register_module(path, module)
     }
 
     pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {
-        match top_level {
-            TopLevel::Import { name: _, is_string_import: _ } => {
-                todo!("Imports are currently not supported!")
-            },
-            TopLevel::Module { name, contents } => {
-                let module = Self::construct_module(contents)?;
-                self.register_module(&PathIdent::simple(name), module)?;
-                Ok(())
-            },
-            TopLevel::Function(function) => {
-                self.base_module.add_function(function)?;
-                Ok(())
-            },
-            TopLevel::Struct(struc) => {
-                self.base_module.add_struct(struc)?;
-                Ok(())
-            },
-            TopLevel::Bundle(bundle) => {
-                self.base_module.add_bundle(bundle)?;
-                Ok(())
-            },
-        }
+        self.preprocessor.run_top_level(top_level)
     }
 
-    fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
-        let mut module = Module::new();
-        for item in contents.into_iter() {
-            match item {
-                TopLevel::Import { name: _, is_string_import: _ } => todo!("Imports are currently not supported!"),
-                TopLevel::Module { name: submod_name, contents } => {
-                    let new_module = Self::construct_module(contents)?;
-                    module.add_child(submod_name, new_module)?;
-                },
-                TopLevel::Function(function) => {
-                    module.add_function(function)?;
-                },
-                TopLevel::Struct(item) => {
-                    module.add_struct(item)?;
-                },
-                TopLevel::Bundle(item) => {
-                    module.add_bundle(item)?;
-                },
-            }
-        }
-        Ok(module)
-    }
-
-    pub fn run_statement(&mut self, statement: &Statement) -> Result<(), CortexError> {
+    fn run_statement(&mut self, statement: &RStatement) -> Result<(), CortexError> {
         match statement {
-            Statement::Expression(expression) => {
+            RStatement::Expression(expression) => {
                 self.evaluate_expression(expression)?;
                 Ok(())
             },
-            Statement::Throw(expr) => {
+            RStatement::Throw(expr) => {
                 let val = self.evaluate_expression(expr)?;
                 Err(Box::new(InterpreterError::ProgramThrow(val)))
             },
-            Statement::VariableDeclaration { 
-                name, is_const, typ: _, initial_value 
+            RStatement::VariableDeclaration { 
+                name, is_const, initial_value 
             } => {
-                match name {
-                    OptionalIdentifier::Ident(ident) => {
-                        let value = self.evaluate_expression(initial_value)?;
-                        if *is_const {
-                            self.current_env.as_mut().unwrap().add_const(ident.clone(), value)?;
-                        } else {
-                            self.current_env.as_mut().unwrap().add_var(ident.clone(), value)?;
-                        }
-                        Ok(())
-                    },
-                    OptionalIdentifier::Ignore => {
-                        self.evaluate_expression(initial_value)?;
-                        Ok(())
-                    },
+                let value = self.evaluate_expression(initial_value)?;
+                if *is_const {
+                    self.current_env.as_mut().unwrap().add_const(name.clone(), value)?;
+                } else {
+                    self.current_env.as_mut().unwrap().add_var(name.clone(), value)?;
                 }
+                Ok(())
             },
-            Statement::Assignment { name, value } => {
+            RStatement::Assignment { name, value } => {
                 if name.is_simple() {
                     let var_name = &name.base;
                     let value = self.evaluate_expression(value)?;
@@ -141,7 +90,7 @@ impl CortexInterpreter {
                     Ok(())
                 }
             },
-            Statement::WhileLoop(condition_body) => {
+            RStatement::WhileLoop(condition_body) => {
                 loop {
                     let cond = self.evaluate_expression(&condition_body.condition)?;
                     if let CortexValue::Boolean(b) = cond {
@@ -267,21 +216,20 @@ impl CortexInterpreter {
             },
         }
     }
-    pub fn evaluate_expression(&mut self, exp: &Expression) -> Result<CortexValue, CortexError> {
+    fn evaluate_expression(&mut self, exp: &RExpression) -> Result<CortexValue, CortexError> {
         match exp {
-            Expression::Boolean(v) => Ok(CortexValue::Boolean(*v)),
-            Expression::Number(v) => Ok(CortexValue::Number(*v)),
-            Expression::String(v) => Ok(CortexValue::String(v.clone())),
-            Expression::Void => Ok(CortexValue::Void),
-            Expression::None => Ok(CortexValue::None),
-            Expression::PathIdent(path) => Ok(self.lookup_value(path)?),
-            Expression::Call(path_ident, expressions) => {
-                let func = self.lookup_function(path_ident)?;
+            RExpression::Boolean(v) => Ok(CortexValue::Boolean(*v)),
+            RExpression::Number(v) => Ok(CortexValue::Number(*v)),
+            RExpression::String(v) => Ok(CortexValue::String(v.clone())),
+            RExpression::Void => Ok(CortexValue::Void),
+            RExpression::None => Ok(CortexValue::None),
+            RExpression::Identifier(path) => Ok(self.lookup_value(path)?),
+            RExpression::Call(id, expressions) => {
+                let func = self.lookup_function(*id)?.clone();
                 let func_result = self.run_function(&func, expressions.iter().collect());
                 Ok(func_result?)
             },
-            Expression::Construction { name: _, type_args: _, assignments } => {
-                let is_heap_allocated = &false;
+            RExpression::Construction { assignments, is_heap_allocated } => {
                 if !*is_heap_allocated {
                     Ok(self.construct_struct(assignments)?)
                 } else {
@@ -290,24 +238,24 @@ impl CortexInterpreter {
                     Ok(CortexValue::Reference(addr))
                 }
             },
-            Expression::IfStatement { first, conds, last } => {
+            RExpression::IfStatement { first, conds, last } => {
                 let cond = self.evaluate_expression(&first.condition)?;
                 if let CortexValue::Boolean(b) = cond {
                     if b {
-                        self.evaluate_body(&Body::Basic(first.body.clone()))
+                        self.evaluate_interpreted_body(&first.body)
                     } else {
                         for c in conds {
                             let cond = self.evaluate_expression(&c.condition)?;
                             if let CortexValue::Boolean(b) = cond {
                                 if b {
-                                    return Ok(self.evaluate_body(&Body::Basic(c.body.clone()))?);
+                                    return Ok(self.evaluate_interpreted_body(&c.body)?);
                                 }
                             } else {
                                 return Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess));
                             }
                         }
                         if let Some(c) = last {
-                            Ok(self.evaluate_body(&Body::Basic(*c.clone()))?)
+                            Ok(self.evaluate_interpreted_body(&*c)?)
                         } else {
                             Ok(CortexValue::Void)
                         }
@@ -316,7 +264,7 @@ impl CortexInterpreter {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
-            Expression::UnaryOperation { op, exp } => {
+            RExpression::UnaryOperation { op, exp } => {
                 let val = self.evaluate_expression(exp)?;
                 match op {
                     UnaryOperator::Negate => {
@@ -335,7 +283,7 @@ impl CortexInterpreter {
                     },
                 }
             },
-            Expression::ListLiteral(items) => {
+            RExpression::ListLiteral(items) => {
                 let values = items
                     .iter()
                     .map(|e| self.evaluate_expression(e))
@@ -343,7 +291,7 @@ impl CortexInterpreter {
                 let addr = self.heap.allocate(CortexValue::List(values));
                 Ok(CortexValue::Reference(addr))
             },
-            Expression::Bang(inner) => {
+            RExpression::Bang(inner) => {
                 let inner = self.evaluate_expression(inner)?;
                 if let CortexValue::None = inner {
                     Err(Box::new(InterpreterError::BangCalledOnNoneValue))
@@ -351,7 +299,7 @@ impl CortexInterpreter {
                     Ok(inner)
                 }
             },
-            Expression::MemberAccess(inner, member) => {
+            RExpression::MemberAccess(inner, member) => {
                 let inner = self.evaluate_expression(inner)?;
                 if let CortexValue::Reference(addr) = inner {
                     let val = self.heap
@@ -365,10 +313,7 @@ impl CortexInterpreter {
                     Ok(inner.get_field(member)?.borrow().clone())
                 }
             },
-            Expression::MemberCall { callee: _, member: _, args: _ } => {
-                Err(Box::new(InterpreterError::InvalidObject("expression")))
-            },
-            Expression::BinaryOperation { left, op, right } => {
+            RExpression::BinaryOperation { left, op, right } => {
                 let left = self.evaluate_expression(left)?;
                 let right = self.evaluate_expression(right)?;
                 let result = self.evaluate_op(left, op, right)?;
@@ -386,7 +331,7 @@ impl CortexInterpreter {
     }
     fn construct_struct(
         &mut self,
-        assignments: &Vec<(String, Expression)>,
+        assignments: &Vec<(String, RExpression)>,
     ) -> Result<CortexValue, CortexError> {
         let mut values = HashMap::<String, Rc<RefCell<CortexValue>>>::new();
         for (fname, value) in assignments {
@@ -419,7 +364,7 @@ impl CortexInterpreter {
         }
     }
 
-    fn run_function(&mut self, func: &Rc<Function>, args: Vec<&Expression>) -> Result<CortexValue, CortexError> {
+    fn run_function(&mut self, func: &Rc<RFunction>, args: Vec<&RExpression>) -> Result<CortexValue, CortexError> {
         let mut arg_values = Vec::<CortexValue>::new();
         for arg in args {
             arg_values.push(self.evaluate_expression(arg)?);
@@ -428,11 +373,11 @@ impl CortexInterpreter {
         self.call_function(func, arg_values)
     }
 
-    pub fn call_function(&mut self, func: &Rc<Function>, mut args: Vec<CortexValue>) -> Result<CortexValue, CortexError> {
+    pub fn call_function(&mut self, func: &RFunction, mut args: Vec<CortexValue>) -> Result<CortexValue, CortexError> {
         let body = &func.body;
         let mut param_names = Vec::<String>::with_capacity(func.params.len());
         for param in &func.params {
-            param_names.push(param.name.clone());
+            param_names.push(param.clone());
         }
 
         // Four steps:
@@ -466,44 +411,35 @@ impl CortexInterpreter {
         Ok(result)
     }
 
-    fn evaluate_body(&mut self, body: &Body) -> Result<CortexValue, CortexError> {
+    fn evaluate_body(&mut self, body: &RBody) -> Result<CortexValue, CortexError> {
         match body {
-            Body::Basic(b) => {
-                for st in &b.statements {
-                    self.run_statement(st)?;
-                }
-        
-                if let Some(return_expr) = &b.result {
-                    let res = self.evaluate_expression(return_expr)?;
-                    Ok(res)
-                } else {
-                    Ok(CortexValue::Void)
-                }
+            RBody::Interpreted(b) => {
+                Ok(self.evaluate_interpreted_body(b)?)
             },
-            Body::Native(func) => {
+            RBody::Native(func) => {
                 let res = func(self.current_env.as_ref().unwrap(), &mut self.heap)?;
                 Ok(res)
             },
         }
     }
+    fn evaluate_interpreted_body(&mut self, b: &RInterpretedBody) -> Result<CortexValue, CortexError> {
+        for st in &b.statements {
+            self.run_statement(st)?;
+        }
 
-    fn lookup_value(&self, path: &PathIdent) -> Result<CortexValue, CortexError> {
-        if path.is_final() {
-            // Search in our environment for it
-            Ok(self.current_env.as_ref().unwrap().get_value(path.get_front()?)?.clone())
+        if let Some(return_expr) = &b.result {
+            let res = self.evaluate_expression(return_expr)?;
+            Ok(res)
         } else {
-            Err(Box::new(InterpreterError::ValueNotFound(path.codegen(0))))
+            Ok(CortexValue::Void)
         }
     }
 
-    fn lookup_function(&self, path: &PathIdent) -> Result<Rc<Function>, CortexError> {
-        let last = path.get_back()?;
-        let module = self.base_module.get_module_for(path)?;
-        let result = module.get_function(last);
-        match result {
-            Ok(f) => Ok(f),
-            Err(ModuleError::FunctionDoesNotExist(_)) => Ok(self.global_module.get_function(last)?),
-            Err(e) => Err(Box::new(e)),
-        }
+    fn lookup_value(&self, path: &String) -> Result<CortexValue, CortexError> {
+        Ok(self.current_env.as_ref().unwrap().get_value(path)?.clone())
+    }
+
+    fn lookup_function(&self, id: usize) -> Result<&Rc<RFunction>, CortexError> {
+        Ok(self.preprocessor.get_function(id).unwrap())
     }
 }

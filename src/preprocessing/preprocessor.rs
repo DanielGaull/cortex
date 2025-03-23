@@ -38,6 +38,10 @@ impl CortexPreprocessor {
         Ok(())
     }
 
+    pub(crate) fn get_function(&self, id: usize) -> Option<&Rc<RFunction>> {
+        self.function_dict.get(id)
+    }
+
     pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {
         match top_level {
             TopLevel::Import { name: _, is_string_import: _ } => {
@@ -63,12 +67,8 @@ impl CortexPreprocessor {
         }
     }
 
-    pub fn preprocess(&mut self, statements: Vec<Statement>) -> Result<(Program, &FunctionDict), CortexError> {
-        let mut processed_statements = Vec::new();
-        for st in statements {
-            let pst = self.check_statement(st)?;
-            processed_statements.push(pst);
-        }
+    pub fn preprocess(&mut self, body: BasicBody) -> Result<(Program, &FunctionDict), CortexError> {
+        let (body, _) = self.check_body(body)?;
 
         for p in self.function_dict.referenced_functions() {
             let f = self.take_function(&p)?;
@@ -77,7 +77,7 @@ impl CortexPreprocessor {
         }
 
         Ok((Program {
-            code: processed_statements,
+            code: body,
         }, &self.function_dict))
     }
 

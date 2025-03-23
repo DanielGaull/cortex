@@ -1,11 +1,11 @@
-use super::ast::statement::RStatement;
+use super::ast::function::RInterpretedBody;
 
 pub struct Program {
-    pub(crate) code: Vec<RStatement>,
+    pub(crate) code: RInterpretedBody,
 }
 
 impl Program {
-    pub(crate) fn new(code: Vec<RStatement>) -> Self {
+    pub(crate) fn new(code: RInterpretedBody) -> Self {
         Program {
             code,
         }
