@@ -285,17 +285,14 @@ impl CortexInterpreter {
                 let func_result = self.run_function(&func, expressions.iter().collect());
                 Ok(func_result?)
             },
-            Expression::Construction { name: _, type_args: _, assignments, is_heap_allocated } => {
-                if let Some(is_heap_allocated) = is_heap_allocated {
-                    if !*is_heap_allocated {
-                        Ok(self.construct_struct(assignments)?)
-                    } else {
-                        let value = self.construct_struct(assignments)?;
-                        let addr = self.allocate(value);
-                        Ok(CortexValue::Reference(addr))
-                    }
+            Expression::Construction { name: _, type_args: _, assignments } => {
+                let is_heap_allocated = &false;
+                if !*is_heap_allocated {
+                    Ok(self.construct_struct(assignments)?)
                 } else {
-                    Err(Box::new(InterpreterError::InvalidObject("construction")))
+                    let value = self.construct_struct(assignments)?;
+                    let addr = self.allocate(value);
+                    Ok(CortexValue::Reference(addr))
                 }
             },
             Expression::IfStatement { first, conds, last } => {
