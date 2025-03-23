@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
 use crate::interpreting::value::CortexValue;
 
-pub(crate) struct Heap {
+pub struct Heap {
     store: HashMap<usize, Rc<RefCell<CortexValue>>>,
     next_id: usize,
     gc_threshold: usize,
