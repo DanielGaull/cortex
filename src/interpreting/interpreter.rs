@@ -1,28 +1,23 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::parsing::{ast::{expression::{Expression, BinaryOperator, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{Body, Function, TopLevel}}, codegen::r#trait::SimpleCodeGen};
-use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, module::{Module, ModuleError}, value::{CortexValue, ValueError}};
+use crate::{parsing::{ast::{expression::{BinaryOperator, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{Body, Function, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::module::{Module, ModuleError}};
+use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
 
 pub struct CortexInterpreter {
     base_module: Module,
     current_env: Option<Box<Environment>>,
-    heap: Rc<RefCell<Heap>>,
+    heap: Heap,
     global_module: Module,
 }
 
 impl CortexInterpreter {
     pub fn new() -> Result<Self, CortexError> {
-        let mut this = CortexInterpreter {
+        Ok(CortexInterpreter {
             base_module: Module::new(),
             current_env: Some(Box::new(Environment::base())),
-            heap: Rc::new(RefCell::new(Heap::new())),
+            heap: Heap::new(),
             global_module: Module::new(),
-        };
-
-        Self::add_list_funcs(&mut this.global_module, this.heap.clone())?;
-        Self::add_string_funcs(&mut this.global_module, this.heap.clone())?;
-
-        Ok(this)
+        })
     }
 
     pub fn gc(&mut self) {
@@ -33,7 +28,7 @@ impl CortexInterpreter {
         if let Some(env) = &self.current_env {
             env.foreach(|_name, value| self.find_reachables(&mut roots, Rc::new(RefCell::new(value.clone()))));
         }
-        self.heap.borrow_mut().gc(roots);
+        self.heap.gc(roots);
     }
     fn find_reachables(&self, current: &mut HashSet<usize>, value: Rc<RefCell<CortexValue>>) {
         let value_ref = value.borrow();
@@ -46,7 +41,7 @@ impl CortexInterpreter {
         }
     }
     pub fn hpsz(&self) -> usize {
-        self.heap.borrow().sz()
+        self.heap.sz()
     }
 
     pub fn register_module(&mut self, path: &PathIdent, module: Module) -> Result<(), CortexError> {
@@ -345,7 +340,7 @@ impl CortexInterpreter {
                     .iter()
                     .map(|e| self.evaluate_expression(e))
                     .collect::<Result<Vec<_>, _>>()?;
-                let addr = self.heap.borrow_mut().allocate(CortexValue::List(values));
+                let addr = self.heap.allocate(CortexValue::List(values));
                 Ok(CortexValue::Reference(addr))
             },
             Expression::Bang(inner) => {
@@ -360,7 +355,6 @@ impl CortexInterpreter {
                 let inner = self.evaluate_expression(inner)?;
                 if let CortexValue::Reference(addr) = inner {
                     let val = self.heap
-                        .borrow()
                         .get(addr)
                         .borrow()
                         .get_field(member)?
@@ -384,8 +378,8 @@ impl CortexInterpreter {
     }
 
     fn allocate(&mut self, value: CortexValue) -> usize {
-        let ptr = self.heap.borrow_mut().allocate(value);
-        if self.heap.borrow().is_at_gc_threshold() {
+        let ptr = self.heap.allocate(value);
+        if self.heap.is_at_gc_threshold() {
             self.gc();
         }
         ptr
@@ -409,7 +403,7 @@ impl CortexInterpreter {
     fn set_field_path(&mut self, mut base: Rc<RefCell<CortexValue>>, mut path: Vec<String>, value: CortexValue) -> Result<(), ValueError> {
         let first_option = path.get(0);
         if let CortexValue::Reference(addr) = &*base.clone().borrow() {
-            base = self.heap.borrow().get(*addr);
+            base = self.heap.get(*addr);
         }
         if let Some(first) = first_option {
             if path.len() == 1{
@@ -487,7 +481,7 @@ impl CortexInterpreter {
                 }
             },
             Body::Native(func) => {
-                let res = func(self.current_env.as_ref().unwrap())?;
+                let res = func(self.current_env.as_ref().unwrap(), &mut self.heap)?;
                 Ok(res)
             },
         }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::{env::Environment, error::CortexError, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
+use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
 
 use super::{expression::{Expression, OptionalIdentifier, Parameter}, statement::Statement, r#type::CortexType};
 
@@ -179,7 +179,7 @@ impl SimpleCodeGen for BasicBody {
 
 pub enum Body {
     Basic(BasicBody),
-    Native(Box<dyn Fn(&Environment) -> Result<CortexValue, CortexError>>),
+    Native(Box<dyn Fn(&Environment, &mut Heap) -> Result<CortexValue, CortexError>>),
 }
 impl SimpleCodeGen for Body {
     fn codegen(&self, indent: usize) -> String {

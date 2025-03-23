@@ -1,11 +1,11 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{interpreting::{env::Environment, error::CortexError, value::CortexValue}, parsing::ast::expression::PathIdent};
+use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::ast::expression::PathIdent};
 
 use super::{expression::RExpression, statement::RStatement};
 
 pub enum RBody {
-    Native(Box<dyn Fn(&Environment) -> Result<CortexValue, CortexError>>),
+    Native(Box<dyn Fn(&Environment, &mut Heap) -> Result<CortexValue, CortexError>>),
     Interpreted(RInterpretedBody),
 }
 

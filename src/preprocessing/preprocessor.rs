@@ -1,10 +1,10 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, error::Error, rc::Rc};
 
-use crate::{interpreting::{error::{CortexError, PreprocessingError}, module::{CompositeType, Module, ModuleError}, value::ValueError}, parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen}};
+use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
-use super::{ast::{expression::RExpression, function::{FunctionDictBuilder, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
+use super::{ast::{expression::RExpression, function::{FunctionDictBuilder, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{CompositeType, Module, ModuleError}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
-
+type CortexError = Box<dyn Error>;
 pub type CheckResult<T> = Result<(T, CortexType), CortexError>;
 
 pub struct CortexPreprocessor {
@@ -27,8 +27,8 @@ impl CortexPreprocessor {
             function_dict_builder: FunctionDictBuilder::new(),
         };
 
-        // Self::add_list_funcs(&mut this.global_module, this.heap.clone())?;
-        // Self::add_string_funcs(&mut this.global_module, this.heap.clone())?;
+        Self::add_list_funcs(&mut this.global_module)?;
+        Self::add_string_funcs(&mut this.global_module)?;
 
         Ok(this)
     }
@@ -292,7 +292,7 @@ impl CortexPreprocessor {
                 let (atom_exp, atom_type) = self.check_exp(*inner)?;
                 let composite = self.lookup_composite(atom_type.name()?)?;
                 if !composite.fields.contains_key(&member) {
-                    Err(Box::new(ValueError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
+                    Err(Box::new(PreprocessingError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
                 } else {
                     let mut member_type = composite.fields.get(&member).unwrap().clone();
                     let bindings = Self::get_bindings(&composite.type_param_names, &atom_type)?;
@@ -439,7 +439,7 @@ impl CortexPreprocessor {
                     return Err(Box::new(PreprocessingError::MultipleFieldAssignment(fname.clone())));
                 }
             } else {
-                return Err(Box::new(ValueError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
+                return Err(Box::new(PreprocessingError::FieldDoesNotExist(fname.clone(), name.codegen(0))));
             }
         }
 

@@ -1,10 +1,8 @@
-use std::{cell::RefCell, error::Error, rc::Rc};
+use std::error::Error;
 
 use thiserror::Error;
 
-use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function}, r#type::CortexType}};
-
-use crate::interpreting::{heap::Heap, interpreter::CortexInterpreter, module::Module, value::CortexValue};
+use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::CortexPreprocessor}};
 
 #[derive(Error, Debug)]
 pub enum ListError {
@@ -24,9 +22,8 @@ impl PartialEq for ListError {
     }
 }
 
-impl CortexInterpreter {
-    pub(crate) fn add_list_funcs(global: &mut Module, heap: Rc<RefCell<Heap>>) -> Result<(), Box<dyn Error>> {
-        let rheap = heap.clone();
+impl CortexPreprocessor {
+    pub(crate) fn add_list_funcs(global: &mut Module) -> Result<(), Box<dyn Error>> {
         global.add_function(Function::new(
             OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from(INDEX_GET_FN_NAME))),
             vec![
@@ -34,10 +31,10 @@ impl CortexInterpreter {
                 Parameter::named("index", CortexType::number(false))
             ],
             CortexType::simple("T", false),
-            Body::Native(Box::new(move |env| {
+            Body::Native(Box::new(move |env, rheap| {
                 let list_ptr = env.get_value("this")?;
                 if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &*rheap.borrow().get(addr).borrow() {
+                    if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
                         if let CortexValue::Number(num) = env.get_value("index")? {
                             let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
                             if let Some(item) = items.get(index) {
@@ -58,7 +55,6 @@ impl CortexInterpreter {
             vec![String::from("T")],
         ))?;
 
-        let rheap = heap.clone();
         global.add_function(Function::new(
             OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from(INDEX_SET_FN_NAME))),
             vec![
@@ -67,10 +63,10 @@ impl CortexInterpreter {
                 Parameter::named("value", CortexType::simple("T", false)),
             ],
             CortexType::void(false),
-            Body::Native(Box::new(move |env| {
+            Body::Native(Box::new(move |env, rheap| {
                 let list_ptr = env.get_value("this")?;
                 if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &mut *rheap.borrow().get(addr).borrow_mut() {
+                    if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
                         if let CortexValue::Number(num) = env.get_value("index")? {
                             let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
                             if index < items.len() {
@@ -92,17 +88,16 @@ impl CortexInterpreter {
             vec![String::from("T")],
         ))?;
 
-        let rheap = heap.clone();
         global.add_function(Function::new(
             OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("len"))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
             ],
             CortexType::number(false),
-            Body::Native(Box::new(move |env| {
+            Body::Native(Box::new(move |env, rheap| {
                 let list_ptr = env.get_value("this")?;
                 if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &*rheap.borrow().get(addr).borrow() {
+                    if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
                         Ok(CortexValue::Number(items.len() as f64))
                     } else {
                         Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
@@ -114,7 +109,6 @@ impl CortexInterpreter {
             vec![String::from("T")],
         ))?;
 
-        let rheap = heap.clone();
         global.add_function(Function::new(
             OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("find"))),
             vec![
@@ -122,10 +116,10 @@ impl CortexInterpreter {
                 Parameter::named("item", CortexType::simple("T", false)),
             ],
             CortexType::number(true),
-            Body::Native(Box::new(move |env| {
+            Body::Native(Box::new(move |env, rheap| {
                 let list_ptr = env.get_value("this")?;
                 if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &*rheap.borrow().get(addr).borrow() {
+                    if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
                         let item = env.get_value("item")?;
                         let idx = items.iter().position(|i| *i == item);
                         if let Some(i) = idx {
@@ -143,7 +137,6 @@ impl CortexInterpreter {
             vec![String::from("T")],
         ))?;
 
-        let rheap = heap.clone();
         global.add_function(Function::new(
             OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("contains"))),
             vec![
@@ -151,10 +144,10 @@ impl CortexInterpreter {
                 Parameter::named("item", CortexType::simple("T", false)),
             ],
             CortexType::boolean(true),
-            Body::Native(Box::new(move |env| {
+            Body::Native(Box::new(move |env, rheap| {
                 let list_ptr = env.get_value("this")?;
                 if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &*rheap.borrow().get(addr).borrow() {
+                    if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
                         let item = env.get_value("item")?;
                         Ok(CortexValue::Boolean(items.contains(&item)))
                     } else {
@@ -167,7 +160,6 @@ impl CortexInterpreter {
             vec![String::from("T")],
         ))?;
 
-        let rheap = heap.clone();
         global.add_function(Function::new(
             OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("add"))),
             vec![
@@ -175,10 +167,10 @@ impl CortexInterpreter {
                 Parameter::named("item", CortexType::simple("T", false)),
             ],
             CortexType::void(false),
-            Body::Native(Box::new(move |env| {
+            Body::Native(Box::new(move |env, rheap| {
                 let list_ptr = env.get_value("this")?;
                 if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &mut *rheap.borrow().get(addr).borrow_mut() {
+                    if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
                         let item = env.get_value("item")?;
                         items.push(item);
                         Ok(CortexValue::Void)
@@ -192,7 +184,6 @@ impl CortexInterpreter {
             vec![String::from("T")],
         ))?;
 
-        let rheap = heap.clone();
         global.add_function(Function::new(
             OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("insert"))),
             vec![
@@ -201,10 +192,10 @@ impl CortexInterpreter {
                 Parameter::named("item", CortexType::simple("T", false)),
             ],
             CortexType::void(false),
-            Body::Native(Box::new(move |env| {
+            Body::Native(Box::new(move |env, rheap| {
                 let list_ptr = env.get_value("this")?;
                 if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &mut *rheap.borrow().get(addr).borrow_mut() {
+                    if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
                         if let CortexValue::Number(num) = env.get_value("index")? {
                             let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
                             if index <= items.len() {
@@ -227,7 +218,6 @@ impl CortexInterpreter {
             vec![String::from("T")],
         ))?;
 
-        let rheap = heap.clone();
         global.add_function(Function::new(
             OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("remove"))),
             vec![
@@ -235,10 +225,10 @@ impl CortexInterpreter {
                 Parameter::named("index", CortexType::number(false)),
             ],
             CortexType::void(false),
-            Body::Native(Box::new(move |env| {
+            Body::Native(Box::new(move |env, rheap| {
                 let list_ptr = env.get_value("this")?;
                 if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &mut *rheap.borrow().get(addr).borrow_mut() {
+                    if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
                         if let CortexValue::Number(num) = env.get_value("index")? {
                             let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
                             if index < items.len() {
