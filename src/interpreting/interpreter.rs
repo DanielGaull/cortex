@@ -18,8 +18,8 @@ impl CortexInterpreter {
         })
     }
 
-    pub fn execute(&mut self, program: Program) -> Result<(), CortexError> {
-        todo!()
+    pub fn execute(&mut self, program: Program) -> Result<CortexValue, CortexError> {
+        Ok(self.evaluate_interpreted_body(&program.code)?)
     }
 
     pub fn gc(&mut self) {

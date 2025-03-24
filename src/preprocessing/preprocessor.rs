@@ -67,7 +67,7 @@ impl CortexPreprocessor {
         }
     }
 
-    pub fn preprocess(&mut self, body: BasicBody) -> Result<(Program, &FunctionDict), CortexError> {
+    pub fn preprocess(&mut self, body: BasicBody) -> Result<Program, CortexError> {
         let (body, _) = self.check_body(body)?;
 
         for p in self.function_dict.referenced_functions() {
@@ -76,9 +76,7 @@ impl CortexPreprocessor {
             self.function_dict.add_function(p, processed);
         }
 
-        Ok((Program {
-            code: body,
-        }, &self.function_dict))
+        Ok(Program { code: body })
     }
 
     fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
