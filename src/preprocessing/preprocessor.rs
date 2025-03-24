@@ -349,7 +349,7 @@ impl CortexPreprocessor {
                     .map(|a| a.0)
                     .collect();
                 let func = self.lookup_function(&member_func_path)?;
-                args.push(atom_exp);
+                args.insert(0, atom_exp);
 
                 let return_type = self.clean_type(func.return_type().clone());
 
