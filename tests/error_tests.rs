@@ -44,9 +44,9 @@ fn test_operator_errors() -> Result<(), Box<dyn Error>> {
 fn test_function_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_err("simple::hi();", ModuleError::FunctionDoesNotExist(String::from("hi")), &mut interpreter)?;
-    assert_err("simple::add(1);", PreprocessingError::MismatchedArgumentCount(String::from("add"), 2, 1), &mut interpreter)?;
+    assert_err("simple::add(1);", PreprocessingError::MismatchedArgumentCount(String::from("simple::add"), 2, 1), &mut interpreter)?;
 
-    assert_err("simple::add(1, 2, 3);", PreprocessingError::MismatchedArgumentCount(String::from("add"), 2, 3), &mut interpreter)?;
+    assert_err("simple::add(1, 2, 3);", PreprocessingError::MismatchedArgumentCount(String::from("simple::add"), 2, 3), &mut interpreter)?;
     assert_err("simple::add(1, true);", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("b")), &mut interpreter)?;
     Ok(())
 }

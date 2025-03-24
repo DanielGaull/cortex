@@ -115,17 +115,6 @@ impl Module {
         }
     }
 
-    fn get_function_internal(&self, name: &String) -> Option<&Function> {
-        self.functions.get(name)
-    }
-    pub fn get_function(&self, name: &String) -> Result<&Function, ModuleError> {
-        let search_result = self.get_function_internal(name);
-        if let Some(func) = search_result {
-            Ok(func)
-        } else {
-            Err(ModuleError::FunctionDoesNotExist(name.clone()))
-        }
-    }
     pub fn take_functions(&mut self) -> Result<Vec<Function>, ModuleError> {
         let res = std::mem::take(&mut self.functions).into_values().collect();
         Ok(res)
@@ -133,7 +122,7 @@ impl Module {
     pub fn add_function(&mut self, func: Function) -> Result<(), ModuleError> {
         match &func.name {
             OptionalIdentifier::Ident(name) => {
-                if let Some(_) = self.get_function_internal(&name) {
+                if self.functions.contains_key(name) {
                     Err(ModuleError::FunctionAlreadyExists(name.clone()))
                 } else {
                     let mut seen_type_param_names = HashSet::new();

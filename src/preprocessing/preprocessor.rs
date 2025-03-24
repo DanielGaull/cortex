@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, rc::Rc};
+use std::{collections::{HashMap, HashSet}, error::Error, rc::Rc};
 
 use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, FunctionSignature, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
@@ -95,6 +95,16 @@ impl CortexPreprocessor {
         match name {
             OptionalIdentifier::Ident(func_name) => {
                 let full_path = PathIdent::continued(n, func_name.clone());
+                if self.function_signature_map.contains_key(&full_path) {
+                    return Err(Box::new(ModuleError::FunctionAlreadyExists(func_name)));
+                }
+                let mut seen_type_param_names = HashSet::new();
+                for t in &sig.type_param_names {
+                    if seen_type_param_names.contains(t) {
+                        return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
+                    }
+                    seen_type_param_names.insert(t);
+                }
                 self.function_signature_map.insert(full_path.clone(), sig);
                 self.function_dict.add_function(full_path, processed);
             },
@@ -105,15 +115,6 @@ impl CortexPreprocessor {
 
     pub fn preprocess(&mut self, body: BasicBody) -> Result<Program, CortexError> {
         let (body, _) = self.check_body(body)?;
-
-        // for p in self.function_dict.referenced_functions() {
-        //     if !self.function_dict.contains(&p) {
-        //         let f = self.take_function(&p)?;
-        //         let processed = self.check_function(f)?;
-        //         self.function_dict.add_function(p, processed);
-        //     }
-        // }
-
         Ok(Program { code: body })
     }
 
