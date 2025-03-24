@@ -1,13 +1,13 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, module::Module}, parsing::{ast::{top_level::Bundle, r#type::CortexType}, parser::CortexParser}};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{top_level::Bundle, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
 
 #[test]
 fn gc_test_simple() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_eq!(0, interpreter.hpsz());
     for _ in 0..100 {
-        interpreter.run_statement(&CortexParser::parse_statement("simple::alloc();")?)?;
+        interpreter.execute_statement(CortexParser::parse_statement("simple::alloc();")?)?;
     }
     assert_eq!(100, interpreter.hpsz());
     interpreter.gc();
@@ -19,9 +19,9 @@ fn gc_test_simple() -> Result<(), Box<dyn Error>> {
 fn gc_test_ref() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_eq!(0, interpreter.hpsz());
-    interpreter.run_statement(&CortexParser::parse_statement("let time: simple::Time? = none;")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let time: simple::Time? = none;")?)?;
     for _ in 0..100 {
-        interpreter.run_statement(&CortexParser::parse_statement("time = simple::alloc();")?)?;
+        interpreter.execute_statement(CortexParser::parse_statement("time = simple::alloc();")?)?;
     }
     assert_eq!(100, interpreter.hpsz());
     interpreter.gc();

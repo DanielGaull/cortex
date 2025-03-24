@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::{parsing::ast::{expression::{BinaryOperator, Expression, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, TopLevel}}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement}, module::Module, preprocessor::CortexPreprocessor, program::Program}};
+use crate::{parsing::ast::{expression::{BinaryOperator, Expression, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, TopLevel}, r#type::CortexType}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement}, module::Module, preprocessor::CortexPreprocessor, program::Program}};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
 
 pub struct CortexInterpreter {
@@ -31,6 +31,9 @@ impl CortexInterpreter {
         let program = self.preprocessor.preprocess(body)?;
         self.execute(program)?;
         Ok(())
+    }
+    pub fn determine_type(&mut self, expression: Expression) -> Result<CortexType, CortexError> {
+        Ok(self.preprocessor.determine_type(expression)?)
     }
 
     pub fn gc(&mut self) {

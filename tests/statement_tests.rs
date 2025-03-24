@@ -1,4 +1,4 @@
-use cortex_lang::{interpreting::{env::Environment, interpreter::CortexInterpreter, module::Module, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}, parser::CortexParser}};
+use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
 use thiserror::Error;
 use std::error::Error;
 
@@ -10,19 +10,19 @@ enum TestError {
 
 fn run_statement(input: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_statement(input)?;
-    interpreter.run_statement(&ast)?;
+    interpreter.execute_statement(ast)?;
     Ok(())
 }
 fn assert_expression(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
-    let value = interpreter.evaluate_expression(&ast)?;
+    let value = interpreter.execute_expression(ast)?;
     let value_string = format!("{}", value);
     assert_eq!(expected, value_string);
     Ok(())
 }
 
 fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
-    let add_body = Body::Native(Box::new(|env: &Environment| -> Result<CortexValue, Box<dyn Error>> {
+    let add_body = Body::Native(Box::new(|env, _| -> Result<CortexValue, Box<dyn Error>> {
         // The two arguments are "a" and "b"
         let a = env.get_value("a")?;
         let b = env.get_value("b")?;

@@ -42,6 +42,11 @@ impl CortexPreprocessor {
         self.function_dict.get(id)
     }
 
+    pub(crate) fn determine_type(&mut self, expr: Expression) -> Result<CortexType, CortexError> {
+        let (_, typ) = self.check_exp(expr)?;
+        Ok(typ)
+    }
+
     pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {
         match top_level {
             TopLevel::Import { name: _, is_string_import: _ } => {

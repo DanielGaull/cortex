@@ -46,12 +46,12 @@ fn test_box() -> Result<(), Box<dyn Error>> {
 
 fn assert_exp(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
-    let value = interpreter.evaluate_expression(&ast)?;
+    let value = interpreter.execute_expression(ast)?;
     let value_string = format!("{}", value);
     assert_eq!(expected, value_string);
     Ok(())
 }
 fn run(input: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
-    interpreter.run_statement(&CortexParser::parse_statement(input)?)?;
+    interpreter.execute_statement(CortexParser::parse_statement(input)?)?;
     Ok(())
 }

@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, global::list::ListError}, parsing::parser::CortexParser};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::parser::CortexParser, preprocessing::global::list::ListError};
 
 #[test]
 fn test_list_get_set() -> Result<(), Box<dyn Error>> {
@@ -82,19 +82,19 @@ fn test_index_errors() -> Result<(), Box<dyn Error>> {
 
 fn assert(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
-    let value = interpreter.evaluate_expression(&ast)?;
+    let value = interpreter.execute_expression(ast)?;
     let value_string = format!("{}", value);
     assert_eq!(expected, value_string);
     Ok(())
 }
 fn run(st: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
-    interpreter.run_statement(&CortexParser::parse_statement(st)?)?;
+    interpreter.execute_statement(CortexParser::parse_statement(st)?)?;
     Ok(())
 }
 
 fn assert_err<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let parsed = CortexParser::parse_statement(statement)?;
-    let evaled = interpreter.run_statement(&parsed);
+    let evaled = interpreter.execute_statement(parsed);
     if let Err(e) = evaled {
         if !e.is::<T>() {
             panic!("Value e {:?} is not T {:?}", e, std::any::type_name::<T>());

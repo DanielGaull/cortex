@@ -3,14 +3,14 @@ use std::{error::Error, fs::File, io::Read, path::Path};
 
 fn assert_expression(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
-    let value = interpreter.evaluate_expression(&ast)?;
+    let value = interpreter.execute_expression(ast)?;
     let value_string = format!("{}", value);
     assert_eq!(expected, value_string);
     Ok(())
 }
 fn assert_expression_or(input: &str, expected1: &str, expected2: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
-    let value = interpreter.evaluate_expression(&ast)?;
+    let value = interpreter.execute_expression(ast)?;
     let value_string = format!("{}", value);
     assert!(expected1 == value_string || expected2 == value_string);
     Ok(())
@@ -86,13 +86,13 @@ fn test_bundle() -> Result<(), Box<dyn Error>> {
 
 fn run_statement(input: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_statement(input)?;
-    interpreter.run_statement(&ast)?;
+    interpreter.execute_statement(ast)?;
     Ok(())
 }
 
-fn assert_type(input: &str, type_str: &str, interpreter: &CortexInterpreter) -> Result<(), Box<dyn Error>> {
+fn assert_type(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
-    let eval_typ = interpreter.determine_type(&ast)?;
+    let eval_typ = interpreter.determine_type(ast)?;
     let typ = CortexParser::parse_type(type_str)?;
     assert_eq!(typ, eval_typ);
     Ok(())

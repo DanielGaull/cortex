@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::{EnvError, Environment}, error::{InterpreterError, PreprocessingError}, interpreter::CortexInterpreter, module::{Module, ModuleError}, value::{CortexValue, ValueError}}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}};
+use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::{CortexValue, ValueError}}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -20,12 +20,12 @@ fn test_misc_errors() -> Result<(), Box<dyn Error>> {
 fn test_variable_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_err("dneVar = 7;", EnvError::VariableDoesNotExist(String::from("dneVar")), &mut interpreter)?;
-    interpreter.run_statement(&CortexParser::parse_statement("const x = 5;")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("const x = 5;")?)?;
     assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
     assert_err("x = 7;", EnvError::ModifyConstant(String::from("x")), &mut interpreter)?;
 
     assert_err("let y: string = 5;", PreprocessingError::MismatchedType(String::from("string"), String::from("number"), String::from("y")), &mut interpreter)?;
-    interpreter.run_statement(&CortexParser::parse_statement("let myNum = 7;")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let myNum = 7;")?)?;
     assert_err("myNum = true;", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("myNum")), &mut interpreter)?;
     // assert_err("dne::value;", ModuleError::ModuleDoesNotExist(String::from("dne")), &mut interpreter)?;
     // assert_err("dne::constantValue = 5;", InterpreterError::CannotModifyModuleEnvironment(String::from("dne::constantValue")), &mut interpreter)?;
@@ -55,7 +55,7 @@ fn test_function_errors() -> Result<(), Box<dyn Error>> {
 fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_err("simple::Time { z: 5 };", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
-    interpreter.run_statement(&CortexParser::parse_statement("let myTime = simple::Time { m: 5, s: 2 };")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let myTime = simple::Time { m: 5, s: 2 };")?)?;
     assert_err("myTime.z;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.m = true;", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("m")), &mut interpreter)?;
@@ -63,7 +63,7 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", PreprocessingError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
     assert_err("simple::Time { m: 2, m: 3 };", PreprocessingError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
-    interpreter.run_statement(&CortexParser::parse_statement("let box: &simple::IntBox = simple::IntBox { v: 100 };")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let box: &simple::IntBox = simple::IntBox { v: 100 };")?)?;
     assert_err("box.v = 7;", ValueError::CannotModifyNonMutableReference, &mut interpreter)?;
     Ok(())
 }
@@ -87,7 +87,7 @@ fn test_conditional_errors() -> Result<(), Box<dyn Error>> {
 
 fn assert_err<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let parsed = CortexParser::parse_statement(statement)?;
-    let evaled = interpreter.run_statement(&parsed);
+    let evaled = interpreter.execute_statement(parsed);
     if let Err(e) = evaled {
         let msg = format!("Expected {:?}, but found {:?}", flavor, e);
         let error = *e.downcast::<T>().expect(&msg);
@@ -147,7 +147,7 @@ fn assert_err_toplevel<T: Error + PartialEq + 'static>(statement: &str, flavor: 
 }
 
 fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
-    let add_body = Body::Native(Box::new(|env: &Environment| -> Result<CortexValue, Box<dyn Error>> {
+    let add_body = Body::Native(Box::new(|env, _| -> Result<CortexValue, Box<dyn Error>> {
         // The two arguments are "a" and "b"
         let a = env.get_value("a")?;
         let b = env.get_value("b")?;
