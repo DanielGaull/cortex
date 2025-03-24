@@ -315,7 +315,7 @@ impl CortexPreprocessor {
             },
             Expression::Bang(inner) => {
                 let (exp, typ) = self.check_exp(*inner)?;
-                Ok((exp, typ.to_non_optional()))
+                Ok((RExpression::Bang(Box::new(exp)), typ.to_non_optional()))
             },
             Expression::MemberAccess(inner, member) => {
                 let (atom_exp, atom_type) = self.check_exp(*inner)?;
