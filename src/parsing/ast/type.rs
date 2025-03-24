@@ -123,6 +123,20 @@ impl CortexType {
             self
         }
     }
+    // Forwards immutability if mutable is false. If mutable is true, returns self
+    // Only forwards it if this is a reference type
+    pub fn forward_immutability(self, mutable: bool) -> Self {
+        if mutable {
+            self
+        } else {
+            match self {
+                CortexType::RefType { contained, mutable: _ } => {
+                    CortexType::RefType { contained, mutable: false }
+                },
+                other => other
+            }
+        }
+    }
 
     pub fn prefix(&self) -> PathIdent {
         match self {

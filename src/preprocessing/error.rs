@@ -44,4 +44,6 @@ pub enum PreprocessingError {
     FieldDoesNotExist(String, String),
     #[error("You cannot access fields on a non-composite value")]
     CannotAccessMemberOfNonComposite,
+    #[error("Cannot modify field on immutable reference for type {0}")]
+    CannotModifyFieldOnImmutableReference(String),
 }

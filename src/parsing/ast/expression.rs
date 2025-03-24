@@ -1,4 +1,5 @@
 use thiserror::Error;
+use std::error::Error;
 
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
@@ -208,6 +209,19 @@ impl IdentExpression {
             expr = Expression::MemberAccess(Box::new(expr), link);
         }
         expr
+    }
+
+    pub fn without_last(mut self) -> Result<IdentExpression, Box<dyn Error>> {
+        // TODO: should return error rather than returning self
+        if self.chain.len() > 0 {
+            self.chain.remove(self.chain.len() - 1);
+            Ok(IdentExpression {
+                base: self.base,
+                chain: self.chain,
+            })
+        } else {
+            Ok(self)
+        }
     }
 }
 

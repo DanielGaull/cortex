@@ -204,6 +204,18 @@ impl CortexPreprocessor {
                         )
                     }
                 } else {
+                    let source_expr = name.clone().without_last()?.to_member_access_expr();
+                    let (_, source_type) = self.check_exp(source_expr)?;
+                    if let CortexType::RefType { contained, mutable } = source_type {
+                        if !mutable {
+                            return Err(
+                                Box::new(
+                                    PreprocessingError::CannotModifyFieldOnImmutableReference(contained.codegen(0))
+                                )
+                            );
+                        }
+                    }
+
                     let name_expr = name.clone().to_member_access_expr();
                     let (_, var_type) = self.check_exp(name_expr)?;
                     let chain = name.chain.clone();
