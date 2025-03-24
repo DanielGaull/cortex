@@ -58,6 +58,13 @@ pub enum ThisArg {
     None,
 }
 
+#[derive(Clone)]
+pub(crate) struct FunctionSignature {
+    pub(crate) params: Vec<Parameter>,
+    pub(crate) return_type: CortexType,
+    pub(crate) type_param_names: Vec<String>,
+}
+
 pub struct Function {
     pub(crate) name: OptionalIdentifier,
     pub(crate) this_arg: ThisArg,
@@ -143,6 +150,13 @@ impl Function {
     }
     pub fn get_param(&self, index: usize) -> Option<&Parameter> {
         self.params.get(index)
+    }
+    pub(crate) fn signature(&self) -> FunctionSignature {
+        FunctionSignature {
+            return_type: self.return_type.clone(),
+            params: self.params.clone(),
+            type_param_names: self.type_param_names.clone(),
+        }
     }
 }
 

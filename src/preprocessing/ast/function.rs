@@ -66,10 +66,6 @@ impl FunctionDict {
         }
     }
 
-    pub(crate) fn referenced_functions(&self) -> Vec<PathIdent> {
-        self.name_to_id.keys().cloned().collect()
-    }
-
     pub(crate) fn get(&self, id: usize) -> Option<&Rc<RFunction>> {
         let name = self.id_to_name.get(&id)?;
         let func = self.all_functions.get(name)?;

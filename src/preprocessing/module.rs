@@ -95,6 +95,9 @@ impl Module {
             Err(ModuleError::ModuleDoesNotExist(front.clone()))
         }
     }
+    pub fn children_iter_mut(&mut self) -> impl Iterator<Item = (&String, &mut Module)> {
+        self.children.iter_mut()
+    }
 
     pub fn add_module(&mut self, path: &PathIdent, module: Module) -> Result<(), ModuleError> {
         if path.is_final() {
@@ -123,13 +126,9 @@ impl Module {
             Err(ModuleError::FunctionDoesNotExist(name.clone()))
         }
     }
-    pub fn take_function(&mut self, name: &String) -> Result<Function, ModuleError> {
-        let search_result = self.functions.remove(name);
-        if let Some(func) = search_result {
-            Ok(func)
-        } else {
-            Err(ModuleError::FunctionDoesNotExist(name.clone()))
-        }
+    pub fn take_functions(&mut self) -> Result<Vec<Function>, ModuleError> {
+        let res = std::mem::take(&mut self.functions).into_values().collect();
+        Ok(res)
     }
     pub fn add_function(&mut self, func: Function) -> Result<(), ModuleError> {
         match &func.name {
