@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::{parsing::ast::{expression::{BinaryOperator, PathIdent, UnaryOperator}, top_level::TopLevel}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement}, module::Module, preprocessor::CortexPreprocessor, program::Program}};
+use crate::{parsing::ast::{expression::{BinaryOperator, Expression, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, TopLevel}}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement}, module::Module, preprocessor::CortexPreprocessor, program::Program}};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
 
 pub struct CortexInterpreter {
@@ -20,6 +20,17 @@ impl CortexInterpreter {
 
     pub fn execute(&mut self, program: Program) -> Result<CortexValue, CortexError> {
         Ok(self.evaluate_interpreted_body(&program.code)?)
+    }
+    pub fn execute_expression(&mut self, expression: Expression) -> Result<CortexValue, CortexError> {
+        let body = BasicBody::new(vec![], Some(expression));
+        let program = self.preprocessor.preprocess(body)?;
+        Ok(self.execute(program)?)
+    }
+    pub fn execute_statement(&mut self, statement: Statement) -> Result<(), CortexError> {
+        let body = BasicBody::new(vec![statement], None);
+        let program = self.preprocessor.preprocess(body)?;
+        self.execute(program)?;
+        Ok(())
     }
 
     pub fn gc(&mut self) {
