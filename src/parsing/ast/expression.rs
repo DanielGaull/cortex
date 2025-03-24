@@ -203,18 +203,11 @@ impl IdentExpression {
     }
 
     pub fn to_member_access_expr(self) -> Expression {
-        todo!("IdentExpression::to_member_access_expr")
-        // let mut expr: Expression;
-        // let mut chain = self.chain;
-        // chain.reverse();
-        // for link in chain {
-        //     tail = ExpressionTail::MemberAccess { member: link, next: Box::new(tail) };
-        // }
-
-        // Expression {
-        //     atom: Expression::PathIdent(PathIdent::simple(self.base)),
-        //     tail: tail,
-        // }
+        let mut expr = Expression::PathIdent(PathIdent::simple(self.base));
+        for link in self.chain {
+            expr = Expression::MemberAccess(Box::new(expr), link);
+        }
+        expr
     }
 }
 

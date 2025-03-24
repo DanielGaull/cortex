@@ -42,4 +42,6 @@ pub enum PreprocessingError {
     ReturnTypeMismatch(String, String),
     #[error("Field \"{0}\" does not exist on type {1}")]
     FieldDoesNotExist(String, String),
+    #[error("You cannot access fields on a non-composite value")]
+    CannotAccessMemberOfNonComposite,
 }

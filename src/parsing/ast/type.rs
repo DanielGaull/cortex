@@ -159,6 +159,18 @@ impl CortexType {
             CortexType::Unknown(_) => true,
         }
     }
+    pub fn is_non_composite(&self) -> bool {
+        match self {
+            CortexType::BasicType { optional: _, name, type_args: _ } => {
+                name.is_final() && 
+                    matches!(name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "none")
+            },
+            CortexType::RefType { contained, mutable: _ } => {
+                contained.is_non_composite()
+            },
+            CortexType::Unknown(_) => true,
+        }
+    }
 
     pub fn to_optional(self) -> Self {
         self.to_optional_value(true)

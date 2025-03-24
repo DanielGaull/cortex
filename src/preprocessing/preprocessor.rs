@@ -307,6 +307,9 @@ impl CortexPreprocessor {
             },
             Expression::MemberAccess(inner, member) => {
                 let (atom_exp, atom_type) = self.check_exp(*inner)?;
+                if atom_type.is_non_composite() {
+                    return Err(Box::new(PreprocessingError::CannotAccessMemberOfNonComposite));
+                }
                 let composite = self.lookup_composite(atom_type.name()?)?;
                 if !composite.fields.contains_key(&member) {
                     Err(Box::new(PreprocessingError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))

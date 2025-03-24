@@ -22,7 +22,7 @@ fn test_variable_errors() -> Result<(), Box<dyn Error>> {
     assert_err("dneVar = 7;", EnvError::VariableDoesNotExist(String::from("dneVar")), &mut interpreter)?;
     interpreter.execute_statement(CortexParser::parse_statement("const x = 5;")?)?;
     assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
-    assert_err("x = 7;", EnvError::ModifyConstant(String::from("x")), &mut interpreter)?;
+    assert_err("x = 7;", PreprocessingError::CannotModifyConst(String::from("x")), &mut interpreter)?;
 
     assert_err("let y: string = 5;", PreprocessingError::MismatchedType(String::from("string"), String::from("number"), String::from("y")), &mut interpreter)?;
     interpreter.execute_statement(CortexParser::parse_statement("let myNum = 7;")?)?;
@@ -54,12 +54,12 @@ fn test_function_errors() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("simple::Time { z: 5 };", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
+    assert_err("simple::Time { z: 5 };", PreprocessingError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     interpreter.execute_statement(CortexParser::parse_statement("let myTime = simple::Time { m: 5, s: 2 };")?)?;
-    assert_err("myTime.z;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
-    assert_err("myTime.z = 2;", ValueError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
+    assert_err("myTime.z;", PreprocessingError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
+    assert_err("myTime.z = 2;", PreprocessingError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.m = true;", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("m")), &mut interpreter)?;
-    assert_err("5.foo;", ValueError::CannotAccessMemberOfNonComposite("number"), &mut interpreter)?;
+    assert_err("5.foo;", PreprocessingError::CannotAccessMemberOfNonComposite, &mut interpreter)?;
     assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", PreprocessingError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
     assert_err("simple::Time { m: 2, m: 3 };", PreprocessingError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
