@@ -78,9 +78,11 @@ impl CortexPreprocessor {
 
     fn process_module(&mut self, path: &PathIdent, module: &mut Module) -> Result<(), CortexError> {
         let functions = module.take_functions()?;
+        let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
         for f in functions {
             self.process_function(path.clone(), f)?;
         }
+        self.current_context = context_to_return_to;
 
         for (path_end, m) in module.children_iter_mut() {
             let this_path = PathIdent::continued(path.clone(), path_end.clone());
@@ -800,7 +802,7 @@ impl CortexPreprocessor {
         }
     }
     
-    fn lookup_signature(&mut self, path: &PathIdent) -> Result<&FunctionSignature, CortexError> {
+    fn lookup_signature(&self, path: &PathIdent) -> Result<&FunctionSignature, CortexError> {
         if let Some(sig) = self.function_signature_map.get(path) {
             Ok(sig)
         } else {
