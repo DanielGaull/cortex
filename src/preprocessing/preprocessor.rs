@@ -1,6 +1,6 @@
-use std::{collections::{HashMap, HashSet}, error::Error, rc::Rc};
+use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, FunctionSignature, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{CompositeType, Module, ModuleError}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -9,29 +9,29 @@ pub type CheckResult<T> = Result<(T, CortexType), CortexError>;
 
 pub struct CortexPreprocessor {
     current_env: Option<Box<TypeCheckingEnvironment>>,
-    base_module: Module,
     current_context: PathIdent,
     current_type_env: Option<Box<TypeEnvironment>>,
     function_dict: FunctionDict,
     function_signature_map: HashMap<PathIdent, FunctionSignature>,
+    composite_map: HashMap<PathIdent, CompositeType>,
 }
 
 impl CortexPreprocessor {
     pub fn new() -> Result<Self, CortexError> {
         let mut this = CortexPreprocessor {
-            base_module: Module::new(),
             current_env: Some(Box::new(TypeCheckingEnvironment::base())),
             current_context: PathIdent::empty(),
             current_type_env: Some(Box::new(TypeEnvironment::base())),
             function_dict: FunctionDict::new(),
             function_signature_map: HashMap::new(),
+            composite_map: HashMap::new(),
         };
 
         let mut global_module = Module::new();
         Self::add_list_funcs(&mut global_module)?;
         Self::add_string_funcs(&mut global_module)?;
 
-        this.process_module(&PathIdent::empty(), &mut global_module)?;
+        this.register_module(&PathIdent::empty(), global_module)?;
 
         Ok(this)
     }
@@ -56,42 +56,52 @@ impl CortexPreprocessor {
                 Ok(())
             },
             TopLevel::Function(function) => {
-                self.process_function(PathIdent::empty(), function)?;
+                self.add_function(PathIdent::empty(), function)?;
                 Ok(())
             },
             TopLevel::Struct(struc) => {
-                self.base_module.add_struct(struc)?;
+                self.add_struct(PathIdent::empty(), struc)?;
                 Ok(())
             },
             TopLevel::Bundle(bundle) => {
-                self.base_module.add_bundle(bundle)?;
+                let mut funcs = Vec::new();
+                self.add_bundle(PathIdent::empty(), bundle, &mut funcs)?;
+                for f in funcs {
+                    self.add_function(PathIdent::empty(), f)?;
+                }
                 Ok(())
             },
         }
     }
 
     pub fn register_module(&mut self, path: &PathIdent, mut module: Module) -> Result<(), CortexError> {
-        self.process_module(path, &mut module)?;
-        self.base_module.add_module(path, module)?;
-        Ok(())
-    }
+        let mut functions = module.take_functions()?;
+        let structs = module.take_structs()?;
+        let bundles = module.take_bundles()?;
 
-    fn process_module(&mut self, path: &PathIdent, module: &mut Module) -> Result<(), CortexError> {
-        let functions = module.take_functions()?;
         let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
+
+        for item in structs {
+            self.add_struct(path.clone(), item)?;
+        }
+
+        for item in bundles {
+            self.add_bundle(path.clone(), item, &mut functions)?;
+        }
+
         for f in functions {
-            self.process_function(path.clone(), f)?;
+            self.add_function(path.clone(), f)?;
         }
         self.current_context = context_to_return_to;
 
-        for (path_end, m) in module.children_iter_mut() {
-            let this_path = PathIdent::continued(path.clone(), path_end.clone());
-            self.process_module(&this_path, m)?;
+        for (path_end, m) in module.children_iter() {
+            let this_path = PathIdent::continued(path.clone(), path_end);
+            self.register_module(&this_path, m)?;
         }
 
         Ok(())
     }
-    fn process_function(&mut self, n: PathIdent, f: Function) -> Result<(), CortexError> {
+    fn add_function(&mut self, n: PathIdent, f: Function) -> Result<(), CortexError> {
         let name = f.name().clone();
         let sig = f.signature();
         let processed = self.check_function(f)?;
@@ -114,6 +124,89 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ignore => {},
         }
         Ok(())
+    }
+    fn add_struct(&mut self, n: PathIdent, item: Struct) -> Result<(), CortexError> {
+        match &item.name {
+            OptionalIdentifier::Ident(item_name) => {
+                let full_path = PathIdent::continued(n, item_name.clone());
+                if let Ok(_) = self.lookup_composite(&full_path) {
+                    Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
+                } else {
+                    let has_loop = self.search_struct_for_loops(&item)?;
+                    if has_loop {
+                        Err(Box::new(ModuleError::StructContainsCircularFields(full_path.codegen(0))))
+                    } else {
+                        let mut seen_type_param_names = HashSet::new();
+                        for t in &item.type_param_names {
+                            if seen_type_param_names.contains(t) {
+                                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
+                            }
+                            seen_type_param_names.insert(t);
+                        }
+
+                        self.composite_map.insert(full_path, CompositeType {
+                            fields: item.fields,
+                            is_heap_allocated: false,
+                            type_param_names: item.type_param_names,
+                        });
+                        Ok(())
+                    }
+                }
+            },
+            OptionalIdentifier::Ignore => Ok(()),
+        }
+    }
+    pub fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<Function>) -> Result<(), CortexError> {
+        match &item.name {
+            OptionalIdentifier::Ident(item_name) => {
+                let full_path = PathIdent::continued(n, item_name.clone());
+                if let Ok(_) = self.lookup_composite(&full_path) {
+                    Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
+                } else {
+                    for func in item.functions {
+                        match func.name {
+                            OptionalIdentifier::Ident(func_name) => {
+                                let new_param = Parameter::named(
+                                    "this", 
+                                    CortexType::reference(
+                                        CortexType::basic(PathIdent::simple(item_name.clone()), false, forwarded_type_args(&item.type_param_names)),
+                                        func.this_arg == ThisArg::MutThis
+                                    ));
+                                let mut param_list = vec![new_param];
+                                param_list.extend(func.params);
+                                let mut type_param_names = func.type_param_names;
+                                type_param_names.extend(item.type_param_names.clone());
+                                let new_func = Function::new(
+                                    OptionalIdentifier::Ident(Bundle::get_bundle_func_name(item_name, &func_name)),
+                                    param_list,
+                                    func.return_type,
+                                    func.body,
+                                    type_param_names,
+                                );
+                                funcs_to_add.push(new_func);
+                            },
+                            OptionalIdentifier::Ignore => (),
+                        }
+                    }
+
+                    let mut seen_type_param_names = HashSet::new();
+                    for t in &item.type_param_names {
+                        if seen_type_param_names.contains(t) {
+                            return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
+                        }
+                        seen_type_param_names.insert(t);
+                    }
+
+                    self.composite_map.insert(full_path, CompositeType {
+                        fields: item.fields,
+                        is_heap_allocated: true,
+                        type_param_names: item.type_param_names,
+                    });
+                    Ok(())
+                }
+            },
+            OptionalIdentifier::Ignore => Ok(()),
+        }
     }
 
     pub fn preprocess(&mut self, body: BasicBody) -> Result<Program, CortexError> {
@@ -478,10 +571,13 @@ impl CortexPreprocessor {
             fields_to_assign.push(k.clone());
         }
 
+        let is_heap_allocated = composite.is_heap_allocated;
+        let fields = composite.fields.clone();
+
         let bindings = TypeEnvironment::create_bindings(&composite.type_param_names, &type_args);
         let mut new_assignments = Vec::new();
         for (fname, fvalue) in assignments {
-            let opt_typ = composite.fields
+            let opt_typ = fields
                 .get(&fname)
                 .map(|t| t.clone());
             if let Some(typ) = opt_typ {
@@ -515,7 +611,7 @@ impl CortexPreprocessor {
         }
 
         if fields_to_assign.is_empty() {
-            if composite.is_heap_allocated {
+            if is_heap_allocated {
                 Ok((RExpression::Construction { assignments: new_assignments, is_heap_allocated: true }, CortexType::reference(base_type, true)))
             } else {
                 Ok((RExpression::Construction { assignments: new_assignments, is_heap_allocated: false }, base_type))
@@ -792,6 +888,37 @@ impl CortexPreprocessor {
         }
     }
 
+    fn search_struct_for_loops(&self, s: &Struct) -> Result<bool, CortexError> {
+        match &s.name {
+            OptionalIdentifier::Ident(name) => {
+                let stype = CortexType::basic(PathIdent::simple(name.clone()), false, forwarded_type_args(&s.type_param_names));
+                let mut q = VecDeque::new();
+                for field in &s.fields {
+                    q.push_back(field.1.clone());
+                }
+                // Only need to search for references to this struct, everything else should be fine
+                while !q.is_empty() {
+                    let typ = q.pop_front().unwrap();
+                    if typ == stype {
+                        return Ok(true);
+                    }
+                    if !typ.is_core() {
+                        // Enqueue all fields of this type
+                        let typ_name = typ.name().map_err(|e| ModuleError::TypeError(e))?;
+                        let struc = self
+                            .lookup_composite(typ_name)?;
+                        
+                        for field in &struc.fields {
+                            q.push_back(field.1.clone());
+                        }
+                    }
+                }
+                Ok(false)
+            },
+            OptionalIdentifier::Ignore => Ok(false),
+        }
+    }
+
     fn lookup_type(&self, path: &PathIdent) -> Result<CortexType, CortexError> {
         if path.is_final() {
             // Search in our environment for it
@@ -810,10 +937,11 @@ impl CortexPreprocessor {
         }
     }
 
-    fn lookup_composite(&self, path: &PathIdent) -> Result<Rc<CompositeType>, CortexError> {
-        let last = path.get_back()?;
-        let module = self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?;
-        let result = module.get_composite(last)?;
-        Ok(result)
+    fn lookup_composite(&self, path: &PathIdent) -> Result<&CompositeType, CortexError> {
+        if let Some(c) = self.composite_map.get(path) {
+            Ok(c)
+        } else {
+            Err(Box::new(ModuleError::TypeDoesNotExist(path.get_back()?.clone())))
+        }
     }
 }
