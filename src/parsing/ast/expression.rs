@@ -274,10 +274,16 @@ impl PathIdent {
         }
     }
     pub fn continued(first: PathIdent, next: String) -> Self {
-        let mut path = first.path.clone();
-        path.push(next);
-        Self {
-            path: path,
+        if first.is_empty() {
+            Self {
+                path: vec![next],
+            }
+        } else {
+            let mut path = first.path.clone();
+            path.push(next);
+            Self {
+                path: path,
+            }
         }
     }
     pub fn empty() -> Self {

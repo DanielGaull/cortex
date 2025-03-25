@@ -12,7 +12,6 @@ pub struct CortexPreprocessor {
     base_module: Module,
     current_context: PathIdent,
     current_type_env: Option<Box<TypeEnvironment>>,
-    global_module: Module,
     function_dict: FunctionDict,
     function_signature_map: HashMap<PathIdent, FunctionSignature>,
 }
@@ -24,13 +23,15 @@ impl CortexPreprocessor {
             current_env: Some(Box::new(TypeCheckingEnvironment::base())),
             current_context: PathIdent::empty(),
             current_type_env: Some(Box::new(TypeEnvironment::base())),
-            global_module: Module::new(),
             function_dict: FunctionDict::new(),
             function_signature_map: HashMap::new(),
         };
 
-        Self::add_list_funcs(&mut this.global_module)?;
-        Self::add_string_funcs(&mut this.global_module)?;
+        let mut global_module = Module::new();
+        Self::add_list_funcs(&mut global_module)?;
+        Self::add_string_funcs(&mut global_module)?;
+
+        this.process_module(&PathIdent::empty(), &mut global_module)?;
 
         Ok(this)
     }
@@ -810,11 +811,7 @@ impl CortexPreprocessor {
     fn lookup_composite(&self, path: &PathIdent) -> Result<Rc<CompositeType>, CortexError> {
         let last = path.get_back()?;
         let module = self.base_module.get_module_for(&PathIdent::concat(&self.current_context, path))?;
-        let result = module.get_composite(last);
-        match result {
-            Ok(f) => Ok(f),
-            Err(ModuleError::TypeDoesNotExist(_)) => Ok(self.global_module.get_composite(last)?),
-            Err(e) => Err(Box::new(e)),
-        }
+        let result = module.get_composite(last)?;
+        Ok(result)
     }
 }
