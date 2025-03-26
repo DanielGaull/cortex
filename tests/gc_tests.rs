@@ -19,7 +19,7 @@ fn gc_test_simple() -> Result<(), Box<dyn Error>> {
 fn gc_test_ref() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_eq!(0, interpreter.hpsz());
-    interpreter.execute_statement(CortexParser::parse_statement("let time: simple::Time? = none;")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let time: &mut simple::Time? = none;")?)?;
     for _ in 0..100 {
         interpreter.execute_statement(CortexParser::parse_statement("time = simple::alloc();")?)?;
     }
@@ -34,7 +34,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
     ], vec![], vec![]);
-    let alloc_func = CortexParser::parse_function("fn alloc(): Time { Time { m: 0, s: 0 } }")?;
+    let alloc_func = CortexParser::parse_function("fn alloc(): &mut Time { Time { m: 0, s: 0 } }")?;
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_function(alloc_func)?;

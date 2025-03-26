@@ -129,7 +129,7 @@ impl CortexPreprocessor {
         match &item.name {
             OptionalIdentifier::Ident(item_name) => {
                 let full_path = PathIdent::continued(n, item_name.clone());
-                if let Ok(_) = self.lookup_composite(&full_path) {
+                if self.has_composite(&full_path) {
                     Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
                 } else {
                     let has_loop = self.search_struct_for_loops(&item)?;
@@ -253,7 +253,8 @@ impl CortexPreprocessor {
         match function.body {
             Body::Basic(body) => {
                 let (new_body, body_type) = self.check_body(body)?;
-                if !body_type.is_subtype_of(&function.return_type) {
+                let return_type = self.clean_type(function.return_type.clone().with_prefix_if_not_core(&self.current_context));
+                if !body_type.is_subtype_of(&return_type) {
                     return Err(Box::new(PreprocessingError::ReturnTypeMismatch(function.return_type.codegen(0), body_type.codegen(0))));
                 }
                 final_fn_body = RBody::Interpreted(new_body);
@@ -905,11 +906,15 @@ impl CortexPreprocessor {
                     if !typ.is_core() {
                         // Enqueue all fields of this type
                         let typ_name = typ.name().map_err(|e| ModuleError::TypeError(e))?;
-                        let struc = self
-                            .lookup_composite(typ_name)?;
+                        let struc = self.lookup_composite(typ_name);
                         
-                        for field in &struc.fields {
-                            q.push_back(field.1.clone());
+                        // It's ok if the struct doesn't exist yet
+                        // If it has loops, then they will be caught when we visit this function upon registering it
+                        // Unfortunately, the order in which structs are added is not deterministic
+                        if let Ok(struc) = struc {
+                            for field in &struc.fields {
+                                q.push_back(field.1.clone());
+                            }
                         }
                     }
                 }
@@ -930,7 +935,8 @@ impl CortexPreprocessor {
     }
     
     fn lookup_signature(&self, path: &PathIdent) -> Result<&FunctionSignature, CortexError> {
-        if let Some(sig) = self.function_signature_map.get(path) {
+        let full_path = PathIdent::concat(&self.current_context, &path);
+        if let Some(sig) = self.function_signature_map.get(&full_path) {
             Ok(sig)
         } else {
             Err(Box::new(ModuleError::FunctionDoesNotExist(path.get_back()?.clone())))
@@ -938,10 +944,15 @@ impl CortexPreprocessor {
     }
 
     fn lookup_composite(&self, path: &PathIdent) -> Result<&CompositeType, CortexError> {
-        if let Some(c) = self.composite_map.get(path) {
+        let full_path = PathIdent::concat(&self.current_context, &path);
+        if let Some(c) = self.composite_map.get(&full_path) {
             Ok(c)
         } else {
             Err(Box::new(ModuleError::TypeDoesNotExist(path.get_back()?.clone())))
         }
+    }
+    fn has_composite(&self, path: &PathIdent) -> bool {
+        let full_path = PathIdent::concat(&self.current_context, &path);
+        self.composite_map.contains_key(&full_path)
     }
 }
