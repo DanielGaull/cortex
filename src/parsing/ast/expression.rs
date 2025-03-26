@@ -118,10 +118,7 @@ impl SimpleCodeGen for Expression {
                 s
             },
             Expression::UnaryOperation { op, exp } => {
-                let mut s = String::new();
-                s.push_str(&op.codegen(indent));
-                s.push_str(&exp.codegen(indent));
-                s
+                format!("{}{}", op.codegen(indent), exp.codegen_as_sub(indent))
             },
             Expression::ListLiteral(items) => {
                 let mut s = String::new();
@@ -138,16 +135,40 @@ impl SimpleCodeGen for Expression {
             },
             Expression::Bang(ex) => format!("{}!", ex.codegen(indent)),
             Expression::BinaryOperation { left, op, right } => {
-                format!("({}) {} ({})", left.codegen(indent), op.codegen(indent), right.codegen(indent))
+                format!("{} {} {}", left.codegen_as_sub(indent), op.codegen(indent), right.codegen_as_sub(indent))
             },
-            Expression::MemberAccess(ex, member) => format!("{}.{}", ex.codegen(indent), member),
+            Expression::MemberAccess(ex, member) => format!("{}.{}", ex.codegen_as_sub(indent), member),
             Expression::MemberCall { callee, member: member_name, args } => {
                 format!("{}.{}({})", 
-                    callee.codegen(indent), 
+                    callee.codegen_as_sub(indent), 
                     member_name, 
                     args.iter().map(|a| a.codegen(indent)).collect::<Vec<_>>().join(", ")
                 )
             }
+        }
+    }
+}
+impl Expression {
+    fn is_atomic(&self) -> bool {
+        match self {
+            Expression::Number(_) | Expression::Boolean(_) | Expression::Void | Expression::None | 
+            Expression::String(_) | Expression::PathIdent(_) | Expression::Call(_, _) |
+            Expression::Construction { name: _, type_args: _, assignments: _ } |
+            Expression::IfStatement { first: _, conds: _, last: _ } | Expression::MemberAccess(_, _) |
+            Expression::ListLiteral(_) | Expression::MemberCall { callee: _, member: _, args: _ }
+                => true,
+            
+            Expression::UnaryOperation { op: _, exp: _ } | Expression::Bang(_) | 
+            Expression::BinaryOperation { left: _, op: _, right: _ }
+                => false,
+        }
+    }
+    fn codegen_as_sub(&self, indent: usize) -> String {
+        let s = self.codegen(indent);
+        if !self.is_atomic() {
+            format!("({})", s)
+        } else {
+            s
         }
     }
 }
