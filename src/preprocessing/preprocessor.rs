@@ -75,6 +75,11 @@ impl CortexPreprocessor {
     }
 
     pub fn register_module(&mut self, path: &PathIdent, mut module: Module) -> Result<(), CortexError> {
+        for (path_end, m) in module.children_iter() {
+            let this_path = PathIdent::continued(path.clone(), path_end);
+            self.register_module(&this_path, m)?;
+        }
+
         let mut functions = module.take_functions()?;
         let structs = module.take_structs()?;
         let bundles = module.take_bundles()?;
@@ -93,11 +98,6 @@ impl CortexPreprocessor {
             self.add_function(path.clone(), f)?;
         }
         self.current_context = context_to_return_to;
-
-        for (path_end, m) in module.children_iter() {
-            let this_path = PathIdent::continued(path.clone(), path_end);
-            self.register_module(&this_path, m)?;
-        }
 
         Ok(())
     }
