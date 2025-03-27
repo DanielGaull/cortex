@@ -56,6 +56,7 @@ impl CortexPreprocessor {
                 Ok(())
             },
             TopLevel::Function(function) => {
+                self.add_signature(PathIdent::empty(), &function)?;
                 self.add_function(PathIdent::empty(), function)?;
                 Ok(())
             },
@@ -94,6 +95,10 @@ impl CortexPreprocessor {
             self.add_bundle(path.clone(), item, &mut functions)?;
         }
 
+        for f in &functions {
+            self.add_signature(path.clone(), f)?;
+        }
+
         for f in functions {
             self.add_function(path.clone(), f)?;
         }
@@ -101,15 +106,14 @@ impl CortexPreprocessor {
 
         Ok(())
     }
-    fn add_function(&mut self, n: PathIdent, f: Function) -> Result<(), CortexError> {
-        let name = f.name().clone();
+
+    fn add_signature(&mut self, n: PathIdent, f: &Function) -> Result<(), CortexError> {
         let sig = f.signature();
-        let processed = self.check_function(f)?;
-        match name {
+        match f.name() {
             OptionalIdentifier::Ident(func_name) => {
                 let full_path = PathIdent::continued(n, func_name.clone());
                 if self.function_signature_map.contains_key(&full_path) {
-                    return Err(Box::new(ModuleError::FunctionAlreadyExists(func_name)));
+                    return Err(Box::new(ModuleError::FunctionAlreadyExists(func_name.clone())));
                 }
                 let mut seen_type_param_names = HashSet::new();
                 for t in &sig.type_param_names {
@@ -119,6 +123,17 @@ impl CortexPreprocessor {
                     seen_type_param_names.insert(t);
                 }
                 self.function_signature_map.insert(full_path.clone(), sig);
+            },
+            OptionalIdentifier::Ignore => {},
+        }
+        Ok(())
+    }
+    fn add_function(&mut self, n: PathIdent, f: Function) -> Result<(), CortexError> {
+        let name = f.name().clone();
+        let processed = self.check_function(f)?;
+        match name {
+            OptionalIdentifier::Ident(func_name) => {
+                let full_path = PathIdent::continued(n, func_name.clone());
                 self.function_dict.add_function(full_path, processed);
             },
             OptionalIdentifier::Ignore => {},
