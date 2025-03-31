@@ -67,6 +67,9 @@ impl CortexPreprocessor {
             TopLevel::Bundle(bundle) => {
                 let mut funcs = Vec::new();
                 self.add_bundle(PathIdent::empty(), bundle, &mut funcs)?;
+                for f in &funcs {
+                    self.add_signature(PathIdent::empty(), &f)?;
+                }
                 for f in funcs {
                     self.add_function(PathIdent::empty(), f)?;
                 }
@@ -190,6 +193,10 @@ impl CortexPreprocessor {
                                 let mut param_list = vec![new_param];
                                 param_list.extend(func.params);
                                 let mut type_param_names = func.type_param_names;
+                                let intersecting_type_param = item.type_param_names.iter().find(|t| type_param_names.contains(t));
+                                if let Some(name) = intersecting_type_param {
+                                    return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
+                                }
                                 type_param_names.extend(item.type_param_names.clone());
                                 let new_func = Function::new(
                                     OptionalIdentifier::Ident(Bundle::get_bundle_func_name(item_name, &func_name)),
