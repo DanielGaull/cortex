@@ -424,8 +424,14 @@ impl CortexPreprocessor {
             Expression::None => Ok((RExpression::None, CortexType::none())),
             Expression::String(v) => Ok((RExpression::String(v), CortexType::string(false))),
             Expression::PathIdent(path_ident) => Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.lookup_type(&path_ident)?)),
-            Expression::Call(path_ident, arg_exps) => {
-                self.check_call(path_ident, arg_exps)
+            Expression::Call(path, arg_exps) => {
+                let extended = PathIdent::concat(&self.current_context, &path.without_last());
+                let context_to_return_to = std::mem::replace(&mut self.current_context, extended);
+                let function_name = path.get_back()?;
+                let result = self.check_call(PathIdent::simple(function_name.clone()), arg_exps);
+                self.current_context = context_to_return_to;
+
+                result
             },
             Expression::Construction { name, type_args, assignments } => {
                 self.check_construction(name, type_args, assignments)
@@ -508,7 +514,7 @@ impl CortexPreprocessor {
                 let return_type = sig.return_type.clone();
                 let return_type = self.clean_type(return_type);
 
-                let id = self.function_dict.add_call(member_func_path);
+                let id = self.function_dict.add_call(member_func_path)?;
 
                 Ok((RExpression::Call(id, args), return_type))
             },
@@ -532,17 +538,17 @@ impl CortexPreprocessor {
         
         let sig = self.lookup_signature(&path_ident)?.clone();
 
+        let full_path = PathIdent::concat(&self.current_context, &path_ident);
         if provided_arg_count != sig.params.len() {
             return Err(Box::new(
-                PreprocessingError::MismatchedArgumentCount(path_ident.codegen(0), sig.params.len(), provided_arg_count)
+                PreprocessingError::MismatchedArgumentCount(full_path.codegen(0), sig.params.len(), provided_arg_count)
             ));
         }
 
         let mut return_type = sig
             .return_type
             .clone()
-            .with_prefix_if_not_core(&self.current_context)
-            .with_prefix_if_not_core(&path_ident.without_last());
+            .with_prefix_if_not_core(&self.current_context);
 
         let mut param_names = Vec::<String>::with_capacity(sig.params.len());
         let mut param_types = Vec::<CortexType>::with_capacity(sig.params.len());
@@ -551,7 +557,7 @@ impl CortexPreprocessor {
             param_types.push(param.typ.clone());
         }
 
-        let bindings = self.infer_type_args(&sig, &arg_types, path_ident.codegen(0))?;
+        let bindings = self.infer_type_args(&sig, &arg_types, &full_path)?;
         let parent_type_env = self.current_type_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         let mut new_type_env = TypeEnvironment::new(*parent_type_env);
         for (name, typ) in &bindings {
@@ -579,7 +585,7 @@ impl CortexPreprocessor {
 
         self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
 
-        let func_id = self.function_dict.add_call(path_ident);
+        let func_id = self.function_dict.add_call(full_path)?;
 
         Ok((RExpression::Call(func_id, processed_args), return_type))
     }
@@ -839,14 +845,14 @@ impl CortexPreprocessor {
         }
         Ok(bindings)
     }
-    fn infer_type_args(&self, sig: &FunctionSignature, args: &Vec<CortexType>, name: String) -> Result<HashMap<String, CortexType>, CortexError> {
+    fn infer_type_args(&self, sig: &FunctionSignature, args: &Vec<CortexType>, name: &PathIdent) -> Result<HashMap<String, CortexType>, CortexError> {
         let mut bindings = HashMap::<String, CortexType>::new();
         for (arg, param) in args.iter().zip(&sig.params) {
             self.infer_arg(&param.typ, &arg, &sig.type_param_names, &mut bindings, param.name())?;
         }
 
         if bindings.len() != sig.type_param_names.len() {
-            Err(Box::new(PreprocessingError::CouldNotInferTypeBinding(name)))
+            Err(Box::new(PreprocessingError::CouldNotInferTypeBinding(name.codegen(0))))
         } else {
             Ok(bindings)
         }

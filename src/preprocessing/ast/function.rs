@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::ast::expression::PathIdent};
+use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::module::ModuleError};
 
 use super::{expression::RExpression, statement::RStatement};
 
@@ -54,15 +54,18 @@ impl FunctionDict {
     pub(crate) fn add_function(&mut self, name: PathIdent, function: RFunction) {
         self.all_functions.insert(name, Rc::new(function));
     }
-    pub(crate) fn add_call(&mut self, name: PathIdent) -> usize {
+    pub(crate) fn add_call(&mut self, name: PathIdent) -> Result<usize, ModuleError> {
         if let Some(id) = self.name_to_id.get(&name) {
-            *id
+            Ok(*id)
         } else {
+            if !self.all_functions.contains_key(&name) {
+                return Err(ModuleError::FunctionDoesNotExist(name.codegen(0)));
+            }
             self.name_to_id.insert(name.clone(), self.next_id);
             self.id_to_name.insert(self.next_id, name);
             let result = self.next_id;
             self.next_id += 1;
-            result
+            Ok(result)
         }
     }
 
