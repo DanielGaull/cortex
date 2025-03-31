@@ -51,8 +51,17 @@ impl FunctionDict {
         }
     }
 
+    pub fn extend(&mut self, other: FunctionDict) {
+        for (path, func) in other.all_functions {
+            self.add_function_rc(path, func);
+        }
+    }
+
     pub(crate) fn add_function(&mut self, name: PathIdent, function: RFunction) {
-        self.all_functions.insert(name, Rc::new(function));
+        self.add_function_rc(name, Rc::new(function));
+    }
+    fn add_function_rc(&mut self, name: PathIdent, function: Rc<RFunction>) {
+        self.all_functions.insert(name, function);
     }
     pub(crate) fn add_call(&mut self, name: PathIdent) -> usize {
         if let Some(id) = self.name_to_id.get(&name) {

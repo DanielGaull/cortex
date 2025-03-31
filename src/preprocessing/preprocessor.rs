@@ -1,8 +1,8 @@
-use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
+use std::{collections::{HashMap, VecDeque}, error::Error, rc::Rc};
 
 use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType}}, codegen::r#trait::SimpleCodeGen};
 
-use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{CompositeType, Module, ModuleError}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
+use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, module::RModule, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{CompositeType, Module, ModuleError}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
 type CortexError = Box<dyn Error>;
 pub type CheckResult<T> = Result<(T, CortexType), CortexError>;
@@ -12,8 +12,7 @@ pub struct CortexPreprocessor {
     current_context: PathIdent,
     current_type_env: Option<Box<TypeEnvironment>>,
     function_dict: FunctionDict,
-    function_signature_map: HashMap<PathIdent, FunctionSignature>,
-    composite_map: HashMap<PathIdent, CompositeType>,
+    base_module: RModule,
 }
 
 impl CortexPreprocessor {
@@ -23,8 +22,7 @@ impl CortexPreprocessor {
             current_context: PathIdent::empty(),
             current_type_env: Some(Box::new(TypeEnvironment::base())),
             function_dict: FunctionDict::new(),
-            function_signature_map: HashMap::new(),
-            composite_map: HashMap::new(),
+            base_module: RModule::new(),
         };
 
         let mut global_module = Module::new();
@@ -52,176 +50,70 @@ impl CortexPreprocessor {
             },
             TopLevel::Module { name, contents } => {
                 let module = Self::construct_module(contents)?;
-                self.register_module(&PathIdent::simple(name), module)?;
+                let (rmodule, fd) = self.preprocess_module(&PathIdent::simple(name.clone()), module)?;
+                self.function_dict.extend(fd);
+                self.base_module.add_child(name, rmodule);
                 Ok(())
             },
             TopLevel::Function(function) => {
-                self.add_signature(PathIdent::empty(), &function)?;
-                self.add_function(PathIdent::empty(), function)?;
+                match &function.name {
+                    OptionalIdentifier::Ident(fname) => {
+                        let sig = function.signature();
+                        let fname = fname.clone();
+                        let rf = self.check_function(function)?;
+                        self.function_dict.add_function(PathIdent::simple(fname.clone()), rf);
+                        self.base_module.add_signature(fname, sig)?;
+                    },
+                    OptionalIdentifier::Ignore => (),
+                }
                 Ok(())
             },
             TopLevel::Struct(struc) => {
-                self.add_struct(PathIdent::empty(), struc)?;
+                self.base_module.add_struct(struc)?;
                 Ok(())
             },
             TopLevel::Bundle(bundle) => {
-                let mut funcs = Vec::new();
-                self.add_bundle(PathIdent::empty(), bundle, &mut funcs)?;
+                let funcs = self.base_module.add_bundle(bundle)?;
                 for f in funcs {
-                    self.add_function(PathIdent::empty(), f)?;
+                    self.add_function(&PathIdent::empty(), f, &mut self.base_module)?;
                 }
                 Ok(())
             },
         }
     }
 
-    pub fn register_module(&mut self, path: &PathIdent, mut module: Module) -> Result<(), CortexError> {
-        for (path_end, m) in module.children_iter() {
-            let this_path = PathIdent::continued(path.clone(), path_end);
-            self.register_module(&this_path, m)?;
-        }
-
-        let mut functions = module.take_functions()?;
-        let structs = module.take_structs()?;
-        let bundles = module.take_bundles()?;
-
-        let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
-
-        for item in structs {
-            self.add_struct(path.clone(), item)?;
-        }
-
-        for item in bundles {
-            self.add_bundle(path.clone(), item, &mut functions)?;
-        }
-
-        for f in &functions {
-            self.add_signature(path.clone(), f)?;
-        }
-
-        for f in functions {
-            self.add_function(path.clone(), f)?;
-        }
-        self.current_context = context_to_return_to;
-
-        Ok(())
-    }
-
-    fn add_signature(&mut self, n: PathIdent, f: &Function) -> Result<(), CortexError> {
-        let sig = f.signature();
+    fn add_function(&mut self, path: &PathIdent, f: Function, rmodule: &mut RModule) -> Result<(), CortexError> {
         match f.name() {
-            OptionalIdentifier::Ident(func_name) => {
-                let full_path = PathIdent::continued(n, func_name.clone());
-                if self.function_signature_map.contains_key(&full_path) {
-                    return Err(Box::new(ModuleError::FunctionAlreadyExists(func_name.clone())));
-                }
-                let mut seen_type_param_names = HashSet::new();
-                for t in &sig.type_param_names {
-                    if seen_type_param_names.contains(t) {
-                        return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
-                    }
-                    seen_type_param_names.insert(t);
-                }
-                self.function_signature_map.insert(full_path.clone(), sig);
+            OptionalIdentifier::Ident(fname) => {
+                let full_path = PathIdent::continued(path.clone(), fname.clone());
+                let sig = f.signature();
+                let fname = fname.clone();
+                let rf = self.check_function(f)?;
+                self.function_dict.add_function(full_path, rf);
+                rmodule.add_signature(fname, sig)?;
             },
-            OptionalIdentifier::Ignore => {},
+            OptionalIdentifier::Ignore => (),
         }
         Ok(())
     }
-    fn add_function(&mut self, n: PathIdent, f: Function) -> Result<(), CortexError> {
-        let name = f.name().clone();
-        let processed = self.check_function(f)?;
-        match name {
-            OptionalIdentifier::Ident(func_name) => {
-                let full_path = PathIdent::continued(n, func_name.clone());
-                self.function_dict.add_function(full_path, processed);
-            },
-            OptionalIdentifier::Ignore => {},
+    fn preprocess_module(&mut self, path: &PathIdent, mut module: Module) -> Result<(RModule, FunctionDict), CortexError> {
+        let mut rmodule = RModule::new();
+        let mut function_dict = FunctionDict::new();
+        for s in module.take_structs()? {
+            rmodule.add_struct(s)?;
         }
-        Ok(())
-    }
-    fn add_struct(&mut self, n: PathIdent, item: Struct) -> Result<(), CortexError> {
-        match &item.name {
-            OptionalIdentifier::Ident(item_name) => {
-                let full_path = PathIdent::continued(n, item_name.clone());
-                if self.has_composite(&full_path) {
-                    Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
-                } else {
-                    let has_loop = self.search_struct_for_loops(&item)?;
-                    if has_loop {
-                        Err(Box::new(ModuleError::StructContainsCircularFields(full_path.codegen(0))))
-                    } else {
-                        let mut seen_type_param_names = HashSet::new();
-                        for t in &item.type_param_names {
-                            if seen_type_param_names.contains(t) {
-                                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
-                            }
-                            seen_type_param_names.insert(t);
-                        }
 
-                        self.composite_map.insert(full_path, CompositeType {
-                            fields: item.fields,
-                            is_heap_allocated: false,
-                            type_param_names: item.type_param_names,
-                        });
-                        Ok(())
-                    }
-                }
-            },
-            OptionalIdentifier::Ignore => Ok(()),
+        let mut func_list = module.take_functions()?;
+        for b in module.take_bundles()? {
+            let funcs = rmodule.add_bundle(b)?;
+            func_list.extend(funcs);
         }
-    }
-    pub fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<Function>) -> Result<(), CortexError> {
-        match &item.name {
-            OptionalIdentifier::Ident(item_name) => {
-                let full_path = PathIdent::continued(n, item_name.clone());
-                if let Ok(_) = self.lookup_composite(&full_path) {
-                    Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
-                } else {
-                    for func in item.functions {
-                        match func.name {
-                            OptionalIdentifier::Ident(func_name) => {
-                                let new_param = Parameter::named(
-                                    "this", 
-                                    CortexType::reference(
-                                        CortexType::basic(PathIdent::simple(item_name.clone()), false, forwarded_type_args(&item.type_param_names)),
-                                        func.this_arg == ThisArg::MutThis
-                                    ));
-                                let mut param_list = vec![new_param];
-                                param_list.extend(func.params);
-                                let mut type_param_names = func.type_param_names;
-                                type_param_names.extend(item.type_param_names.clone());
-                                let new_func = Function::new(
-                                    OptionalIdentifier::Ident(Bundle::get_bundle_func_name(item_name, &func_name)),
-                                    param_list,
-                                    func.return_type,
-                                    func.body,
-                                    type_param_names,
-                                );
-                                funcs_to_add.push(new_func);
-                            },
-                            OptionalIdentifier::Ignore => (),
-                        }
-                    }
 
-                    let mut seen_type_param_names = HashSet::new();
-                    for t in &item.type_param_names {
-                        if seen_type_param_names.contains(t) {
-                            return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
-                        }
-                        seen_type_param_names.insert(t);
-                    }
-
-                    self.composite_map.insert(full_path, CompositeType {
-                        fields: item.fields,
-                        is_heap_allocated: true,
-                        type_param_names: item.type_param_names,
-                    });
-                    Ok(())
-                }
-            },
-            OptionalIdentifier::Ignore => Ok(()),
+        for f in func_list {
+            self.add_function(path, f, &mut rmodule)?;
         }
+
+        Ok((rmodule, function_dict))
     }
 
     pub fn preprocess(&mut self, body: BasicBody) -> Result<Program, CortexError> {
