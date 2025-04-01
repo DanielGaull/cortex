@@ -493,32 +493,17 @@ impl CortexPreprocessor {
                     Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type))
                 }
             },
-            Expression::MemberCall { callee, member, args } => {
-                let (atom_exp, atom_type) = self.check_exp(*callee)?;
+            Expression::MemberCall { callee, member, mut args } => {
+                let (_, atom_type) = self.check_exp(*callee.clone())?;
                 let caller_type = atom_type.name()?;
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
                 let member_func_name = Bundle::get_bundle_func_name(caller_func_base, &member);
                 let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
                     .subtract(&self.current_context)?;
-                let mut args: Vec<RExpression> = args
-                    .into_iter()
-                    .map(|a| self.check_exp(a))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .map(|a| a.0)
-                    .collect();
-                let sig = self.lookup_signature(&member_func_path)?;
-                args.insert(0, atom_exp);
-
-                let return_type = sig.return_type.clone();
-                let return_type = self.clean_type(return_type);
-
-                // For calls, need the full path, but lookup_signature inserts current context
-                let full_path = PathIdent::concat(&self.current_context, &member_func_path);
-                let id = self.function_dict.add_call(full_path)?;
-
-                Ok((RExpression::Call(id, args), return_type))
+                args.insert(0, *callee);
+                let result = self.check_call(member_func_path, args)?;
+                Ok(result)
             },
             Expression::BinaryOperation { left, op, right } => {
                 let (left_exp, left_type) = self.check_exp(*left)?;
