@@ -223,3 +223,20 @@ fn bundle_tests() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn recursive_function_test() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    let f = 
+        "fn factorial(n: number): number {\
+            if n <= 0 {\
+                1\
+            } else {\
+                n * factorial(n-1)\
+            }\
+        }";
+    interpreter.run_top_level(CortexParser::parse_top_level(f)?)?;
+    run_test("factorial(3)", "6", &mut interpreter)?;
+    run_test("factorial(5)", "120", &mut interpreter)?;
+    Ok(())
+}
