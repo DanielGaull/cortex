@@ -46,4 +46,6 @@ pub enum PreprocessingError {
     CannotAccessMemberOfNonComposite,
     #[error("Cannot modify field on immutable reference for type {0}")]
     CannotModifyFieldOnImmutableReference(String),
+    #[error("Unknown type found!")]
+    UnknownTypeFound,
 }

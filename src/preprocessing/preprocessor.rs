@@ -277,7 +277,7 @@ impl CortexPreprocessor {
                 let (new_body, body_type) = self.check_body(body)?;
                 let return_type = self.clean_type(function.return_type.clone().with_prefix_if_not_core(&self.current_context));
                 if !body_type.is_subtype_of(&return_type) {
-                    return Err(Box::new(PreprocessingError::ReturnTypeMismatch(function.return_type.codegen(0), body_type.codegen(0))));
+                    return Err(Box::new(PreprocessingError::ReturnTypeMismatch(return_type.codegen(0), body_type.codegen(0))));
                 }
                 final_fn_body = RBody::Interpreted(new_body);
             },
@@ -481,6 +481,18 @@ impl CortexPreprocessor {
                 if atom_type.is_non_composite() {
                     return Err(Box::new(PreprocessingError::CannotAccessMemberOfNonComposite));
                 }
+                let is_mutable;
+                match &atom_type {
+                    CortexType::BasicType { optional: _, name: _, type_args: _ } => {
+                        is_mutable = true;
+                    },
+                    CortexType::RefType { contained: _, mutable } => {
+                        is_mutable = *mutable;
+                    },
+                    CortexType::Unknown(_) => {
+                        return Err(Box::new(PreprocessingError::UnknownTypeFound));
+                    },
+                }
                 let composite = self.lookup_composite(&atom_type.name()?.clone().subtract(&self.current_context)?)?;
                 if !composite.fields.contains_key(&member) {
                     Err(Box::new(PreprocessingError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
@@ -490,6 +502,7 @@ impl CortexPreprocessor {
                     member_type = TypeEnvironment::fill(member_type, &bindings)
                         .subtract_if_possible(&atom_type.prefix());
                     member_type = member_type.with_prefix_if_not_core(&atom_type.prefix());
+                    member_type = member_type.forward_immutability(is_mutable);
                     Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type))
                 }
             },
