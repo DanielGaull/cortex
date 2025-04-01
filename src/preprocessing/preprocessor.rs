@@ -514,7 +514,9 @@ impl CortexPreprocessor {
                 let return_type = sig.return_type.clone();
                 let return_type = self.clean_type(return_type);
 
-                let id = self.function_dict.add_call(member_func_path)?;
+                // For calls, need the full path, but lookup_signature inserts current context
+                let full_path = PathIdent::concat(&self.current_context, &member_func_path);
+                let id = self.function_dict.add_call(full_path)?;
 
                 Ok((RExpression::Call(id, args), return_type))
             },
