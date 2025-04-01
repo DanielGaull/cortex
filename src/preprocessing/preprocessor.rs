@@ -430,7 +430,6 @@ impl CortexPreprocessor {
                 let function_name = path.get_back()?;
                 let result = self.check_call(PathIdent::simple(function_name.clone()), arg_exps);
                 self.current_context = context_to_return_to;
-
                 result
             },
             Expression::Construction { name, type_args, assignments } => {
@@ -459,18 +458,18 @@ impl CortexPreprocessor {
                 }
             },
             Expression::ListLiteral(items) => {
-                let mut typ = CortexType::Unknown(false);
+                let mut contained_type = CortexType::Unknown(false);
                 let mut new_items = Vec::new();
                 for item in items {
                     let (item_exp, item_type) = self.check_exp(item)?;
                     let item_type_str = item_type.codegen(0);
-                    let typ_str = typ.codegen(0);
-                    typ = typ
+                    let typ_str = contained_type.codegen(0);
+                    contained_type = contained_type
                         .combine_with(item_type)
                         .ok_or(PreprocessingError::CannotDetermineListLiteralType(typ_str, item_type_str))?;
                     new_items.push(item_exp);
                 }
-                let true_type = CortexType::reference(CortexType::list(typ, false), true);
+                let true_type = CortexType::reference(CortexType::list(contained_type, false), true);
                 Ok((RExpression::ListLiteral(new_items), true_type))
             },
             Expression::Bang(inner) => {
@@ -488,7 +487,8 @@ impl CortexPreprocessor {
                 } else {
                     let mut member_type = composite.fields.get(&member).unwrap().clone();
                     let bindings = Self::get_bindings(&composite.type_param_names, &atom_type)?;
-                    member_type = TypeEnvironment::fill(member_type, &bindings);
+                    member_type = TypeEnvironment::fill(member_type, &bindings)
+                        .subtract_if_possible(&atom_type.prefix());
                     member_type = member_type.with_prefix_if_not_core(&atom_type.prefix());
                     Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type))
                 }
@@ -599,15 +599,16 @@ impl CortexPreprocessor {
                 .get(&fname)
                 .map(|t| t.clone());
             if let Some(typ) = opt_typ {
-                let typ = TypeEnvironment::fill(typ, &bindings)
+                let field_type = TypeEnvironment::fill(typ, &bindings)
+                    .subtract_if_possible(&name.without_last())
                     .with_prefix_if_not_core(&self.current_context)
                     .with_prefix_if_not_core(&name.without_last());
                 let (exp, assigned_type) = self.check_exp(fvalue)?;
-                if !assigned_type.is_subtype_of(&typ) {
+                if !assigned_type.is_subtype_of(&field_type) {
                     return Err(
                         Box::new(
                             PreprocessingError::MismatchedType(
-                                typ.codegen(0),
+                                field_type.codegen(0),
                                 assigned_type.codegen(0),
                                 fname.clone(),
                             )

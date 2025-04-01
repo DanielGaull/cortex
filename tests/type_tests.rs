@@ -89,6 +89,10 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
     interpreter.execute_statement(CortexParser::parse_statement("let box = box::Box<number>{ item: 5 };")?)?;
     run_test("box.item", "number", &mut interpreter)?;
     run_test("box.get()", "number", &mut interpreter)?;
+
+    interpreter.execute_statement(CortexParser::parse_statement("let box2: &box::Box<&mut box::Box<number>> = box::Box<&mut box::Box<number>>{ item: box::Box<number>{ item: 5 } };")?)?;
+    run_test("box2.item", "&box::Box<number>", &mut interpreter)?;
+
     Ok(())
 }
 

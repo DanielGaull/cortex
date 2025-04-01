@@ -123,6 +123,21 @@ impl CortexType {
             self
         }
     }
+    pub fn subtract_if_possible(self, prefix: &PathIdent) -> Self {
+        match self {
+            CortexType::BasicType { optional, name, type_args } => {
+                if name.is_prefixed_by(prefix) {
+                    CortexType::BasicType { optional, name: name.subtract(prefix).unwrap(), type_args }
+                } else {
+                    CortexType::BasicType { optional, name, type_args }
+                }
+            },
+            CortexType::RefType { contained, mutable } => {
+                CortexType::RefType { contained: Box::new(contained.subtract_if_possible(prefix)), mutable }
+            },
+            CortexType::Unknown(b) => CortexType::Unknown(b),
+        }
+    }
     // Forwards immutability if mutable is false. If mutable is true, returns self
     // Only forwards it if this is a reference type
     pub fn forward_immutability(self, mutable: bool) -> Self {

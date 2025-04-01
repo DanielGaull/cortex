@@ -326,6 +326,18 @@ impl PathIdent {
         }
     }
 
+    pub fn is_prefixed_by(&self, prefix: &PathIdent) -> bool {
+        if prefix.path.len() > self.path.len() {
+            return false;
+        }
+        for (i, p) in prefix.path.iter().enumerate() {
+            if *self.path.get(i).unwrap() != *p {
+                return false;
+            }
+        }
+        true
+    }
+
     pub fn subtract(self, second: &PathIdent) -> Result<Self, PathError> {
         if second.is_empty() {
             Ok(self)
