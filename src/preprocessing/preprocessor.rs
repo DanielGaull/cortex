@@ -499,8 +499,12 @@ impl CortexPreprocessor {
                 } else {
                     let mut member_type = composite.fields.get(&member).unwrap().clone();
                     let bindings = Self::get_bindings(&composite.type_param_names, &atom_type)?;
-                    member_type = TypeEnvironment::fill(member_type, &bindings)
-                        .subtract_if_possible(&atom_type.prefix());
+                    member_type = TypeEnvironment::fill(member_type, 
+                        &bindings
+                            .into_iter()
+                            .map(|(k, v)| (k, v.subtract_if_possible(&atom_type.prefix())))
+                            .collect::<HashMap<_, _>>()
+                        );
                     member_type = member_type.with_prefix_if_not_core(&atom_type.prefix());
                     member_type = member_type.forward_immutability(is_mutable);
                     Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type))
@@ -606,6 +610,10 @@ impl CortexPreprocessor {
         let fields = composite.fields.clone();
 
         let bindings = TypeEnvironment::create_bindings(&composite.type_param_names, &type_args);
+        let bindings = bindings
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone().subtract_if_possible(&name.without_last())))
+            .collect::<HashMap<_, _>>();
         let mut new_assignments = Vec::new();
         for (fname, fvalue) in assignments {
             let opt_typ = fields
@@ -613,7 +621,6 @@ impl CortexPreprocessor {
                 .map(|t| t.clone());
             if let Some(typ) = opt_typ {
                 let field_type = TypeEnvironment::fill(typ, &bindings)
-                    .subtract_if_possible(&name.without_last())
                     .with_prefix_if_not_core(&self.current_context)
                     .with_prefix_if_not_core(&name.without_last());
                 let (exp, assigned_type) = self.check_exp(fvalue)?;
