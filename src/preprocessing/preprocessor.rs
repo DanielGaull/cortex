@@ -502,7 +502,8 @@ impl CortexPreprocessor {
                 let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
                     .subtract(&self.current_context)?;
                 args.insert(0, *callee);
-                let result = self.check_call(member_func_path, args)?;
+                let call_exp = Expression::Call(member_func_path, args);
+                let result = self.check_exp(call_exp)?;
                 Ok(result)
             },
             Expression::BinaryOperation { left, op, right } => {
@@ -534,8 +535,7 @@ impl CortexPreprocessor {
 
         let mut return_type = sig
             .return_type
-            .clone()
-            .with_prefix_if_not_core(&self.current_context);
+            .clone();
 
         let mut param_names = Vec::<String>::with_capacity(sig.params.len());
         let mut param_types = Vec::<CortexType>::with_capacity(sig.params.len());
@@ -568,7 +568,8 @@ impl CortexPreprocessor {
             }
         }
 
-        return_type = self.clean_type(return_type);
+        return_type = self.clean_type(return_type)
+            .with_prefix_if_not_core(&self.current_context);
 
         self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
 
