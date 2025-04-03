@@ -36,13 +36,13 @@ eqResult = { sumResult ~ ((eq | neq | lte | gte | lt | gt) ~ sumResult)* }
 logicResult = _{ eqResult ~ ((and | or) ~ eqResult)* }
 expr = { logicResult }
 
-call = { pathIdent ~ "(" ~ exprList ~ ")" }
+call = { pathIdent ~ ("<" ~ typeList ~ ">")? ~ "(" ~ exprList ~ ")" }
 structConstruction = { pathIdent ~ ("<" ~ typeList ~ ">")? ~ "{" ~ (structMemberInit ~ ",")* ~ structMemberInit? ~ "}" }
 structMemberInit = { ident ~ ":" ~ expr }
 
 postfixBangTail = { ("!" ~ !"=") ~ exprTail }
 memberAccessTail = { "." ~ ident ~ exprTail }
-memberCallTail = { "." ~ ident ~ "(" ~ exprList ~ ")" ~ exprTail }
+memberCallTail = { "." ~ ident ~ ("<" ~ typeList ~ ">")? ~ "(" ~ exprList ~ ")" ~ exprTail }
 indexTail = { "[" ~ exprList ~ "]" ~ exprTail }
 
 if = { "if" ~ expr ~ "{" ~ body ~ "}" ~ elifs ~ else? }

@@ -30,7 +30,11 @@ pub enum Expression {
     None,
     String(String),
     PathIdent(PathIdent),
-    Call(PathIdent, Vec<Expression>),
+    Call {
+        name: PathIdent, 
+        args: Vec<Expression>,
+        type_args: Option<Vec<CortexType>>,
+    },
     Construction {
         name: PathIdent,
         type_args: Vec<CortexType>,
@@ -52,6 +56,7 @@ pub enum Expression {
         callee: Box<Expression>,
         member: String,
         args: Vec<Expression>,
+        type_args: Option<Vec<CortexType>>,
     },
     BinaryOperation {
         left: Box<Expression>,
@@ -68,9 +73,14 @@ impl SimpleCodeGen for Expression {
             Expression::Void => String::from("void"),
             Expression::None => String::from("none"),
             Expression::PathIdent(path) => path.codegen(indent),
-            Expression::Call(path, args) => {
+            Expression::Call{ name, args, type_args } => {
                 let mut s = String::new();
-                s.push_str(&path.codegen(indent));
+                s.push_str(&name.codegen(indent));
+                if let Some(type_args) = type_args {
+                    s.push_str("<");
+                    s.push_str(&type_args.iter().map(|t| t.codegen(indent)).collect::<Vec<_>>().join(", "));
+                    s.push_str(">");
+                }
                 s.push_str("(");
                 for (i, arg) in args.iter().enumerate() {
                     s.push_str(&arg.codegen(indent));
@@ -138,12 +148,21 @@ impl SimpleCodeGen for Expression {
                 format!("{} {} {}", left.codegen_as_sub(indent), op.codegen(indent), right.codegen_as_sub(indent))
             },
             Expression::MemberAccess(ex, member) => format!("{}.{}", ex.codegen_as_sub(indent), member),
-            Expression::MemberCall { callee, member: member_name, args } => {
-                format!("{}.{}({})", 
-                    callee.codegen_as_sub(indent), 
-                    member_name, 
-                    args.iter().map(|a| a.codegen(indent)).collect::<Vec<_>>().join(", ")
-                )
+            Expression::MemberCall { callee, member: member_name, args, type_args } => {
+                if let Some(type_args) = type_args {
+                    format!("{}.{}<{}>({})", 
+                        callee.codegen_as_sub(indent), 
+                        member_name, 
+                        type_args.iter().map(|t| t.codegen(indent)).collect::<Vec<_>>().join(", "),
+                        args.iter().map(|a| a.codegen(indent)).collect::<Vec<_>>().join(", ")
+                    )
+                } else {
+                    format!("{}.{}({})", 
+                        callee.codegen_as_sub(indent), 
+                        member_name, 
+                        args.iter().map(|a| a.codegen(indent)).collect::<Vec<_>>().join(", ")
+                    )
+                }
             }
         }
     }
@@ -152,10 +171,10 @@ impl Expression {
     fn is_atomic(&self) -> bool {
         match self {
             Expression::Number(_) | Expression::Boolean(_) | Expression::Void | Expression::None | 
-            Expression::String(_) | Expression::PathIdent(_) | Expression::Call(_, _) |
+            Expression::String(_) | Expression::PathIdent(_) | Expression::Call { name: _, args: _, type_args: _ } |
             Expression::Construction { name: _, type_args: _, assignments: _ } |
             Expression::IfStatement { first: _, conds: _, last: _ } | Expression::MemberAccess(_, _) |
-            Expression::ListLiteral(_) | Expression::MemberCall { callee: _, member: _, args: _ }
+            Expression::ListLiteral(_) | Expression::MemberCall { callee: _, member: _, args: _, type_args: _ }
                 => true,
             
             Expression::UnaryOperation { op: _, exp: _ } | Expression::Bang(_) | 

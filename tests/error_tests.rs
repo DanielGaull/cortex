@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
+use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{Expression, OptionalIdentifier, Parameter}, top_level::{BasicBody, Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -45,9 +45,9 @@ fn test_function_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_err("simple::hi();", ModuleError::FunctionDoesNotExist(String::from("simple::hi")), &mut interpreter)?;
     assert_err("simple::add(1);", PreprocessingError::MismatchedArgumentCount(String::from("simple::add"), 2, 1), &mut interpreter)?;
-
     assert_err("simple::add(1, 2, 3);", PreprocessingError::MismatchedArgumentCount(String::from("simple::add"), 2, 3), &mut interpreter)?;
     assert_err("simple::add(1, true);", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("b")), &mut interpreter)?;
+    assert_err("simple::generic<number>(true);", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("t")), &mut interpreter)?;
     Ok(())
 }
 
@@ -170,6 +170,15 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         add_body,
         vec![],
     );
+    let generic_func = Function::new(
+        OptionalIdentifier::Ident(String::from("generic")),
+        vec![
+            Parameter::named("t", CortexType::simple("T", false))
+        ],
+        CortexType::simple("T", true),
+        Body::Basic(BasicBody::new(vec![], Some(Expression::None))),
+        vec![String::from("T")],
+    );
     let test_struct = Struct::new("Time", vec![
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
@@ -180,6 +189,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_function(add_func)?;
+    module.add_function(generic_func)?;
     module.add_struct(test_struct)?;
     module.add_bundle(test_bundle)?;
     let path = CortexParser::parse_path("simple")?;

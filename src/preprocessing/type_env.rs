@@ -25,36 +25,8 @@ impl TypeEnvironment {
         self.bindings.insert(name, typ);
     }
 
-    pub fn get(&self, name: &String) -> Option<&CortexType> {
-        if let Some(result) = self.bindings.get(name) {
-            Some(result)
-        } else if let Some(parent) = &self.parent {
-            parent.get(name)
-        } else {
-            None
-        }
-    }
-
     pub fn fill_in(&self, typ: CortexType) -> CortexType {
-        match typ {
-            CortexType::BasicType { optional, name, type_args } => {
-                if name.is_final() {
-                    let ident = name.get_back().unwrap();
-                    if let Some(result) = self.get(ident) {
-                        result.clone().to_optional_if_true(optional)
-                    } else {
-                        CortexType::BasicType { optional, name: name, type_args: type_args.into_iter().map(|t| self.fill_in(t)).collect() }
-                    }
-                } else {
-                    CortexType::BasicType { optional, name: name, type_args: type_args.into_iter().map(|t| self.fill_in(t)).collect() }
-                }
-            },
-            CortexType::RefType { contained, mutable } => {
-                let new_contained = self.fill_in(*contained);
-                CortexType::RefType { contained: Box::new(new_contained), mutable: mutable }
-            },
-            CortexType::Unknown(b) => CortexType::Unknown(b),
-        }
+        Self::fill(typ, &self.bindings)
     }
 
     pub fn exit(self) -> Result<TypeEnvironment, EnvError> {
@@ -82,7 +54,7 @@ impl TypeEnvironment {
     pub fn fill(typ: CortexType, bindings: &HashMap<String, CortexType>) -> CortexType {
         match typ {
             CortexType::BasicType { optional, name, type_args } => {
-                if name.is_final() {
+                if !name.is_empty() {
                     let ident = name.get_back().unwrap();
                     if let Some(result) = bindings.get(ident) {
                         result.clone().to_optional_if_true(optional)

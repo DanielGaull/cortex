@@ -245,7 +245,8 @@ impl CortexParser {
                         let full_left_expr = Expression::MemberCall { 
                             callee: Box::new(left_as_expr),
                             member: String::from(INDEX_GET_FN_NAME), 
-                            args: args.clone()
+                            args: args.clone(),
+                            type_args: None,
                         };
                         let op = Self::parse_binop(next.into_inner().next().unwrap())?;
                         let right = Self::parse_expr_pair(pairs.next().unwrap())?;
@@ -268,6 +269,7 @@ impl CortexParser {
                         callee: Box::new(left.to_member_access_expr()), 
                         member: String::from(INDEX_SET_FN_NAME), 
                         args, 
+                        type_args: None,
                     }
                 ))
             },
@@ -386,19 +388,26 @@ impl CortexParser {
                 Ok(Self::parse_expr_pair(pair)?)
             },
             Rule::call => {
-                let mut pairs = pair.into_inner();
+                let mut pairs = pair.into_inner().peekable();
                 let first_pair = pairs.next().unwrap();
                 let name = Self::parse_path_ident(first_pair)?;
+                let next_pair = pairs.peek().unwrap();
+                let type_args;
+                if let Rule::typeList = next_pair.as_rule() {
+                    type_args = Some(Self::parse_type_list(pairs.next().unwrap())?);
+                } else {
+                    type_args = None;
+                }
                 let args_pair = pairs.next().unwrap();
                 let args = Self::parse_expr_list(args_pair)?;
-                Ok(Expression::Call(name, args))
+                Ok(Expression::Call { name, args, type_args })
             },
             Rule::structConstruction => {
                 let mut pairs = pair.into_inner().peekable();
                 let name = Self::parse_path_ident(pairs.next().unwrap())?;
                 let type_args;
                 if pairs.peek().unwrap().as_rule() == Rule::typeList {
-                    type_args = pairs.next().unwrap().into_inner().map(|s| Self::parse_type_pair(s)).collect::<Result<Vec<_>, _>>()?;
+                    type_args = Self::parse_type_list(pairs.next().unwrap())?;
                 } else {
                     type_args = vec![];
                 }
@@ -470,13 +479,20 @@ impl CortexParser {
                             )?)
                         },
                         Rule::memberCallTail => {
-                            let mut pairs = tail_pair.into_inner();
+                            let mut pairs = tail_pair.into_inner().peekable();
                             let member = pairs.next().unwrap().as_str();
+                            let next_pair = pairs.peek().unwrap();
+                            let type_args;
+                            if let Rule::typeList = next_pair.as_rule() {
+                                type_args = Some(Self::parse_type_list(pairs.next().unwrap())?);
+                            } else {
+                                type_args = None;
+                            }
                             let args_pair = pairs.next().unwrap();
                             let args = Self::parse_expr_list(args_pair)?;
                             Ok(Self::handle_expr_tail_pair(
                                 pairs.next().unwrap(),
-                                Expression::MemberCall { callee: Box::new(exp), member: String::from(member), args }
+                                Expression::MemberCall { callee: Box::new(exp), member: String::from(member), args, type_args }
                             )?)
                         },
                         Rule::indexTail => {
@@ -485,7 +501,7 @@ impl CortexParser {
                             let args = Self::parse_expr_list(args_pair)?;
                             Ok(Self::handle_expr_tail_pair(
                                 pairs.next().unwrap(),
-                                Expression::MemberCall { callee: Box::new(exp), member: String::from(INDEX_GET_FN_NAME), args }
+                                Expression::MemberCall { callee: Box::new(exp), member: String::from(INDEX_GET_FN_NAME), args, type_args: None, }
                             )?)
                         },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
@@ -743,6 +759,15 @@ impl CortexParser {
         let mut result = Vec::new();
         for p in pairs {
             result.push(Self::parse_expr_pair(p)?);
+        }
+        Ok(result)
+    }
+
+    fn parse_type_list(pair: Pair<Rule>) -> Result<Vec<CortexType>, ParseError> {
+        let pairs = pair.into_inner();
+        let mut result = Vec::new();
+        for p in pairs {
+            result.push(Self::parse_type_pair(p)?);
         }
         Ok(result)
     }

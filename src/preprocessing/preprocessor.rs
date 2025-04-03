@@ -442,11 +442,11 @@ impl CortexPreprocessor {
             Expression::None => Ok((RExpression::None, CortexType::none())),
             Expression::String(v) => Ok((RExpression::String(v), CortexType::string(false))),
             Expression::PathIdent(path_ident) => Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.lookup_type(&path_ident)?)),
-            Expression::Call(path, arg_exps) => {
+            Expression::Call { name: path, args: arg_exps, type_args } => {
                 let extended = PathIdent::concat(&self.current_context, &path.without_last());
                 let context_to_return_to = std::mem::replace(&mut self.current_context, extended);
                 let function_name = path.get_back()?;
-                let result = self.check_call(PathIdent::simple(function_name.clone()), arg_exps);
+                let result = self.check_call(PathIdent::simple(function_name.clone()), arg_exps, type_args);
                 self.current_context = context_to_return_to;
                 result
             },
@@ -528,7 +528,7 @@ impl CortexPreprocessor {
                     Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type))
                 }
             },
-            Expression::MemberCall { callee, member, mut args } => {
+            Expression::MemberCall { callee, member, mut args, type_args } => {
                 let (_, atom_type) = self.check_exp(*callee.clone())?;
                 let caller_type = atom_type.name()?;
                 let caller_func_prefix = caller_type.without_last();
@@ -537,7 +537,11 @@ impl CortexPreprocessor {
                 let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
                     .subtract(&self.current_context)?;
                 args.insert(0, *callee);
-                let call_exp = Expression::Call(member_func_path, args);
+                let call_exp = Expression::Call {
+                    name: member_func_path, 
+                    args,
+                    type_args,
+                };
                 let result = self.check_exp(call_exp)?;
                 Ok(result)
             },
@@ -549,7 +553,7 @@ impl CortexPreprocessor {
             },
         }
     }
-    fn check_call(&mut self, path_ident: PathIdent, arg_exps: Vec<Expression>) -> CheckResult<RExpression> {
+    fn check_call(&mut self, path_ident: PathIdent, arg_exps: Vec<Expression>, type_args: Option<Vec<CortexType>>) -> CheckResult<RExpression> {
         let provided_arg_count = arg_exps.len();
         let mut processed_args = Vec::new();
         let mut arg_types = Vec::new();

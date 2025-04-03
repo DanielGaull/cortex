@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PathIdent}, top_level::{BasicBody, Body, Bundle, Function}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{Expression, OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, Bundle, Function}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
 
 fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
@@ -85,6 +85,15 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
         ],
         vec!["T"],
     ))?;
+    module.add_function(Function::new(
+        OptionalIdentifier::Ident(String::from("generic")),
+        vec![
+            Parameter::named("t", CortexType::simple("T", false))
+        ],
+        CortexType::simple("T", true),
+        Body::Basic(BasicBody::new(vec![], Some(Expression::None))),
+        vec![String::from("T")],
+    ))?;
     interpreter.register_module(&PathIdent::simple(String::from("box")), module)?;
     interpreter.execute_statement(CortexParser::parse_statement("let box = box::Box<number>{ item: 5 };")?)?;
     run_test("box.item", "number", &mut interpreter)?;
@@ -92,6 +101,9 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
 
     interpreter.execute_statement(CortexParser::parse_statement("let box2: &box::Box<&mut box::Box<number>> = box::Box<&mut box::Box<number>>{ item: box::Box<number>{ item: 5 } };")?)?;
     run_test("box2.item", "&box::Box<number>", &mut interpreter)?;
+
+    run_test("box::generic(5)", "number?", &mut interpreter)?;
+    run_test("box::generic<number>(none)", "number?", &mut interpreter)?;
 
     Ok(())
 }
