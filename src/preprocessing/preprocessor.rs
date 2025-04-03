@@ -133,7 +133,7 @@ impl CortexPreprocessor {
     }
     fn add_function(&mut self, n: PathIdent, f: Function) -> Result<(), CortexError> {
         let name = f.name().clone();
-        let processed = self.check_function(f)?;
+        let processed = self.preprocess_function(f)?;
         match name {
             OptionalIdentifier::Ident(func_name) => {
                 let full_path = PathIdent::continued(n, func_name.clone());
@@ -259,7 +259,7 @@ impl CortexPreprocessor {
         Ok(module)
     }
 
-    fn check_function(&mut self, function: Function) -> Result<RFunction, CortexError> {
+    pub fn preprocess_function(&mut self, function: Function) -> Result<RFunction, CortexError> {
         let parent_env = self.current_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         let mut new_env = TypeCheckingEnvironment::new(*parent_env);
         let mut params = Vec::new();
