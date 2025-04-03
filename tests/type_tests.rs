@@ -88,7 +88,7 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_function(Function::new(
         OptionalIdentifier::Ident(String::from("generic")),
         vec![
-            Parameter::named("t", CortexType::simple("T", false))
+            Parameter::named("t", CortexType::simple("T", true))
         ],
         CortexType::simple("T", true),
         Body::Basic(BasicBody::new(vec![], Some(Expression::None))),

@@ -583,7 +583,12 @@ impl CortexPreprocessor {
             param_types.push(param.typ.clone());
         }
 
-        let bindings = self.infer_type_args(&sig, &arg_types, &full_path)?;
+        let bindings;
+        if let Some(type_args) = type_args {
+            bindings = sig.type_param_names.iter().cloned().zip(type_args).collect();
+        } else {
+            bindings = self.infer_type_args(&sig, &arg_types, &full_path)?;
+        }
         let parent_type_env = self.current_type_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         let mut new_type_env = TypeEnvironment::new(*parent_type_env);
         for (name, typ) in &bindings {
