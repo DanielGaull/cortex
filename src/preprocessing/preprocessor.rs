@@ -14,6 +14,7 @@ pub struct CortexPreprocessor {
     function_dict: FunctionDict,
     function_signature_map: HashMap<PathIdent, FunctionSignature>,
     composite_map: HashMap<PathIdent, CompositeType>,
+    loop_depth: u32,
 }
 
 impl CortexPreprocessor {
@@ -25,6 +26,7 @@ impl CortexPreprocessor {
             function_dict: FunctionDict::new(),
             function_signature_map: HashMap::new(),
             composite_map: HashMap::new(),
+            loop_depth: 0,
         };
 
         let mut global_module = Module::new();
@@ -402,6 +404,7 @@ impl CortexPreprocessor {
                     );
                 }
 
+                self.loop_depth += 1;
                 let (body, body_type) = self.check_body(condition_body.body)?;
                 if !body_type.is_subtype_of(&CortexType::void(false)) {
                     return Err(
@@ -410,8 +413,23 @@ impl CortexPreprocessor {
                         )
                     );
                 }
+                self.loop_depth -= 1;
 
                 Ok(RStatement::WhileLoop(RConditionBody::new(cond, body)))
+            },
+            Statement::Break => {
+                if self.loop_depth <= 0 {
+                    Err(Box::new(PreprocessingError::BreakUsedInNonLoopContext))
+                } else {
+                    Ok(RStatement::Break)
+                }
+            },
+            Statement::Continue => {
+                if self.loop_depth <= 0 {
+                    Err(Box::new(PreprocessingError::ContinueUsedInNonLoopContext))
+                } else {
+                    Ok(RStatement::Continue)
+                }
             },
         }
     }

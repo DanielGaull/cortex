@@ -17,6 +17,8 @@ pub enum Statement {
         value: Expression,
     },
     WhileLoop(ConditionBody),
+    Break,
+    Continue,
 }
 impl SimpleCodeGen for Statement {
     fn codegen(&self, indent: usize) -> String {
@@ -58,6 +60,12 @@ impl SimpleCodeGen for Statement {
                 s.push_str(" {\n");
                 s.push_str(&cond_body.body.codegen(indent + 1));
                 s.push_str("}");
+            },
+            Self::Break => {
+                s.push_str("break");
+            },
+            Self::Continue => {
+                s.push_str("continue");
             },
         }
         if semicolon {

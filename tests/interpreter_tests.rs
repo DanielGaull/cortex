@@ -70,6 +70,23 @@ fn complex_expr_tests() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+#[ignore]
+fn loop_tests() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+
+    interpreter.execute_statement(CortexParser::parse_statement("let x = 0;")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("while x < 10 { x += 1; if x == 5 { break; }; }")?)?;
+    run_test("x", "5", &mut interpreter)?;
+
+    interpreter.execute_statement(CortexParser::parse_statement("let i = 0;")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let x = 0;")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("while i < 10 { i += 1; if x == 7 { continue; }; x += 1; }")?)?;
+    run_test("x", "7", &mut interpreter)?;
+
+    Ok(())
+}
+
 // #[test]
 // fn mod_var_eval_tests() -> Result<(), Box<dyn Error>> {
 //     let mut interpreter = CortexInterpreter::new();

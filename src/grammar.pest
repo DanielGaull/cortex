@@ -12,10 +12,12 @@ struct = { "struct" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramLi
 bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ bundleFuncList ~ "}" }
 
 // Statements
-statementNeedingSemicolon = _{ (throw | varDec | indexVarAssign | varAssign | expr) }
+statementNeedingSemicolon = _{ (throw | break | continue | varDec | indexVarAssign | varAssign | expr) }
 statement = { (statementNeedingSemicolon ~ ";") | while }
 
 throw = { "throw" ~ expr }
+break = { "break" }
+continue = { "continue" }
 
 varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { identExpr ~ arithLogicBinOp? ~ "=" ~ expr }

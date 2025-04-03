@@ -13,6 +13,8 @@ pub enum RStatement {
         value: RExpression,
     },
     WhileLoop(RConditionBody),
+    Break,
+    Continue,
 }
 
 pub struct RConditionBody {

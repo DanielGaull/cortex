@@ -48,4 +48,8 @@ pub enum PreprocessingError {
     CannotModifyFieldOnImmutableReference(String),
     #[error("Unknown type found!")]
     UnknownTypeFound,
+    #[error("`break` used in a non-loop context! Can only use within loops!")]
+    BreakUsedInNonLoopContext,
+    #[error("`continue` used in a non-loop context! Can only use within loops!")]
+    ContinueUsedInNonLoopContext,
 }
