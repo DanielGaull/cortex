@@ -63,6 +63,7 @@ pub enum Expression {
         op: BinaryOperator,
         right: Box<Expression>,
     },
+    Tuple(Vec<Expression>),
 }
 impl SimpleCodeGen for Expression {
     fn codegen(&self, indent: usize) -> String {
@@ -163,6 +164,9 @@ impl SimpleCodeGen for Expression {
                         args.iter().map(|a| a.codegen(indent)).collect::<Vec<_>>().join(", ")
                     )
                 }
+            },
+            Expression::Tuple(items) => {
+                format!("({})", items.iter().map(|i| i.codegen(indent)).collect::<Vec<_>>().join(", "))
             }
         }
     }
@@ -174,7 +178,8 @@ impl Expression {
             Expression::String(_) | Expression::PathIdent(_) | Expression::Call { name: _, args: _, type_args: _ } |
             Expression::Construction { name: _, type_args: _, assignments: _ } |
             Expression::IfStatement { first: _, conds: _, last: _ } | Expression::MemberAccess(_, _) |
-            Expression::ListLiteral(_) | Expression::MemberCall { callee: _, member: _, args: _, type_args: _ }
+            Expression::ListLiteral(_) | Expression::MemberCall { callee: _, member: _, args: _, type_args: _ } |
+            Expression::Tuple(_)
                 => true,
             
             Expression::UnaryOperation { op: _, exp: _ } | Expression::Bang(_) | 

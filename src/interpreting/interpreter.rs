@@ -343,6 +343,13 @@ impl CortexInterpreter {
                 let result = self.evaluate_op(left, op, right)?;
                 Ok(result)
             },
+            RExpression::Tuple(items) => {
+                let values = items
+                    .iter()
+                    .map(|e| self.evaluate_expression(e))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(CortexValue::Tuple(values))
+            }
         }
     }
 

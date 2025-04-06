@@ -26,7 +26,7 @@ indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ e
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
-atom = { number | boolean | none | void | string | listLiteral | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
+atom = { number | boolean | none | void | string | tuple | listLiteral | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberCallTail | memberAccessTail | indexTail | "" }
 
 primary = { atom ~ exprTail }
@@ -61,7 +61,7 @@ boolean = { "true" | "false" }
 none = { "none" }
 void = { "void" }
 listLiteral = { "[" ~ exprList ~ "]" }
-// tuple = { "(" ~ expr ~ "," ~ exprList ~ ")" }
+tuple = { "(" ~ expr ~ "," ~ expr? ~ ("," ~ expr)* ~ ")" }
 
 string = ${ "\"" ~ strinner ~ "\"" }
 strinner = @{ strchar* }
@@ -76,9 +76,10 @@ ident = ${ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
 pathIdent = { (ident ~ "::")* ~ ident }
 identExpr = { ident ~ ("." ~ ident)* }
 
-typ = { (basicType | refType) ~ "?"? }
+typ = { ((basicType | tupleType) ~ "?"?) | refType }
 refType = { ("&mut" | "&") ~ typ }
 basicType = { pathIdent ~ ("<" ~ typeList ~ ">")? }
+tupleType = { "(" ~ typ ~ "," ~ typ? ~ ("," ~ typ)* ~ ")" }
 
 // Useful utilities
 param = { ident ~ ":" ~ typ }

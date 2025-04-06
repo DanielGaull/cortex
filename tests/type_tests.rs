@@ -23,6 +23,9 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
     run_test("none", "none?", &mut interpreter)?;
     run_test("[1]", "&mut list<number>", &mut interpreter)?;
     run_test("[1, none]", "&mut list<number?>", &mut interpreter)?;
+    run_test("(1,)", "(number,)", &mut interpreter)?;
+    run_test("(1, 2)", "(number, number)", &mut interpreter)?;
+    run_test("(1, true, \"hello\")", "(number, bool, string)", &mut interpreter)?;
     Ok(())
 }
 

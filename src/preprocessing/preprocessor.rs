@@ -501,7 +501,8 @@ impl CortexPreprocessor {
                 }
                 let is_mutable;
                 match &atom_type {
-                    CortexType::BasicType { optional: _, name: _, type_args: _ } => {
+                    CortexType::BasicType { optional: _, name: _, type_args: _ } | 
+                    CortexType::Tuple { types: _, optional: _ } => {
                         is_mutable = true;
                     },
                     CortexType::RefType { contained: _, mutable } => {
@@ -517,13 +518,14 @@ impl CortexPreprocessor {
                 } else {
                     let mut member_type = composite.fields.get(&member).unwrap().clone();
                     let bindings = Self::get_bindings(&composite.type_param_names, &atom_type)?;
+                    let prefix = atom_type.prefix();
                     member_type = TypeEnvironment::fill(member_type, 
                         &bindings
                             .into_iter()
-                            .map(|(k, v)| (k, v.subtract_if_possible(&atom_type.prefix())))
+                            .map(|(k, v)| (k, v.subtract_if_possible(&prefix)))
                             .collect::<HashMap<_, _>>()
                         );
-                    member_type = member_type.with_prefix_if_not_core(&atom_type.prefix());
+                    member_type = member_type.with_prefix_if_not_core(&prefix);
                     member_type = member_type.forward_immutability(is_mutable);
                     Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type))
                 }
@@ -570,6 +572,14 @@ impl CortexPreprocessor {
                 let op_type = self.check_operator(left_type, &op, right_type)?;
                 Ok((RExpression::BinaryOperation { left: Box::new(left_exp), op: op, right: Box::new(right_exp) }, op_type))
             },
+            Expression::Tuple(items) => {
+                let results = items
+                    .into_iter()
+                    .map(|e| self.check_exp(e))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let (exps, types): (Vec<RExpression>, Vec<CortexType>) = results.into_iter().unzip();
+                Ok((RExpression::Tuple(exps), CortexType::tuple(types, false)))
+            }
         }
     }
     fn check_call(&mut self, path_ident: PathIdent, arg_exps: Vec<Expression>, type_args: Option<Vec<CortexType>>) -> CheckResult<RExpression> {

@@ -43,5 +43,12 @@ fn to_string(val: CortexValue, heap: &Heap) -> String {
         CortexValue::List(items) => {
             format!("[{}]", items.iter().map(|i| to_string(i.clone(), heap)).collect::<Vec<_>>().join(", "))
         },
+        CortexValue::Tuple(mut items) => {
+            if items.len() == 1 {
+                format!("({},)", to_string(items.remove(0), heap))
+            } else {
+                format!("({})", items.into_iter().map(|i| to_string(i, heap)).collect::<Vec<_>>().join(", "))
+            }
+        },
     }
 }

@@ -28,6 +28,7 @@ pub enum CortexValue {
     },
     Reference(usize),
     List(Vec<CortexValue>),
+    Tuple(Vec<CortexValue>),
 }
 
 impl Display for CortexValue {
@@ -59,6 +60,19 @@ impl Display for CortexValue {
                 }
                 write!(f, "]")
             },
+            CortexValue::Tuple(list) => {
+                let _ = write!(f, "(");
+                for (i, item) in list.iter().enumerate() {
+                    let _ = write!(f, "{}", item);
+                    if i + 1 < list.len() {
+                        let _ = write!(f, ", ");
+                    }
+                }
+                if list.len() == 1 {
+                    let _ = write!(f, ",");
+                }
+                write!(f, ")")
+            },
         }
     }
 }
@@ -73,6 +87,7 @@ impl CortexValue {
             CortexValue::Composite { field_values: _ } => "composite",
             CortexValue::Reference(_) => "pointer",
             CortexValue::List(_) => "list",
+            CortexValue::Tuple(_) => "tuple",
         }
     }
 

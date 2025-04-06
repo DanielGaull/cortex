@@ -8,6 +8,8 @@ use super::expression::PathIdent;
 pub enum TypeError {
     #[error("Unknown type: not valid in this context")]
     UnknownTypeNotValid,
+    #[error("Tuple type: not valid in this context")]
+    TupleTypeNotValid,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -25,6 +27,11 @@ pub enum CortexType {
     },
     // Represents a type that is currently unknown, but will be resolved at some point
     Unknown(bool),
+    // Represents a tuple type
+    Tuple {
+        types: Vec<CortexType>,
+        optional: bool,
+    }
 }
 
 impl SimpleCodeGen for CortexType {
@@ -52,6 +59,9 @@ impl SimpleCodeGen for CortexType {
                 s
             },
             CortexType::Unknown(optional) => format!("<unknown{}>", if *optional {"?"} else {""}),
+            CortexType::Tuple { types, optional } => {
+                format!("({}){}", types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "), if *optional {"?"} else {""})
+            },
         }
     }
 }
@@ -76,6 +86,9 @@ impl CortexType {
             contained: Box::new(contained),
             mutable: mutable,
         }
+    }
+    pub fn tuple(types: Vec<CortexType>, optional: bool) -> Self {
+        Self::Tuple { types, optional }
     }
     pub fn simple(name: &str, optional: bool) -> Self {
         Self::basic(PathIdent::simple(String::from(name)), optional, vec![])
@@ -114,6 +127,9 @@ impl CortexType {
                 }
             },
             CortexType::Unknown(b) => CortexType::Unknown(*b),
+            CortexType::Tuple { types, optional } => {
+                CortexType::Tuple { types: types.iter().map(|t| t.with_prefix(path).clone()).collect(), optional: *optional }
+            }
         }
     }
     pub fn with_prefix_if_not_core(self, prefix: &PathIdent) -> Self {
@@ -136,6 +152,9 @@ impl CortexType {
                 CortexType::RefType { contained: Box::new(contained.subtract_if_possible(prefix)), mutable }
             },
             CortexType::Unknown(b) => CortexType::Unknown(b),
+            CortexType::Tuple { types, optional } => {
+                CortexType::Tuple { types: types.iter().map(|t| t.clone().subtract_if_possible(prefix)).collect(), optional }
+            }
         }
     }
     // Forwards immutability if mutable is false. If mutable is true, returns self
@@ -161,7 +180,7 @@ impl CortexType {
             CortexType::RefType { contained, mutable: _ } => {
                 contained.prefix()
             },
-            CortexType::Unknown(_) => PathIdent::empty(),
+            CortexType::Unknown(_) | CortexType::Tuple { types: _, optional: _ } => PathIdent::empty(),
         }
     }
     pub fn optional(&self) -> bool {
@@ -173,6 +192,7 @@ impl CortexType {
                 contained.optional()
             },
             CortexType::Unknown(optional) => *optional,
+            CortexType::Tuple { types: _, optional } => *optional,
         }
     }
 
@@ -186,6 +206,7 @@ impl CortexType {
                 contained.is_core()
             },
             CortexType::Unknown(_) => true,
+            CortexType::Tuple { types: _, optional: _ } => false,
         }
     }
     pub fn is_non_composite(&self) -> bool {
@@ -198,6 +219,7 @@ impl CortexType {
                 contained.is_non_composite()
             },
             CortexType::Unknown(_) => true,
+            CortexType::Tuple { types: _, optional: _ } => true,
         }
     }
 
@@ -216,6 +238,7 @@ impl CortexType {
                 CortexType::RefType { contained: Box::new(contained.to_optional_value(value)), mutable: mutable }
             },
             CortexType::Unknown(_) => CortexType::Unknown(value),
+            CortexType::Tuple { types, optional: _ } => CortexType::Tuple { types, optional: value },
         }
     }
     pub fn to_optional_if_true(self, value: bool) -> Self {
@@ -226,18 +249,12 @@ impl CortexType {
         }
     }
 
-    pub fn types(&self) -> Result<Vec<&PathIdent>, TypeError> {
-        match self {
-            CortexType::BasicType { optional: _, name, type_args: _ } => Ok(vec![name]),
-            CortexType::RefType { contained, mutable: _ } => contained.types(),
-            CortexType::Unknown(_) => Err(TypeError::UnknownTypeNotValid),
-        }
-    }
     pub fn name(&self) -> Result<&PathIdent, TypeError> {
         match self {
             CortexType::BasicType { optional: _, name, type_args: _ } => Ok(name),
             CortexType::RefType { contained, mutable: _ } => contained.name(),
             CortexType::Unknown(_) => Err(TypeError::UnknownTypeNotValid),
+            CortexType::Tuple { types: _, optional: _ } => Err(TypeError::TupleTypeNotValid),
         }
     }
 

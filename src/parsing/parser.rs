@@ -455,6 +455,10 @@ impl CortexParser {
                 let items = Self::parse_expr_list(pairs.next().unwrap())?;
                 Ok(Expression::ListLiteral(items))
             },
+            Rule::tuple => {
+                let items = Self::parse_expr_list(pair)?;
+                Ok(Expression::Tuple(items))
+            },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }
@@ -595,6 +599,14 @@ impl CortexParser {
                 let typ = Self::parse_type_pair(main.into_inner().next().unwrap())?;
                 let mutable = pair_str.starts_with("&mut");
                 Ok(CortexType::reference(typ, mutable))
+            },
+            Rule::tupleType => {
+                let pairs = main.into_inner();
+                let mut types = Vec::new();
+                for p in pairs {
+                    types.push(Self::parse_type_pair(p)?);
+                }
+                Ok(CortexType::tuple(types, optional))
             },
             _ => Err(ParseError::FailType(String::from(pair_str)))
         }

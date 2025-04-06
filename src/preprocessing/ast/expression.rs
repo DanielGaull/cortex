@@ -31,6 +31,7 @@ pub enum RExpression {
         op: BinaryOperator,
         right: Box<RExpression>,
     },
+    Tuple(Vec<RExpression>),
 }
 
 pub struct RIdentExpression {
