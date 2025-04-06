@@ -52,4 +52,8 @@ pub enum PreprocessingError {
     BreakUsedInNonLoopContext,
     #[error("`continue` used in a non-loop context! Can only use within loops!")]
     ContinueUsedInNonLoopContext,
+    #[error("Tuple elements must be accessed in this form: .t{{index}}. {0} is an invalid tuple member access")]
+    TupleMemberSyntaxInvalid(String),
+    #[error("Tuple has size of {0} but index {1} was attempted to index into it!")]
+    TupleIndexValueInvalid(usize, usize),
 }

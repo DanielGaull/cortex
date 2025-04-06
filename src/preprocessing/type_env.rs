@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::env::EnvError, parsing::ast::r#type::CortexType};
+use crate::{interpreting::env::EnvError, parsing::ast::r#type::{BasicType, CortexType, RefType, TupleType}};
 
 pub struct TypeEnvironment {
     bindings: HashMap<String, CortexType>,
@@ -53,29 +53,29 @@ impl TypeEnvironment {
 
     pub fn fill(typ: CortexType, bindings: &HashMap<String, CortexType>) -> CortexType {
         match typ {
-            CortexType::BasicType { optional, name, type_args } => {
-                if !name.is_empty() {
-                    let ident = name.get_back().unwrap();
+            CortexType::BasicType(b) => {
+                if !b.name.is_empty() {
+                    let ident = b.name.get_back().unwrap();
                     if let Some(result) = bindings.get(ident) {
-                        result.clone().to_optional_if_true(optional)
+                        result.clone().to_optional_if_true(b.optional)
                     } else {
-                        CortexType::BasicType { optional, name: name, type_args: type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() }
+                        CortexType::BasicType(BasicType { optional: b.optional, name: b.name, type_args: b.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() })
                     }
                 } else {
-                    CortexType::BasicType { optional, name: name, type_args: type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() }
+                    CortexType::BasicType(BasicType { optional: b.optional, name: b.name, type_args: b.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() })
                 }
             },
-            CortexType::RefType { contained, mutable } => {
-                let new_contained = Self::fill(*contained, bindings);
-                CortexType::RefType { contained: Box::new(new_contained), mutable: mutable }
+            CortexType::RefType(r) => {
+                let new_contained = Self::fill(*r.contained, bindings);
+                CortexType::RefType(RefType { contained: Box::new(new_contained), mutable: r.mutable })
             },
             CortexType::Unknown(b) => CortexType::Unknown(b),
-            CortexType::Tuple { types, optional } => {
-                let new_types = types.into_iter().map(|t| Self::fill(t, bindings)).collect();
-                CortexType::Tuple {
+            CortexType::TupleType(t) => {
+                let new_types = t.types.into_iter().map(|t| Self::fill(t, bindings)).collect();
+                CortexType::TupleType(TupleType {
                     types: new_types,
-                    optional,
-                }
+                    optional: t.optional,
+                })
             }
         }
     }

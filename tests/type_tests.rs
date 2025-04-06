@@ -26,6 +26,7 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
     run_test("(1,)", "(number,)", &mut interpreter)?;
     run_test("(1, 2)", "(number, number)", &mut interpreter)?;
     run_test("(1, true, \"hello\")", "(number, bool, string)", &mut interpreter)?;
+    run_test("(1, true, \"hello\").t1", "bool", &mut interpreter)?;
     Ok(())
 }
 

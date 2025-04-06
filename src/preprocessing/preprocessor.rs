@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{CompositeType, Module, ModuleError}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -362,11 +362,11 @@ impl CortexPreprocessor {
                 } else {
                     let source_expr = name.clone().without_last()?.to_member_access_expr();
                     let (_, source_type) = self.check_exp(source_expr)?;
-                    if let CortexType::RefType { contained, mutable } = source_type {
-                        if !mutable {
+                    if let CortexType::RefType(r) = source_type {
+                        if !r.mutable {
                             return Err(
                                 Box::new(
-                                    PreprocessingError::CannotModifyFieldOnImmutableReference(contained.codegen(0))
+                                    PreprocessingError::CannotModifyFieldOnImmutableReference(r.contained.codegen(0))
                                 )
                             );
                         }
@@ -496,38 +496,18 @@ impl CortexPreprocessor {
             },
             Expression::MemberAccess(inner, member) => {
                 let (atom_exp, atom_type) = self.check_exp(*inner)?;
-                if atom_type.is_non_composite() {
-                    return Err(Box::new(PreprocessingError::CannotAccessMemberOfNonComposite));
-                }
-                let is_mutable;
                 match &atom_type {
-                    CortexType::BasicType { optional: _, name: _, type_args: _ } | 
-                    CortexType::Tuple { types: _, optional: _ } => {
-                        is_mutable = true;
+                    CortexType::BasicType(_) |
+                    CortexType::RefType(_) => {
+                        if atom_type.is_non_composite() {
+                            return Err(Box::new(PreprocessingError::CannotAccessMemberOfNonComposite));
+                        }
+                        Ok(self.check_composite_member_access(atom_exp, atom_type, member)?)
                     },
-                    CortexType::RefType { contained: _, mutable } => {
-                        is_mutable = *mutable;
+                    CortexType::Unknown(_) => Err(Box::new(TypeError::UnknownTypeNotValid)),
+                    CortexType::TupleType(t) => {
+                        Ok(self.check_tuple_member_access(atom_exp, t, member)?)
                     },
-                    CortexType::Unknown(_) => {
-                        return Err(Box::new(PreprocessingError::UnknownTypeFound));
-                    },
-                }
-                let composite = self.lookup_composite(&atom_type.name()?.clone().subtract(&self.current_context)?)?;
-                if !composite.fields.contains_key(&member) {
-                    Err(Box::new(PreprocessingError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
-                } else {
-                    let mut member_type = composite.fields.get(&member).unwrap().clone();
-                    let bindings = Self::get_bindings(&composite.type_param_names, &atom_type)?;
-                    let prefix = atom_type.prefix();
-                    member_type = TypeEnvironment::fill(member_type, 
-                        &bindings
-                            .into_iter()
-                            .map(|(k, v)| (k, v.subtract_if_possible(&prefix)))
-                            .collect::<HashMap<_, _>>()
-                        );
-                    member_type = member_type.with_prefix_if_not_core(&prefix);
-                    member_type = member_type.forward_immutability(is_mutable);
-                    Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type))
                 }
             },
             Expression::MemberCall { callee, member, mut args, type_args } => {
@@ -582,6 +562,53 @@ impl CortexPreprocessor {
             }
         }
     }
+    fn check_composite_member_access(&mut self, atom_exp: RExpression, atom_type: CortexType, member: String) -> CheckResult<RExpression> {
+        let is_mutable;
+        match &atom_type {
+            CortexType::BasicType(_) | 
+            CortexType::TupleType(_) => {
+                is_mutable = true;
+            },
+            CortexType::RefType(r) => {
+                is_mutable = r.mutable;
+            },
+            CortexType::Unknown(_) => {
+                return Err(Box::new(PreprocessingError::UnknownTypeFound));
+            },
+        }
+        let composite = self.lookup_composite(&atom_type.name()?.clone().subtract(&self.current_context)?)?;
+        if !composite.fields.contains_key(&member) {
+            Err(Box::new(PreprocessingError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
+        } else {
+            let mut member_type = composite.fields.get(&member).unwrap().clone();
+            let bindings = Self::get_bindings(&composite.type_param_names, &atom_type)?;
+            let prefix = atom_type.prefix();
+            member_type = TypeEnvironment::fill(member_type, 
+                &bindings
+                    .into_iter()
+                    .map(|(k, v)| (k, v.subtract_if_possible(&prefix)))
+                    .collect::<HashMap<_, _>>()
+                );
+            member_type = member_type.with_prefix_if_not_core(&prefix);
+            member_type = member_type.forward_immutability(is_mutable);
+            Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type))
+        }
+    }
+    fn check_tuple_member_access(&mut self, atom_exp: RExpression, atom_type: &TupleType, member: String) -> CheckResult<RExpression> {
+        fn strip_t(s: &str) -> Option<usize> {
+            s.strip_prefix('t')?.parse().ok()
+        }
+
+        let index = strip_t(&member).ok_or(Box::new(PreprocessingError::TupleMemberSyntaxInvalid(member)))?;
+        if index > atom_type.types.len() {
+            return Err(Box::new(PreprocessingError::TupleIndexValueInvalid(atom_type.types.len(), index)));
+        }
+
+        let member_type = atom_type.types.get(index).unwrap().clone();
+        
+        Ok((RExpression::TupleMemberAccess(Box::new(atom_exp), index), member_type))
+    }
+
     fn check_call(&mut self, path_ident: PathIdent, arg_exps: Vec<Expression>, type_args: Option<Vec<CortexType>>) -> CheckResult<RExpression> {
         let provided_arg_count = arg_exps.len();
         let mut processed_args = Vec::new();
@@ -900,12 +927,12 @@ impl CortexPreprocessor {
         let mut typ = typ.clone();
         let mut bindings = HashMap::new();
         while !type_args_handled {
-            if let CortexType::BasicType { optional: _, name: _, type_args } = &typ {
-                bindings = TypeEnvironment::create_bindings(type_param_names, type_args);
+            if let CortexType::BasicType(b) = &typ {
+                bindings = TypeEnvironment::create_bindings(type_param_names, &b.type_args);
                 typ = TypeEnvironment::fill(typ, &bindings);
                 type_args_handled = true;
-            } else if let CortexType::RefType { contained, mutable: _} = typ {
-                typ = *contained;
+            } else if let CortexType::RefType(r) = typ {
+                typ = *r.contained;
             }
         }
         Ok(bindings)
@@ -925,14 +952,14 @@ impl CortexPreprocessor {
     fn infer_arg(&self, param_type: &CortexType, arg_type: &CortexType, type_param_names: &Vec<String>, bindings: &mut HashMap<String, CortexType>, param_name: &String) -> Result<(), CortexError> {
         let correct;
         match (&param_type, arg_type) {
-            (CortexType::BasicType { optional, name: _, type_args }, arg_type) => {
+            (CortexType::BasicType(b), arg_type) => {
                 if let Some(name) = TypeEnvironment::does_arg_list_contain(type_param_names, &param_type) {
                     // If we take in a T? and passing a number?, then we want T = number, not T = number?
                     let mut bound_type = arg_type.clone();
-                    if *optional {
+                    if b.optional {
                         bound_type = bound_type.to_non_optional();
                     }
-                    if type_args.len() > 0 {
+                    if b.type_args.len() > 0 {
                         return Err(Box::new(PreprocessingError::CannotHaveTypeArgsOnGeneric(param_type.codegen(0))));
                     }
                     if let Some(existing_binding) = bindings.get(name) {
@@ -950,9 +977,9 @@ impl CortexPreprocessor {
                 } else {
                     // Try to match up type args (ex. list<T> to list<number>)
                     // If both are not BasicType, then we just ignore this
-                    if let CortexType::BasicType { optional: _, name: _, type_args: type_args2 } = arg_type {
-                        if type_args.len() == type_args2.len() {
-                            for (type_param, type_arg) in type_args.iter().zip(type_args2) {
+                    if let CortexType::BasicType(b2) = arg_type {
+                        if b.type_args.len() == b2.type_args.len() {
+                            for (type_param, type_arg) in b.type_args.iter().zip(&b2.type_args) {
                                 self.infer_arg(type_param, type_arg, type_param_names, bindings, param_name)?;
                             }
                             correct = true;
@@ -964,11 +991,11 @@ impl CortexPreprocessor {
                     }
                 }
             },
-            (CortexType::RefType { contained, mutable: _ }, CortexType::RefType { contained: contained2, mutable: _ }) => {
-                self.infer_arg(contained, contained2, type_param_names, bindings, param_name)?;
+            (CortexType::RefType(r), CortexType::RefType(r2)) => {
+                self.infer_arg(&*r.contained, &*r2.contained, type_param_names, bindings, param_name)?;
                 correct = true;
             },
-            (CortexType::RefType { contained: _, mutable: _ }, _) => {
+            (CortexType::RefType(_), _) => {
                 // parameter is reference but arg is not a reference
                 correct = false;
             },

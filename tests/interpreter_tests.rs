@@ -30,6 +30,7 @@ fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
     run_test("(5,)", "(5,)", &mut interpreter)?;
     run_test("(5, 2)", "(5, 2)", &mut interpreter)?;
     run_test("(5, true, \"hello\")", "(5, true, \"hello\")", &mut interpreter)?;
+    run_test("(5, true, \"hello\").t0", "5", &mut interpreter)?;
     Ok(())
 }
 

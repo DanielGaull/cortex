@@ -349,7 +349,16 @@ impl CortexInterpreter {
                     .map(|e| self.evaluate_expression(e))
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(CortexValue::Tuple(values))
-            }
+            },
+            RExpression::TupleMemberAccess(tuple, idx) => {
+                let tuple_val = self.evaluate_expression(tuple)?;
+                match tuple_val {
+                    CortexValue::Tuple(items) => {
+                        Ok(items.get(*idx).unwrap().clone())
+                    },
+                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
+                }
+            },
         }
     }
 
