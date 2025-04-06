@@ -537,10 +537,29 @@ impl CortexPreprocessor {
                 let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
                     .subtract(&self.current_context)?;
                 args.insert(0, *callee);
+
+                let true_type_args;
+                if let Some(mut type_args) = type_args {
+                    let composite = self.lookup_composite(caller_type)?;
+                    let mut bindings = HashMap::new();
+                    self.infer_arg(&CortexType::reference(
+                        CortexType::basic(caller_type.clone(), false, forwarded_type_args(&composite.type_param_names)),
+                        true
+                    ), &atom_type, &composite.type_param_names, &mut bindings, &String::from("this"))?;
+                    let mut beginning_type_args = Vec::new();
+                    for a in &composite.type_param_names {
+                        beginning_type_args.push(bindings.remove(a).unwrap());
+                    }
+                    type_args.extend(beginning_type_args);
+                    true_type_args = Some(type_args);
+                } else {
+                    true_type_args = None;
+                }
+
                 let call_exp = Expression::Call {
                     name: member_func_path, 
                     args,
-                    type_args,
+                    type_args: true_type_args,
                 };
                 let result = self.check_exp(call_exp)?;
                 Ok(result)

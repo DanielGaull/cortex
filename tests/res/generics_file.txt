@@ -11,6 +11,10 @@ bundle Box<T> {
     fn set(&mut this, value: T) {
         this.item = value;
     }
+
+    fn identity<R>(&this, value: R): R {
+        value
+    }
 }
 
 fn readBox<T>(box: &Box<T>): T {
