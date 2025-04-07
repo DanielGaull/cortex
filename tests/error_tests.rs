@@ -10,13 +10,6 @@ enum TestError {
 }
 
 #[test]
-fn test_misc_errors() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = setup_interpreter()?;
-    assert_err("throw 5;", InterpreterError::ProgramThrow(CortexValue::Number(5f64)), &mut interpreter)?;    
-    Ok(())
-}
-
-#[test]
 fn test_variable_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_err("dneVar = 7;", EnvError::VariableDoesNotExist(String::from("dneVar")), &mut interpreter)?;
@@ -101,6 +94,8 @@ fn assert_err<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interp
 #[test]
 fn test_other_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
+    assert_err("throw 5;", InterpreterError::ProgramThrow(CortexValue::Number(5f64)), &mut interpreter)?;    
+
     interpreter.run_top_level(CortexParser::parse_top_level("fn f(): void {}")?)?;
     assert_err_toplevel("fn f(): void {}", ModuleError::FunctionAlreadyExists(String::from("f")), &mut interpreter)?;
     interpreter.run_top_level(CortexParser::parse_top_level("struct s{}")?)?;
@@ -114,6 +109,15 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     assert_err_toplevel("bundle s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
     interpreter.run_top_level(CortexParser::parse_top_level("bundle b{}")?)?;
     assert_err_toplevel("struct b{}", ModuleError::TypeAlreadyExists(String::from("b")), &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn test_tuple_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+    interpreter.execute_statement(CortexParser::parse_statement("let myTuple = (5, 2);")?)?;
+    assert_err("myTuple.x;", PreprocessingError::TupleMemberSyntaxInvalid(String::from("x")), &mut interpreter)?;
+    assert_err("myTuple.t12;", PreprocessingError::TupleIndexValueInvalid(2, 12), &mut interpreter)?;
     Ok(())
 }
 

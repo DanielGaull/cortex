@@ -599,7 +599,7 @@ impl CortexPreprocessor {
             s.strip_prefix('t')?.parse().ok()
         }
 
-        let index = strip_t(&member).ok_or(Box::new(PreprocessingError::TupleMemberSyntaxInvalid(member)))?;
+        let index = strip_t(&member).ok_or(PreprocessingError::TupleMemberSyntaxInvalid(member))?;
         if index > atom_type.types.len() {
             return Err(Box::new(PreprocessingError::TupleIndexValueInvalid(atom_type.types.len(), index)));
         }
