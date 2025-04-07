@@ -270,44 +270,59 @@ impl CortexType {
         let is_first_none_type = self == CortexType::none();
         let is_second_none_type = other == CortexType::none();
         if is_first_none_type {
-            Some(other.to_optional())
+            return Some(other.to_optional());
         } else if is_second_none_type {
-            Some(self.to_optional())
-        } else if let (
-            CortexType::BasicType(b1), 
-            CortexType::BasicType(b2)
-        ) = (&self, &other) {
-            if b1.name == b2.name {
-                if !are_type_args_equal(&b1.type_args, &b2.type_args) {
-                    // When there's only 1 type argument, we can try to combine it (ex. a list<number?> with a list<number>)
-                    if b1.type_args.len() == 1 && b2.type_args.len() == 1 {
-                        if let Some(inner) = b1.type_args.get(0).unwrap().clone().combine_with(b2.type_args.get(0).unwrap().clone()) {
-                            Some(Self::basic(b1.name.clone(), b1.optional || b2.optional, vec![inner]))
+            return Some(self.to_optional());
+        } 
+
+        match (self, other) {
+            (CortexType::BasicType(b1), CortexType::BasicType(b2)) => {
+                if b1.name == b2.name {
+                    if !are_type_args_equal(&b1.type_args, &b2.type_args) {
+                        // When there's only 1 type argument, we can try to combine it (ex. a list<number?> with a list<number>)
+                        if b1.type_args.len() == 1 && b2.type_args.len() == 1 {
+                            if let Some(inner) = b1.type_args.get(0).unwrap().clone().combine_with(b2.type_args.get(0).unwrap().clone()) {
+                                Some(Self::basic(b1.name.clone(), b1.optional || b2.optional, vec![inner]))
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
                     } else {
-                        None
+                        Some(Self::basic(b1.name.clone(), b1.optional || b2.optional, b1.type_args.clone()))
                     }
                 } else {
-                    Some(Self::basic(b1.name.clone(), b1.optional || b2.optional, b1.type_args.clone()))
+                    None
                 }
-            } else {
-                None
-            }
-        } else if let (
-            CortexType::RefType(r1),
-            CortexType::RefType(r2)
-        ) = (&self, &other) {
-            if let Some(res) = r1.contained.clone().combine_with(*r2.contained.clone()) {
-                Some(Self::reference(res, r1.mutable || r2.mutable))
-            } else {
-                None
-            }
-        } else if let CortexType::Unknown(optional) = &self {
-            Some(other.to_optional_if_true(*optional))
-        } else {
-            None
+            },
+            (CortexType::RefType(r1), CortexType::RefType(r2)) => {
+                if let Some(res) = r1.contained.clone().combine_with(*r2.contained.clone()) {
+                    Some(Self::reference(res, r1.mutable || r2.mutable))
+                } else {
+                    None
+                }
+            },
+            (CortexType::Unknown(optional), other) => {
+                Some(other.to_optional_if_true(optional))
+            },
+            (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
+                if t1.types.len() == t2.types.len() {
+                    let mut types = Vec::new();
+                    for (t1, t2) in t1.types.into_iter().zip(t2.types) {
+                        let new = t1.combine_with(t2);
+                        if let Some(t) = new {
+                            types.push(t);
+                        } else {
+                            return None;
+                        }
+                    }
+                    Some(CortexType::TupleType(TupleType { types, optional: t1.optional || t2.optional }))
+                } else {
+                    None
+                }
+            },
+            _ => None
         }
     }
 
@@ -318,46 +333,56 @@ impl CortexType {
         if !are_same_variant(self, other) {
             return false;
         }
-        if let (
-            CortexType::BasicType(b1),
-            CortexType::BasicType(b2)
-        ) = (self, other) {
-            if b1.name == b2.name {
-                if b1.optional && !b2.optional {
-                    false
-                } else if !are_type_args_equal(&b1.type_args, &b2.type_args) {
-                    if b1.type_args.len() == 1 && b2.type_args.len() == 1 {
-                        b1.type_args.get(0).unwrap().is_subtype_of(b2.type_args.get(0).unwrap())
-                    } else {
+
+        match (self, other) {
+            (CortexType::BasicType(b1), CortexType::BasicType(b2)) => {
+                if b1.name == b2.name {
+                    if b1.optional && !b2.optional {
                         false
+                    } else if !are_type_args_equal(&b1.type_args, &b2.type_args) {
+                        if b1.type_args.len() == 1 && b2.type_args.len() == 1 {
+                            b1.type_args.get(0).unwrap().is_subtype_of(b2.type_args.get(0).unwrap())
+                        } else {
+                            false
+                        }
+                    } else {
+                        true
                     }
                 } else {
-                    true
-                }
-            } else {
-                false
-            }
-        } else if let (
-            CortexType::RefType(r1),
-            CortexType::RefType(r2)
-        ) = (self, other) {
-            if r1.contained.is_subtype_of(&*r2.contained) {
-                if !r1.mutable && r2.mutable {
                     false
+                }
+            },
+            (CortexType::RefType(r1), CortexType::RefType(r2)) => {
+                if r1.contained.is_subtype_of(&*r2.contained) {
+                    if !r1.mutable && r2.mutable {
+                        false
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            },
+            (CortexType::Unknown(optional), other) => {
+                if *optional {
+                    other.optional()
                 } else {
                     true
                 }
-            } else {
-                false
-            }
-        } else if let CortexType::Unknown(optional) = self {
-            if *optional {
-                other.optional()
-            } else {
-                true
-            }
-        } else {
-            false
+            },
+            (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
+                if t1.types.len() == t2.types.len() {
+                    for (t1, t2) in t1.types.iter().zip(&t2.types) {
+                        if !t1.is_subtype_of(t2) {
+                            return false;
+                        }
+                    }
+                    true
+                } else {
+                    false
+                }
+            },
+            _ => false,
         }
     }
 }

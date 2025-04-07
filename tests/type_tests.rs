@@ -27,6 +27,18 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
     run_test("(1, 2)", "(number, number)", &mut interpreter)?;
     run_test("(1, true, \"hello\")", "(number, bool, string)", &mut interpreter)?;
     run_test("(1, true, \"hello\").t1", "bool", &mut interpreter)?;
+    run_test("[(none, 5), (true, none)]", "&mut list<(bool?, number?)>", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn subtype_tests() -> Result<(), Box<dyn Error>> {
+    assert_subtype("none?", "number?")?;
+    assert_subtype("&mut number", "&number")?;
+    assert_not_subtype("&number", "&mut number")?;
+    assert_subtype("list<number>", "list<number?>")?;
+    assert_subtype("(&mut number, none?)", "(&number, bool?)")?;
+    assert_not_subtype("(number, number)", "(number, number, number)")?;
     Ok(())
 }
 
@@ -127,13 +139,15 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
 //     Ok(())
 // }
 
-#[test]
-fn subtype_tests() -> Result<(), Box<dyn Error>> {
-    assert!(CortexType::none().is_subtype_of(&CortexType::number(true)));
-    assert!(CortexType::reference(CortexType::number(false), true).is_subtype_of(&CortexType::reference(CortexType::number(false), false)));
-    assert!(!CortexType::reference(CortexType::number(false), false).is_subtype_of(&CortexType::reference(CortexType::number(false), true)));
-    assert!(CortexType::basic_simple("list", false, vec![CortexType::simple("number", false)])
-        .is_subtype_of(&CortexType::basic_simple("list", false, vec![CortexType::simple("number", true)]))
-    );
+fn assert_subtype(first: &str, second: &str) -> Result<(), Box<dyn Error>> {
+    let t1 = CortexParser::parse_type(first)?;
+    let t2 = CortexParser::parse_type(second)?;
+    assert!(t1.is_subtype_of(&t2));
+    Ok(())
+}
+fn assert_not_subtype(first: &str, second: &str) -> Result<(), Box<dyn Error>> {
+    let t1 = CortexParser::parse_type(first)?;
+    let t2 = CortexParser::parse_type(second)?;
+    assert!(!t1.is_subtype_of(&t2));
     Ok(())
 }
