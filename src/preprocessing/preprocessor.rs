@@ -995,9 +995,15 @@ impl CortexPreprocessor {
                 self.infer_arg(&*r.contained, &*r2.contained, type_param_names, bindings, param_name)?;
                 correct = true;
             },
-            (CortexType::RefType(_), _) => {
-                // parameter is reference but arg is not a reference
-                correct = false;
+            (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
+                if t1.types.len() == t2.types.len() {
+                    for (type1, type2) in t1.types.iter().zip(&t2.types) {
+                        self.infer_arg(type1, type2, type_param_names, bindings, param_name)?;
+                    }
+                    correct = true;
+                } else {
+                    correct = false;
+                }
             },
             (_, _) => {
                 correct = false;

@@ -20,3 +20,7 @@ bundle Box<T> {
 fn readBox<T>(box: &Box<T>): T {
     box.get()
 }
+
+fn getFirst<T, R>(value: (T, R)): T {
+    value.t0
+}

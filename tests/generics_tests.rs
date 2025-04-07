@@ -17,8 +17,13 @@ fn test_identity() -> Result<(), Box<dyn Error>> {
     
     assert_exp("identity(5)", "5", &mut interpreter)?;
     assert_exp("identity(none)", "none", &mut interpreter)?;
+    assert_exp("identity((2, 3))", "(2, 3)", &mut interpreter)?;
+
     assert_exp("identity<number?>(5)", "5", &mut interpreter)?;
     assert_exp("identity<number?>(none)", "none", &mut interpreter)?;
+    assert_exp("identity<(number,)>((5,))", "(5,)", &mut interpreter)?;
+
+    assert_exp("getFirst((2, \"string\"))", "2", &mut interpreter)?;
 
     run("let box = Box<number>{item: 5};", &mut interpreter)?;
     assert_exp("box.identity<number?>(5)", "5", &mut interpreter)?;
