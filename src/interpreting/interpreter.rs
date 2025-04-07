@@ -58,6 +58,10 @@ impl CortexInterpreter {
             }
         } else if let CortexValue::Reference(addr) = *value_ref {
             current.insert(addr);
+        } else if let CortexValue::Tuple(items) = &*value_ref {
+            for i in items {
+                self.find_reachables(current, Rc::new(RefCell::new(i.clone())));
+            }
         }
     }
     pub fn hpsz(&self) -> usize {
