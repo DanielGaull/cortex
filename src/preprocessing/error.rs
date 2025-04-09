@@ -6,8 +6,8 @@ pub enum PreprocessingError {
     CouldNotInferTypeBinding(String),
     #[error("Cannot have type arguments on a generic type: {0}")]
     CannotHaveTypeArgsOnGeneric(String),
-    #[error("Expected type {0} for {2} but expression of type {1} was found")]
-    MismatchedType(String, String, String),
+    #[error("Expected type {0} for {2} but expression of type {1} was found (context: {3})")]
+    MismatchedType(String, String, String, String),
     #[error("Could not determine type for list literal: expected {0} but found {1}")]
     CannotDetermineListLiteralType(String, String),
     #[error("Value not found: {0} (module constants are currently not supported)")]

@@ -66,7 +66,7 @@ impl SimpleCodeGen for CortexType {
                 s.push_str(&r.contained.codegen(0));
                 s
             },
-            CortexType::Unknown(optional) => format!("<unknown{}>", if *optional {"?"} else {""}),
+            CortexType::Unknown(optional) => format!("{{unknown{}}}", if *optional {"?"} else {""}),
             CortexType::TupleType(t) => {
                 format!("({}){}", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "), if t.optional {"?"} else {""})
             },
@@ -330,9 +330,6 @@ impl CortexType {
         if other.optional() && self == &CortexType::none() {
             return true;
         }
-        if !are_same_variant(self, other) {
-            return false;
-        }
 
         match (self, other) {
             (CortexType::BasicType(b1), CortexType::BasicType(b2)) => {
@@ -370,6 +367,13 @@ impl CortexType {
                     true
                 }
             },
+            (other, CortexType::Unknown(optional)) => {
+                if *optional {
+                    other.optional()
+                } else {
+                    true
+                }
+            },
             (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
                 if t1.types.len() == t2.types.len() {
                     for (t1, t2) in t1.types.iter().zip(&t2.types) {
@@ -385,10 +389,6 @@ impl CortexType {
             _ => false,
         }
     }
-}
-
-fn are_same_variant<T>(a: &T, b: &T) -> bool {
-    std::mem::discriminant(a) == std::mem::discriminant(b)
 }
 
 fn are_type_args_equal(a: &Vec<CortexType>, b: &Vec<CortexType>) -> bool {

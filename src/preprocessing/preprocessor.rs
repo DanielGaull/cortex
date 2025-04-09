@@ -234,7 +234,7 @@ impl CortexPreprocessor {
     }
 
     pub fn preprocess(&mut self, body: BasicBody) -> Result<Program, CortexError> {
-        let (body, _) = self.check_body(body)?;
+        let (body, _) = self.check_body_and_handle_env(body)?;
         Ok(Program { code: body })
     }
 
@@ -294,6 +294,7 @@ impl CortexPreprocessor {
     }
 
     fn check_statement(&mut self, statement: Statement) -> Result<RStatement, CortexError> {
+        let st_str = statement.codegen(0);
         match statement {
             Statement::Expression(expression) => {
                 let (exp, _) = self.check_exp(expression)?;
@@ -316,6 +317,7 @@ impl CortexPreprocessor {
                                             declared_type.codegen(0),
                                             assigned_type.codegen(0),
                                             ident.clone(),
+                                            st_str,
                                         )
                                     )
                                 );
@@ -347,6 +349,7 @@ impl CortexPreprocessor {
                                     var_type.codegen(0),
                                     assigned_type.codegen(0),
                                     var_name.clone(),
+                                    st_str,
                                 )
                             )
                         );
@@ -374,14 +377,14 @@ impl CortexPreprocessor {
 
                     let name_expr = name.clone().to_member_access_expr();
                     let (_, var_type) = self.check_exp(name_expr)?;
-                    let chain = name.chain.clone();
                     if !assigned_type.is_subtype_of(&var_type) {
                         return Err(
                             Box::new(
                                 PreprocessingError::MismatchedType(
                                     var_type.codegen(0),
                                     assigned_type.codegen(0),
-                                    chain.last().unwrap().clone(),
+                                    name.codegen(0),
+                                    st_str,
                                 )
                             )
                         );
@@ -399,13 +402,14 @@ impl CortexPreprocessor {
                                 String::from("bool"),
                                 cond_type.codegen(0),
                                 String::from("while condition"),
+                                st_str,
                             )
                         )
                     );
                 }
 
                 self.loop_depth += 1;
-                let (body, body_type) = self.check_body(condition_body.body)?;
+                let (body, body_type) = self.check_body_and_handle_env(condition_body.body)?;
                 if !body_type.is_subtype_of(&CortexType::void(false)) {
                     return Err(
                         Box::new(
@@ -435,6 +439,7 @@ impl CortexPreprocessor {
     }
 
     fn check_exp(&mut self, exp: Expression) -> CheckResult<RExpression> {
+        let st_str = exp.codegen(0);
         match exp {
             Expression::Number(v) => Ok((RExpression::Number(v), CortexType::number(false))),
             Expression::Boolean(v) => Ok((RExpression::Boolean(v), CortexType::boolean(false))),
@@ -446,15 +451,15 @@ impl CortexPreprocessor {
                 let extended = PathIdent::concat(&self.current_context, &path.without_last());
                 let context_to_return_to = std::mem::replace(&mut self.current_context, extended);
                 let function_name = path.get_back()?;
-                let result = self.check_call(PathIdent::simple(function_name.clone()), arg_exps, type_args);
+                let result = self.check_call(PathIdent::simple(function_name.clone()), arg_exps, type_args, &st_str);
                 self.current_context = context_to_return_to;
                 result
             },
             Expression::Construction { name, type_args, assignments } => {
-                self.check_construction(name, type_args, assignments)
+                self.check_construction(name, type_args, assignments, &st_str)
             },
             Expression::IfStatement { first, conds, last } => {
-                self.check_if_statement(*first, conds, last.map(|b| *b))
+                self.check_if_statement(*first, conds, last.map(|b| *b), &st_str)
             },
             Expression::UnaryOperation { op, exp } => {
                 let (exp, typ) = self.check_exp(*exp)?;
@@ -526,8 +531,8 @@ impl CortexPreprocessor {
                     let mut bindings = HashMap::new();
                     self.infer_arg(&CortexType::reference(
                         CortexType::basic(caller_type.clone(), false, forwarded_type_args(&composite.type_param_names)),
-                        true
-                    ), &atom_type, &composite.type_param_names, &mut bindings, &String::from("this"))?;
+                        true,
+                    ), &atom_type, &composite.type_param_names, &mut bindings, &String::from("this"), &st_str)?;
                     let mut beginning_type_args = Vec::new();
                     for a in &composite.type_param_names {
                         beginning_type_args.push(bindings.remove(a).unwrap());
@@ -609,7 +614,7 @@ impl CortexPreprocessor {
         Ok((RExpression::TupleMemberAccess(Box::new(atom_exp), index), member_type))
     }
 
-    fn check_call(&mut self, path_ident: PathIdent, arg_exps: Vec<Expression>, type_args: Option<Vec<CortexType>>) -> CheckResult<RExpression> {
+    fn check_call(&mut self, path_ident: PathIdent, arg_exps: Vec<Expression>, type_args: Option<Vec<CortexType>>, st_str: &String) -> CheckResult<RExpression> {
         let provided_arg_count = arg_exps.len();
         let mut processed_args = Vec::new();
         let mut arg_types = Vec::new();
@@ -643,7 +648,7 @@ impl CortexPreprocessor {
         if let Some(type_args) = type_args {
             bindings = sig.type_param_names.iter().cloned().zip(type_args).collect();
         } else {
-            bindings = self.infer_type_args(&sig, &arg_types, &full_path)?;
+            bindings = self.infer_type_args(&sig, &arg_types, &full_path, st_str)?;
         }
         let parent_type_env = self.current_type_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         let mut new_type_env = TypeEnvironment::new(*parent_type_env);
@@ -662,6 +667,7 @@ impl CortexPreprocessor {
                             param_type.codegen(0),
                             arg_type.codegen(0),
                             param_names.get(i).unwrap().clone(),
+                            st_str.clone(),
                         )
                     )
                 );
@@ -677,7 +683,7 @@ impl CortexPreprocessor {
 
         Ok((RExpression::Call(func_id, processed_args), return_type))
     }
-    fn check_construction(&mut self, name: PathIdent, type_args: Vec<CortexType>, assignments: Vec<(String, Expression)>) -> CheckResult<RExpression> {
+    fn check_construction(&mut self, name: PathIdent, type_args: Vec<CortexType>, assignments: Vec<(String, Expression)>, st_str: &String) -> CheckResult<RExpression> {
         let composite = self.lookup_composite(&name)?;
         let base_type = CortexType::basic(name.clone(), false, type_args.clone()).with_prefix_if_not_core(&self.current_context);
 
@@ -714,6 +720,7 @@ impl CortexPreprocessor {
                                 field_type.codegen(0),
                                 assigned_type.codegen(0),
                                 fname.clone(),
+                                st_str.clone(),
                             )
                         )
                     );
@@ -742,7 +749,7 @@ impl CortexPreprocessor {
             Err(Box::new(PreprocessingError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
         }
     }
-    fn check_if_statement(&mut self, first: ConditionBody, conds: Vec<ConditionBody>, last: Option<BasicBody>) -> CheckResult<RExpression> {
+    fn check_if_statement(&mut self, first: ConditionBody, conds: Vec<ConditionBody>, last: Option<BasicBody>, st_str: &String) -> CheckResult<RExpression> {
         let (cond_exp, cond_typ) = self.check_exp(first.condition)?;
         if cond_typ != CortexType::boolean(false) {
             return Err(
@@ -751,11 +758,12 @@ impl CortexPreprocessor {
                         String::from("bool"),
                         cond_typ.codegen(0),
                         String::from("if condition"),
+                        st_str.clone(),
                     )
                 )
             );
         }
-        let (first_body, mut the_type) = self.check_body(first.body)?;
+        let (first_body, mut the_type) = self.check_body_and_handle_env(first.body)?;
         
         let mut condition_bodies = Vec::<RConditionBody>::new();
         for c in conds {
@@ -767,11 +775,12 @@ impl CortexPreprocessor {
                             String::from("bool"),
                             cond_typ.codegen(0),
                             String::from("else-if condition"),
+                            st_str.clone(),
                         )
                     )
                 );
             }
-            let (body, typ) = self.check_body(c.body)?;
+            let (body, typ) = self.check_body_and_handle_env(c.body)?;
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
             let next = the_type.combine_with(typ);
@@ -784,7 +793,7 @@ impl CortexPreprocessor {
         }
         let mut final_body = None;
         if let Some(fin) = last {
-            let (body, typ) = self.check_body(fin)?;
+            let (body, typ) = self.check_body_and_handle_env(fin)?;
             final_body = Some(Box::new(body));
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
@@ -803,6 +812,16 @@ impl CortexPreprocessor {
             conds: condition_bodies,
             last: final_body,
         }, the_type))
+    }
+
+    fn check_body_and_handle_env(&mut self, body: BasicBody) -> CheckResult<RInterpretedBody> {
+        let parent_env = self.current_env.take().ok_or(PreprocessingError::NoParentEnv)?;
+        self.current_env = Some(Box::new(TypeCheckingEnvironment::new(*parent_env)));
+
+        let result = self.check_body(body);
+
+        self.current_env = Some(Box::new(self.current_env.take().unwrap().exit()?));
+        result
     }
 
     fn check_body(&mut self, body: BasicBody) -> CheckResult<RInterpretedBody> {
@@ -937,10 +956,10 @@ impl CortexPreprocessor {
         }
         Ok(bindings)
     }
-    fn infer_type_args(&self, sig: &FunctionSignature, args: &Vec<CortexType>, name: &PathIdent) -> Result<HashMap<String, CortexType>, CortexError> {
+    fn infer_type_args(&self, sig: &FunctionSignature, args: &Vec<CortexType>, name: &PathIdent, st_str: &String) -> Result<HashMap<String, CortexType>, CortexError> {
         let mut bindings = HashMap::<String, CortexType>::new();
         for (arg, param) in args.iter().zip(&sig.params) {
-            self.infer_arg(&param.typ, &arg, &sig.type_param_names, &mut bindings, param.name())?;
+            self.infer_arg(&param.typ, &arg, &sig.type_param_names, &mut bindings, param.name(), st_str)?;
         }
 
         if bindings.len() != sig.type_param_names.len() {
@@ -949,7 +968,7 @@ impl CortexPreprocessor {
             Ok(bindings)
         }
     }
-    fn infer_arg(&self, param_type: &CortexType, arg_type: &CortexType, type_param_names: &Vec<String>, bindings: &mut HashMap<String, CortexType>, param_name: &String) -> Result<(), CortexError> {
+    fn infer_arg(&self, param_type: &CortexType, arg_type: &CortexType, type_param_names: &Vec<String>, bindings: &mut HashMap<String, CortexType>, param_name: &String, st_str: &String) -> Result<(), CortexError> {
         let correct;
         match (&param_type, arg_type) {
             (CortexType::BasicType(b), arg_type) => {
@@ -980,7 +999,7 @@ impl CortexPreprocessor {
                     if let CortexType::BasicType(b2) = arg_type {
                         if b.type_args.len() == b2.type_args.len() {
                             for (type_param, type_arg) in b.type_args.iter().zip(&b2.type_args) {
-                                self.infer_arg(type_param, type_arg, type_param_names, bindings, param_name)?;
+                                self.infer_arg(type_param, type_arg, type_param_names, bindings, param_name, st_str)?;
                             }
                             correct = true;
                         } else {
@@ -992,13 +1011,13 @@ impl CortexPreprocessor {
                 }
             },
             (CortexType::RefType(r), CortexType::RefType(r2)) => {
-                self.infer_arg(&*r.contained, &*r2.contained, type_param_names, bindings, param_name)?;
+                self.infer_arg(&*r.contained, &*r2.contained, type_param_names, bindings, param_name, st_str)?;
                 correct = true;
             },
             (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
                 if t1.types.len() == t2.types.len() {
                     for (type1, type2) in t1.types.iter().zip(&t2.types) {
-                        self.infer_arg(type1, type2, type_param_names, bindings, param_name)?;
+                        self.infer_arg(type1, type2, type_param_names, bindings, param_name, st_str)?;
                     }
                     correct = true;
                 } else {
@@ -1012,7 +1031,7 @@ impl CortexPreprocessor {
         if correct {
             Ok(())
         } else {
-            Err(Box::new(PreprocessingError::MismatchedType(param_type.codegen(0), arg_type.codegen(0), param_name.clone())))
+            Err(Box::new(PreprocessingError::MismatchedType(param_type.codegen(0), arg_type.codegen(0), param_name.clone(), st_str.clone())))
         }
     }
 

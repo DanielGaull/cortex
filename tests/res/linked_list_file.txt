@@ -1,0 +1,87 @@
+fn assertEq<T, R>(expected: T, actual: R) {
+    if expected != actual {
+        throw ("Assertion Failed: Expected " + toString(expected) + " but found " + toString(actual));
+    }
+}
+
+bundle ListNode<T> {
+    value: T,
+    next: &mut ListNode<T>?,
+}
+
+bundle LinkedList<T> {
+    head: &mut ListNode<T>?,
+
+    fn len(&this): number {
+        let head: &ListNode<T>? = this.head;
+        let length = 0;
+        while head != none {
+            head = head!.next;
+            length += 1;
+        }
+        length
+    }
+
+    fn append(&mut this, elem: T) {
+        let newNode = ListNode<T> {
+            value: elem,
+            next: none,
+        };
+        if this.head == none {
+            this.head = newNode;
+        } else {
+            let head = this.head!;
+            while head.next != none {
+                head = head.next!;
+            }
+            head.next = newNode;
+        }
+    }
+
+    fn toList(&this): &mut list<T> {
+        let result: &mut list<T> = [];
+        let head = this.head;
+        while head != none {
+            let node = head!;
+            result.add(node.value);
+            head = node.next;
+        }
+        result
+    }
+}
+
+fn newLL<T>(): &mut LinkedList<T> {
+    LinkedList<T> {
+        head: none,
+    }
+}
+
+fn test_appendOnce() {
+    let ll = newLL<number>();
+    assertEq(0, ll.len());
+    ll.append(5);
+    assertEq(1, ll.len());
+    let res = ll.toList();
+    assertEq(5, res[0]);
+}
+fn test_longList() {
+    let ll = newLL<number>();
+    ll.append(1);
+    ll.append(2);
+    ll.append(3);
+    ll.append(4);
+    ll.append(5);
+    assertEq(5, ll.len());
+
+    let res = ll.toList();
+    assertEq(1, res[0]);
+    assertEq(2, res[1]);
+    assertEq(3, res[2]);
+    assertEq(4, res[3]);
+    assertEq(5, res[4]);
+}
+
+fn testAll() {
+    test_appendOnce();
+    test_longList();
+}

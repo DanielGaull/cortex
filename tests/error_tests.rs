@@ -17,9 +17,9 @@ fn test_variable_errors() -> Result<(), Box<dyn Error>> {
     assert_err("let x = 7;", EnvError::VariableAlreadyExists(String::from("x")), &mut interpreter)?;
     assert_err("x = 7;", PreprocessingError::CannotModifyConst(String::from("x")), &mut interpreter)?;
 
-    assert_err("let y: string = 5;", PreprocessingError::MismatchedType(String::from("string"), String::from("number"), String::from("y")), &mut interpreter)?;
+    assert_err("let y: string = 5;", PreprocessingError::MismatchedType(String::from("string"), String::from("number"), String::from("y"), String::from("let y: string = 5;")), &mut interpreter)?;
     interpreter.execute_statement(CortexParser::parse_statement("let myNum = 7;")?)?;
-    assert_err("myNum = true;", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("myNum")), &mut interpreter)?;
+    assert_err("myNum = true;", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("myNum"), String::from("myNum = true;")), &mut interpreter)?;
     // assert_err("dne::value;", ModuleError::ModuleDoesNotExist(String::from("dne")), &mut interpreter)?;
     // assert_err("dne::constantValue = 5;", InterpreterError::CannotModifyModuleEnvironment(String::from("dne::constantValue")), &mut interpreter)?;
     Ok(())
@@ -39,8 +39,8 @@ fn test_function_errors() -> Result<(), Box<dyn Error>> {
     assert_err("simple::hi();", ModuleError::FunctionDoesNotExist(String::from("simple::hi")), &mut interpreter)?;
     assert_err("simple::add(1);", PreprocessingError::MismatchedArgumentCount(String::from("simple::add"), 2, 1), &mut interpreter)?;
     assert_err("simple::add(1, 2, 3);", PreprocessingError::MismatchedArgumentCount(String::from("simple::add"), 2, 3), &mut interpreter)?;
-    assert_err("simple::add(1, true);", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("b")), &mut interpreter)?;
-    assert_err("simple::generic<number>(true);", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("t")), &mut interpreter)?;
+    assert_err("simple::add(1, true);", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("b"), String::from("simple::add(1, true);")), &mut interpreter)?;
+    assert_err("simple::generic<number>(true);", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("t"), String::from("simple::generic<number>(true);")), &mut interpreter)?;
     Ok(())
 }
 
@@ -51,7 +51,7 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     interpreter.execute_statement(CortexParser::parse_statement("let myTime = simple::Time { m: 5, s: 2 };")?)?;
     assert_err("myTime.z;", PreprocessingError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.z = 2;", PreprocessingError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
-    assert_err("myTime.m = true;", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("m")), &mut interpreter)?;
+    assert_err("myTime.m = true;", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("m"), String::from("myTime.m = true;")), &mut interpreter)?;
     assert_err("5.foo;", PreprocessingError::CannotAccessMemberOfNonComposite, &mut interpreter)?;
     assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", PreprocessingError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
@@ -64,7 +64,7 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_none_related_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("let notOptional: number = none;", PreprocessingError::MismatchedType(String::from("number"), String::from("none?"), String::from("notOptional")), &mut interpreter)?;
+    assert_err("let notOptional: number = none;", PreprocessingError::MismatchedType(String::from("number"), String::from("none?"), String::from("notOptional"), String::from("let notOptional: number = none;")), &mut interpreter)?;
     assert_err("none!;", InterpreterError::BangCalledOnNoneValue, &mut interpreter)?;
     Ok(())
 }

@@ -59,6 +59,7 @@ impl SimpleCodeGen for Statement {
                 s.push_str(&cond_body.condition.codegen(indent));
                 s.push_str(" {\n");
                 s.push_str(&cond_body.body.codegen(indent + 1));
+                s.push_str(&indent_prefix);
                 s.push_str("}");
             },
             Self::Break => {

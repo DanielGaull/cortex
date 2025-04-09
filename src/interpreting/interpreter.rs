@@ -23,7 +23,7 @@ impl CortexInterpreter {
     }
 
     pub fn execute(&mut self, program: Program) -> Result<CortexValue, CortexError> {
-        Ok(self.evaluate_interpreted_body(&program.code)?)
+        Ok(self.evaluate_interpreted_body_handle_env(&program.code)?)
     }
     pub fn execute_expression(&mut self, expression: Expression) -> Result<CortexValue, CortexError> {
         let body = BasicBody::new(vec![], Some(expression));
@@ -117,9 +117,7 @@ impl CortexInterpreter {
                     let cond = self.evaluate_expression(&condition_body.condition)?;
                     if let CortexValue::Boolean(b) = cond {
                         if b {
-                            for st in &condition_body.body.statements {
-                                self.run_statement(st)?;
-                            }
+                            self.evaluate_interpreted_body_handle_env(&condition_body.body)?;
                         } else {
                             break;
                         }
@@ -270,20 +268,20 @@ impl CortexInterpreter {
                 let cond = self.evaluate_expression(&first.condition)?;
                 if let CortexValue::Boolean(b) = cond {
                     if b {
-                        self.evaluate_interpreted_body(&first.body)
+                        self.evaluate_interpreted_body_handle_env(&first.body)
                     } else {
                         for c in conds {
                             let cond = self.evaluate_expression(&c.condition)?;
                             if let CortexValue::Boolean(b) = cond {
                                 if b {
-                                    return Ok(self.evaluate_interpreted_body(&c.body)?);
+                                    return Ok(self.evaluate_interpreted_body_handle_env(&c.body)?);
                                 }
                             } else {
                                 return Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess));
                             }
                         }
                         if let Some(c) = last {
-                            Ok(self.evaluate_interpreted_body(&*c)?)
+                            Ok(self.evaluate_interpreted_body_handle_env(&*c)?)
                         } else {
                             Ok(CortexValue::Void)
                         }
@@ -465,6 +463,19 @@ impl CortexInterpreter {
                 Ok(res)
             },
         }
+    }
+    fn evaluate_interpreted_body_handle_env(&mut self, b: &RInterpretedBody) -> Result<CortexValue, CortexError> {
+        let parent_env = self.current_env.take().ok_or(InterpreterError::NoParentEnv)?;
+        self.current_env = Some(Box::new(Environment::new(*parent_env)));
+
+        let result = self.evaluate_interpreted_body(b);
+
+        self.current_env = Some(Box::new(self.current_env
+                .take()
+                .ok_or(InterpreterError::NoParentEnv)?
+                .exit()?));
+
+        result
     }
     fn evaluate_interpreted_body(&mut self, b: &RInterpretedBody) -> Result<CortexValue, CortexError> {
         for st in &b.statements {
