@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{Expression, OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, Bundle, Function}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{Expression, OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, Bundle, Function, MemberFunction}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
 
 fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
@@ -61,7 +61,7 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
             ("time", CortexType::reference(CortexType::basic(PathIdent::simple(String::from("Time")), false, vec![]), true))
         ],
         vec![
-            Function::member_func(
+            MemberFunction::new(
                 OptionalIdentifier::Ident(String::from("get")), 
                 vec![],
                 CortexType::reference(CortexType::simple("Time", false), true),
@@ -90,7 +90,7 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
             ("item", CortexType::basic(PathIdent::simple(String::from("T")), false, vec![]))
         ],
         vec![
-            Function::member_func(
+            MemberFunction::new(
                 OptionalIdentifier::Ident(String::from("get")), 
                 vec![],
                 CortexType::basic(PathIdent::simple(String::from("T")), false, vec![]),

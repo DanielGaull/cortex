@@ -56,6 +56,4 @@ pub enum PreprocessingError {
     TupleMemberSyntaxInvalid(String),
     #[error("Tuple has size of {0} but index {1} was attempted to index into it!")]
     TupleIndexValueInvalid(usize, usize),
-    #[error("Invalid this-arg for function {0}: Must provide this-arg in this context")]
-    InvalidThisArg(String),
 }

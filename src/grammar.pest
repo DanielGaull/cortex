@@ -8,8 +8,9 @@ topLevel = { import | function | struct | bundle | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
-struct = { "struct" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ bundleFuncList ~ "}" }
-bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ bundleFuncList ~ "}" }
+struct = { "struct" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
+bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
+// extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
 
 // Statements
 statementNeedingSemicolon = _{ (throw | break | continue | varDec | indexVarAssign | varAssign | expr) }
@@ -90,9 +91,10 @@ body = { statement* ~ expr? }
 directThis = { "this" }
 refThis = { "&this" }
 refMutThis = { "&mut this" }
-bundleParamList = { ("," ~ param)* }
-bundleFunction = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ bundleParamList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
-bundleFuncList = { bundleFunction* }
+
+memberParamList = { ("," ~ param)* }
+memberFunction = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ memberParamList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
+memberFuncList = { memberFunction* }
 
 typeArgList = { (ident ~ ",")* ~ ident }
 typeList = { (typ ~ ",")* ~ typ }

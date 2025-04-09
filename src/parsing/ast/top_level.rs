@@ -56,7 +56,6 @@ pub enum ThisArg {
     RefThis,
     RefMutThis,
     DirectThis,
-    None,
 }
 
 #[derive(Clone)]
@@ -68,7 +67,6 @@ pub(crate) struct FunctionSignature {
 
 pub struct Function {
     pub(crate) name: OptionalIdentifier,
-    pub(crate) this_arg: ThisArg,
     pub(crate) params: Vec<Parameter>,
     pub(crate) return_type: CortexType,
     pub(crate) body: Body,
@@ -90,17 +88,6 @@ impl SimpleCodeGen for Function {
         }
 
         s.push_str("(");
-        
-        let mut has_this_arg = true;
-        match self.this_arg {
-            ThisArg::RefThis => s.push_str("&this"),
-            ThisArg::RefMutThis => s.push_str("&mut this"),
-            ThisArg::DirectThis => s.push_str("this"),
-            ThisArg::None => has_this_arg = false,
-        }
-        if has_this_arg && self.params.len() > 0 {
-            s.push_str(", ");
-        }
 
         for (i, param) in self.params.iter().enumerate() {
             s.push_str(&param.codegen(indent));
@@ -126,17 +113,6 @@ impl Function {
             params: params,
             return_type: return_type,
             body: body,
-            this_arg: ThisArg::None,
-            type_param_names: type_param_names,
-        }
-    }
-    pub fn member_func(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, this_arg: ThisArg, type_param_names: Vec<String>) -> Self {
-        Function {
-            name: name,
-            params: params,
-            return_type: return_type,
-            body: body,
-            this_arg: this_arg,
             type_param_names: type_param_names,
         }
     }
@@ -158,6 +134,70 @@ impl Function {
             return_type: self.return_type.clone(),
             params: self.params.clone(),
             type_param_names: self.type_param_names.clone(),
+        }
+    }
+}
+
+pub struct MemberFunction {
+    pub(crate) name: OptionalIdentifier,
+    pub(crate) this_arg: ThisArg,
+    pub(crate) params: Vec<Parameter>,
+    pub(crate) return_type: CortexType,
+    pub(crate) body: Body,
+    pub(crate) type_param_names: Vec<String>,
+}
+impl SimpleCodeGen for MemberFunction {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        let indent_prefix = &"    ".repeat(indent);
+
+        s.push_str(indent_prefix);
+        s.push_str("fn ");
+        s.push_str(&self.name.codegen(indent));
+
+        if self.type_param_names.len() > 0 {
+            s.push_str("<");
+            s.push_str(&self.type_param_names.join(","));
+            s.push_str(">");
+        }
+
+        s.push_str("(");
+        
+        match self.this_arg {
+            ThisArg::RefThis => s.push_str("&this"),
+            ThisArg::RefMutThis => s.push_str("&mut this"),
+            ThisArg::DirectThis => s.push_str("this"),
+        }
+        if self.params.len() > 0 {
+            s.push_str(", ");
+        }
+
+        for (i, param) in self.params.iter().enumerate() {
+            s.push_str(&param.codegen(indent));
+            if i + 1 < self.params.len() {
+                s.push_str(", ");
+            }
+        }
+        s.push_str("): ");
+        s.push_str(&self.return_type.codegen(indent));
+        s.push_str(" {\n");
+
+        s.push_str(&self.body.codegen(indent + 1));
+
+        s.push_str(indent_prefix);
+        s.push_str("}");
+        s
+    }
+}
+impl MemberFunction {
+    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, this_arg: ThisArg, type_param_names: Vec<String>) -> Self {
+        MemberFunction {
+            name: name,
+            params: params,
+            return_type: return_type,
+            body: body,
+            this_arg: this_arg,
+            type_param_names: type_param_names,
         }
     }
 }
@@ -217,7 +257,7 @@ impl Body {
 pub struct Struct {
     pub(crate) name: OptionalIdentifier,
     pub(crate) fields: HashMap<String, CortexType>,
-    pub(crate) functions: Vec<Function>,
+    pub(crate) functions: Vec<MemberFunction>,
     pub(crate) type_param_names: Vec<String>,
 }
 impl SimpleCodeGen for Struct {
@@ -261,7 +301,7 @@ impl Struct {
     pub fn new(name: &str, fields: Vec<(&str, CortexType)>, type_arg_names: Vec<&str>) -> Self {
         Self::new_with_functions(name, fields, vec![], type_arg_names)
     }
-    pub fn new_with_functions(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<Function>, type_arg_names: Vec<&str>) -> Self {
+    pub fn new_with_functions(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<MemberFunction>, type_arg_names: Vec<&str>) -> Self {
         let mut map = HashMap::new();
         for f in fields {
             map.insert(String::from(f.0), f.1);
@@ -278,7 +318,7 @@ impl Struct {
 pub struct Bundle {
     pub(crate) name: OptionalIdentifier,
     pub(crate) fields: HashMap<String, CortexType>,
-    pub(crate) functions: Vec<Function>,
+    pub(crate) functions: Vec<MemberFunction>,
     pub(crate) type_param_names: Vec<String>,
 }
 impl SimpleCodeGen for Bundle {
@@ -319,7 +359,7 @@ impl SimpleCodeGen for Bundle {
     }
 }
 impl Bundle {
-    pub fn new(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<Function>, type_arg_names: Vec<&str>) -> Self {
+    pub fn new(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<MemberFunction>, type_arg_names: Vec<&str>) -> Self {
         let mut map = HashMap::new();
         for f in fields {
             map.insert(String::from(f.0), f.1);

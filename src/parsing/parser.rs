@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::constants::{INDEX_SET_FN_NAME, INDEX_GET_FN_NAME};
 
-use super::ast::{expression::{Expression, BinaryOperator, ConditionBody, IdentExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, Struct, ThisArg, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{BinaryOperator, ConditionBody, Expression, IdentExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, MemberFunction, Struct, ThisArg, TopLevel}, r#type::CortexType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -713,11 +713,10 @@ impl CortexParser {
             params: params,
             return_type: return_type,
             body: Body::Basic(body),
-            this_arg: ThisArg::None,
             type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
         })
     }
-    fn parse_member_function(pair: Pair<Rule>) -> Result<Function, ParseError> {
+    fn parse_member_function(pair: Pair<Rule>) -> Result<MemberFunction, ParseError> {
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
 
@@ -742,7 +741,7 @@ impl CortexParser {
             CortexType::void(false)
         };
         let body = Self::parse_body(pairs.next().unwrap())?;
-        Ok(Function {
+        Ok(MemberFunction {
             name: name,
             params: params,
             return_type: return_type,
@@ -764,7 +763,7 @@ impl CortexParser {
         }
     }
 
-    fn parse_member_func_list(pair: Pair<Rule>) -> Result<Vec<Function>, ParseError> {
+    fn parse_member_func_list(pair: Pair<Rule>) -> Result<Vec<MemberFunction>, ParseError> {
         let pairs = pair.into_inner();
         let mut result = Vec::new();
         for p in pairs {
