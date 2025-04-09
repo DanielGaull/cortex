@@ -259,6 +259,29 @@ You can access and change fields like this:
 
 The type name to refer to a struct is the struct name itself (or path if it is in a module).
 
+Structs can also have functions defined on them, below the list of fields. You have access to a special variable called `this`, which refers to the current instance. For example:
+
+    struct Time {
+        hour: number,
+        minute: number,
+        second: number,
+
+        fn getTotalSeconds(this): number {
+            this.hour * 60 * 60 + this.minute * 60 + this.second
+        }
+    }
+
+Now, you can call `getTotalSeconds` on any `Time` to perform the calculation:
+
+    let time: Time = Time {
+        hour: 2,
+        minute: 5,
+        second: 10,
+    };
+    time.getTotalSeconds() // returns 7510
+
+For struct functions, you must `this` as the first argument. Unlike bundle functions (explained below), you cannot modify the calling variable; this is because the argument `this` is pass-by-value. Therefore, mutating the value stored in `this` will not have an impact on the value used to call the function, and so mutating struct functions cannot be defined. Use bundles if you desire this functionality.
+
 ### Bundles
 Bundles are another type of composite type, similar to structs. Like structs, you can inject bundles into modules from outside of the interpreter. When instances of bundles are created, they are placed on a virtual heap, and all bundle values are pass-by-reference. This means that when you pass a bundle value into a function or assign it to another field, it will share the same instance. There is a garbage collector that runs in the background to ensure that memory doesn't get out of hand.
 
@@ -280,7 +303,7 @@ You can create instances the same way that you create struct instances:
         y: 0,
     };
 
-However, bundles can also have functions defined on them, below the list of fields. Within bundle functions, you have access to a special variable called `this`, which refers to the current instance. For example:
+Bundles can also have functions defined on them, below the list of fields. You still have access to a special variable called `this`, which refers to the current instance. For example:
 
     bundle Point {
         x: number,
@@ -302,7 +325,7 @@ Now, you can call `increment` on any `Point` to modify its values:
 
 Due to pass-by-reference semantics and the benefits of bundle functions, it is recommended to use bundles in most cases. Structs should only be used for small, inexpensive types of data. Currently, defining functions on a struct does not exist.
 
-For bundle functions, you must provide either "&this" or "&mut this" as the first argument to specify whether the value must be mutable or not. You can call "immutable" functions on mutable values, but you cannot call "mutable" functions on immutable values.
+For bundle functions, you must provide either `&this` or `&mut this` as the first argument to specify whether the value must be mutable or not. You can call "immutable" functions on mutable values, but you cannot call "mutable" functions on immutable values.
 
 #### Indexing
 There are a few special bundle functions. Cortex features *index syntax*, allowing for things like so:
