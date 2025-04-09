@@ -217,6 +217,7 @@ impl Body {
 pub struct Struct {
     pub(crate) name: OptionalIdentifier,
     pub(crate) fields: HashMap<String, CortexType>,
+    pub(crate) functions: Vec<Function>,
     pub(crate) type_param_names: Vec<String>,
 }
 impl SimpleCodeGen for Struct {
@@ -246,6 +247,11 @@ impl SimpleCodeGen for Struct {
             s.push_str("\n");
         }
 
+        for func in &self.functions {
+            s.push_str(func.codegen(indent + 1).as_str());
+            s.push_str("\n");
+        }
+
         s.push_str(&indent_prefix);
         s.push_str("}\n");
         s
@@ -253,6 +259,9 @@ impl SimpleCodeGen for Struct {
 }
 impl Struct {
     pub fn new(name: &str, fields: Vec<(&str, CortexType)>, type_arg_names: Vec<&str>) -> Self {
+        Self::new_with_functions(name, fields, vec![], type_arg_names)
+    }
+    pub fn new_with_functions(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<Function>, type_arg_names: Vec<&str>) -> Self {
         let mut map = HashMap::new();
         for f in fields {
             map.insert(String::from(f.0), f.1);
@@ -260,6 +269,7 @@ impl Struct {
         Struct {
             name: OptionalIdentifier::Ident(String::from(name)),
             fields: map,
+            functions: funcs,
             type_param_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
         }
     }
@@ -321,8 +331,8 @@ impl Bundle {
             type_param_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
         }
     }
+}
 
-    pub(crate) fn get_bundle_func_name(bundle_name: &String, func_name: &String) -> String {
-        format!("{}`{}", bundle_name, func_name)
-    }
+pub(crate) fn get_member_func_name(item_name: &String, func_name: &String) -> String {
+    format!("{}`{}", item_name, func_name)
 }

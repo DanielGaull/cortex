@@ -8,6 +8,10 @@ module main {
 struct Point {
     x: number,
     y: number,
+
+    fn getX(this): number {
+        this.x
+    }
 }
 
 fn getPoint(x: number, y: number): Point {

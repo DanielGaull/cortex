@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{get_member_func_name, BasicBody, Body, Bundle, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{TypeDefinition, Module, ModuleError}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -75,7 +75,14 @@ impl CortexPreprocessor {
                 Ok(())
             },
             TopLevel::Struct(struc) => {
-                self.add_struct(PathIdent::empty(), struc)?;
+                let mut funcs = Vec::new();
+                self.add_struct(PathIdent::empty(), struc, &mut funcs)?;
+                for f in &funcs {
+                    self.add_signature(PathIdent::empty(), &f)?;
+                }
+                for f in funcs {
+                    self.add_function(PathIdent::empty(), f)?;
+                }
                 Ok(())
             },
             TopLevel::Bundle(bundle) => {
@@ -105,7 +112,7 @@ impl CortexPreprocessor {
         let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
 
         for item in structs {
-            self.add_struct(path.clone(), item)?;
+            self.add_struct(path.clone(), item, &mut functions)?;
         }
 
         for item in bundles {
@@ -157,7 +164,7 @@ impl CortexPreprocessor {
         }
         Ok(())
     }
-    fn add_struct(&mut self, n: PathIdent, item: Struct) -> Result<(), CortexError> {
+    fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<Function>) -> Result<(), CortexError> {
         match &item.name {
             OptionalIdentifier::Ident(item_name) => {
                 let full_path = PathIdent::continued(n, item_name.clone());
@@ -168,6 +175,31 @@ impl CortexPreprocessor {
                     if has_loop {
                         Err(Box::new(ModuleError::StructContainsCircularFields(full_path.codegen(0))))
                     } else {
+                        for func in item.functions {
+                            match func.name {
+                                OptionalIdentifier::Ident(func_name) => {
+                                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.this_arg, item_name, &item.type_param_names, &func_name)?);
+                                    let mut param_list = vec![new_param];
+                                    param_list.extend(func.params);
+                                    let mut type_param_names = func.type_param_names;
+                                    let intersecting_type_param = item.type_param_names.iter().find(|t| type_param_names.contains(t));
+                                    if let Some(name) = intersecting_type_param {
+                                        return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
+                                    }
+                                    type_param_names.extend(item.type_param_names.clone());
+                                    let new_func = Function::new(
+                                        OptionalIdentifier::Ident(get_member_func_name(item_name, &func_name)),
+                                        param_list,
+                                        func.return_type,
+                                        func.body,
+                                        type_param_names,
+                                    );
+                                    funcs_to_add.push(new_func);
+                                },
+                                OptionalIdentifier::Ignore => (),
+                            }
+                        }
+
                         let mut seen_type_param_names = HashSet::new();
                         for t in &item.type_param_names {
                             if seen_type_param_names.contains(t) {
@@ -208,7 +240,7 @@ impl CortexPreprocessor {
                                 }
                                 type_param_names.extend(item.type_param_names.clone());
                                 let new_func = Function::new(
-                                    OptionalIdentifier::Ident(Bundle::get_bundle_func_name(item_name, &func_name)),
+                                    OptionalIdentifier::Ident(get_member_func_name(item_name, &func_name)),
                                     param_list,
                                     func.return_type,
                                     func.body,
@@ -254,7 +286,7 @@ impl CortexPreprocessor {
                 )
             ),
             ThisArg::DirectThis => Ok(CortexType::basic(PathIdent::simple(item_name.clone()), false, forwarded_type_args(type_param_names))),
-            ThisArg::None => Err(Box::new(PreprocessingError::InvalidThisArg(Bundle::get_bundle_func_name(item_name, func_name)))),
+            ThisArg::None => Err(Box::new(PreprocessingError::InvalidThisArg(get_member_func_name(item_name, func_name)))),
         }
     }
 
@@ -545,7 +577,7 @@ impl CortexPreprocessor {
                 let caller_type = atom_type.name()?;
                 let caller_func_prefix = caller_type.without_last();
                 let caller_func_base = caller_type.get_back()?;
-                let member_func_name = Bundle::get_bundle_func_name(caller_func_base, &member);
+                let member_func_name = get_member_func_name(caller_func_base, &member);
                 let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
                     .subtract(&self.current_context)?;
                 args.insert(0, *callee);

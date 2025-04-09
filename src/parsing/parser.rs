@@ -637,6 +637,8 @@ impl CortexParser {
         } else {
             field_params = Self::parse_param_list(next)?;
         }
+        let functions = Self::parse_member_func_list(pairs.next().unwrap())?;
+
         let mut fields = HashMap::new();
         for p in field_params {
             fields.insert(p.name, p.typ);
@@ -646,6 +648,7 @@ impl CortexParser {
             Struct { 
                 name: name,
                 fields: fields,
+                functions: functions,
                 type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
             }
         )
@@ -665,7 +668,7 @@ impl CortexParser {
         } else {
             field_params = Self::parse_param_list(next)?;
         }
-        let functions = Self::parse_bundle_func_list(pairs.next().unwrap())?;
+        let functions = Self::parse_member_func_list(pairs.next().unwrap())?;
 
         let mut fields = HashMap::new();
         for p in field_params {
@@ -714,7 +717,7 @@ impl CortexParser {
             type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
         })
     }
-    fn parse_bundle_function(pair: Pair<Rule>) -> Result<Function, ParseError> {
+    fn parse_member_function(pair: Pair<Rule>) -> Result<Function, ParseError> {
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
 
@@ -761,11 +764,11 @@ impl CortexParser {
         }
     }
 
-    fn parse_bundle_func_list(pair: Pair<Rule>) -> Result<Vec<Function>, ParseError> {
+    fn parse_member_func_list(pair: Pair<Rule>) -> Result<Vec<Function>, ParseError> {
         let pairs = pair.into_inner();
         let mut result = Vec::new();
         for p in pairs {
-            result.push(Self::parse_bundle_function(p)?);
+            result.push(Self::parse_member_function(p)?);
         }
         Ok(result)
     }

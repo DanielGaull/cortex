@@ -2,7 +2,7 @@ use std::error::Error;
 
 use thiserror::Error;
 
-use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Bundle, Function}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::CortexPreprocessor}};
+use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{get_member_func_name, Body, Function}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::CortexPreprocessor}};
 
 #[derive(Error, Debug)]
 pub enum ListError {
@@ -25,7 +25,7 @@ impl PartialEq for ListError {
 impl CortexPreprocessor {
     pub(crate) fn add_list_funcs(global: &mut Module) -> Result<(), Box<dyn Error>> {
         global.add_function(Function::new(
-            OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from(INDEX_GET_FN_NAME))),
+            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from(INDEX_GET_FN_NAME))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
                 Parameter::named("index", CortexType::number(false))
@@ -56,7 +56,7 @@ impl CortexPreprocessor {
         ))?;
 
         global.add_function(Function::new(
-            OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from(INDEX_SET_FN_NAME))),
+            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from(INDEX_SET_FN_NAME))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
                 Parameter::named("index", CortexType::number(false)),
@@ -89,7 +89,7 @@ impl CortexPreprocessor {
         ))?;
 
         global.add_function(Function::new(
-            OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("len"))),
+            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("len"))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
             ],
@@ -110,7 +110,7 @@ impl CortexPreprocessor {
         ))?;
 
         global.add_function(Function::new(
-            OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("find"))),
+            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("find"))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
                 Parameter::named("item", CortexType::simple("T", false)),
@@ -138,7 +138,7 @@ impl CortexPreprocessor {
         ))?;
 
         global.add_function(Function::new(
-            OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("contains"))),
+            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("contains"))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
                 Parameter::named("item", CortexType::simple("T", false)),
@@ -161,7 +161,7 @@ impl CortexPreprocessor {
         ))?;
 
         global.add_function(Function::new(
-            OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("add"))),
+            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("add"))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), true)),
                 Parameter::named("item", CortexType::simple("T", false)),
@@ -185,7 +185,7 @@ impl CortexPreprocessor {
         ))?;
 
         global.add_function(Function::new(
-            OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("insert"))),
+            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("insert"))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), true)),
                 Parameter::named("index", CortexType::number(false)),
@@ -219,7 +219,7 @@ impl CortexPreprocessor {
         ))?;
 
         global.add_function(Function::new(
-            OptionalIdentifier::Ident(Bundle::get_bundle_func_name(&String::from("list"), &String::from("remove"))),
+            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("remove"))),
             vec![
                 Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), true)),
                 Parameter::named("index", CortexType::number(false)),

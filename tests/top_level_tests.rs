@@ -31,6 +31,7 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
 
     assert_expression("main::main(1, 2)", "3", &mut interpreter)?;
     assert_expression_or("getPoint(3, 5)", "{ x:3;y:5; }", "{ y:5;x:3; }", &mut interpreter)?;
+    assert_expression("Point{x:3,y:5}.getX()", "3", &mut interpreter)?;
 
     Ok(())
 }
