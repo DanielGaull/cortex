@@ -35,7 +35,7 @@ pub enum ModuleError {
     TypeError(TypeError),
 }
 
-pub struct CompositeType {
+pub struct TypeDefinition {
     pub(crate) fields: HashMap<String, CortexType>,
     pub(crate) type_param_names: Vec<String>,
     pub(crate) is_heap_allocated: bool,

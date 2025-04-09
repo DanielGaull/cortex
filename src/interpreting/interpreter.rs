@@ -23,7 +23,7 @@ impl CortexInterpreter {
     }
 
     pub fn execute(&mut self, program: Program) -> Result<CortexValue, CortexError> {
-        Ok(self.evaluate_interpreted_body_handle_env(&program.code)?)
+        Ok(self.evaluate_interpreted_body(&program.code)?)
     }
     pub fn execute_expression(&mut self, expression: Expression) -> Result<CortexValue, CortexError> {
         let body = BasicBody::new(vec![], Some(expression));
