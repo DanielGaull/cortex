@@ -10,7 +10,7 @@ import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 struct = { "struct" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
-// extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
+extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
 
 // Statements
 statementNeedingSemicolon = _{ (throw | break | continue | varDec | indexVarAssign | varAssign | expr) }

@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::constants::{INDEX_SET_FN_NAME, INDEX_GET_FN_NAME};
 
-use super::ast::{expression::{BinaryOperator, ConditionBody, Expression, IdentExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Function, MemberFunction, Struct, ThisArg, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{BinaryOperator, ConditionBody, Expression, IdentExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Extension, Function, MemberFunction, Struct, ThisArg, TopLevel}, r#type::CortexType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -172,6 +172,9 @@ impl CortexParser {
                 }
                 Ok(TopLevel::Module { name: String::from(name), contents: contents })
             },
+            Rule::extension => {
+                Ok(TopLevel::Extension(Self::parse_extension_pair(pair)?))
+            }
             _ => Err(ParseError::FailTopLevel(String::from(pair.as_str()))),
         }
     }
@@ -679,6 +682,30 @@ impl CortexParser {
             Bundle { 
                 name: name,
                 fields: fields,
+                functions: functions,
+                type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+            }
+        )
+    }
+    fn parse_extension_pair(pair: Pair<Rule>) -> Result<Extension, ParseError> {
+        let mut pairs = pair.into_inner();
+        let name = Self::parse_path_ident(pairs.next().unwrap())?;
+        let mut type_args = Vec::new();
+        let next = pairs.next().unwrap();
+        let functions;
+        if matches!(next.as_rule(), Rule::typeArgList) {
+            let type_arg_pairs = next.into_inner();
+            for ident in type_arg_pairs {
+                type_args.push(ident.as_str());
+            }
+            functions = Self::parse_member_func_list(pairs.next().unwrap())?;
+        } else {
+            functions = Self::parse_member_func_list(next)?;
+        }
+        
+        Ok(
+            Extension { 
+                name: name,
                 functions: functions,
                 type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
             }

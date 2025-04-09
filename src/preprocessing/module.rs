@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Function, Struct}, r#type::{CortexType, TypeError}};
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Extension, Function, Struct}, r#type::{CortexType, TypeError}};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -47,6 +47,7 @@ pub struct Module {
     functions: HashMap<String, Function>,
     structs: HashMap<String, Struct>,
     bundles: HashMap<String, Bundle>,
+    extensions: Vec<Extension>,
 }
 
 impl Module {
@@ -59,6 +60,7 @@ impl Module {
             functions: HashMap::new(),
             structs: HashMap::new(),
             bundles: HashMap::new(),
+            extensions: Vec::new(),
         }
     }
 
@@ -194,5 +196,22 @@ impl Module {
             },
             OptionalIdentifier::Ignore => Ok(()),
         }
+    }
+
+    pub fn take_extensions(&mut self) -> Result<Vec<Extension>, ModuleError> {
+        let res = std::mem::take(&mut self.extensions);
+        Ok(res)
+    }
+    pub fn add_extension(&mut self, item: Extension) -> Result<(), ModuleError> {
+        let mut seen_type_param_names = HashSet::new();
+        for t in &item.type_param_names {
+            if seen_type_param_names.contains(t) {
+                return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
+            }
+            seen_type_param_names.insert(t);
+        }
+
+        self.extensions.push(item);
+        Ok(())
     }
 }

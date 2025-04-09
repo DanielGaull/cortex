@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
 
-use super::{expression::{Expression, OptionalIdentifier, Parameter}, statement::Statement, r#type::CortexType};
+use super::{expression::{Expression, OptionalIdentifier, Parameter, PathIdent}, statement::Statement, r#type::CortexType};
 
 pub enum TopLevel {
     Import {
@@ -16,6 +16,7 @@ pub enum TopLevel {
     Function(Function),
     Struct(Struct),
     Bundle(Bundle),
+    Extension(Extension),
 }
 impl SimpleCodeGen for TopLevel {
     fn codegen(&self, indent: usize) -> String {
@@ -47,6 +48,7 @@ impl SimpleCodeGen for TopLevel {
             Self::Function(func) => func.codegen(indent),
             Self::Struct(struc) => struc.codegen(indent),
             Self::Bundle(bundle) => bundle.codegen(indent),
+            Self::Extension(extension) => extension.codegen(indent),
         }
     }
 }
@@ -373,6 +375,42 @@ impl Bundle {
     }
 }
 
+pub struct Extension {
+    pub(crate) name: PathIdent,
+    pub(crate) type_param_names: Vec<String>,
+    pub(crate) functions: Vec<MemberFunction>,
+}
+impl SimpleCodeGen for Extension {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        let indent_prefix = "    ".repeat(indent);
+
+        s.push_str(&indent_prefix);
+        s.push_str("extend ");
+        s.push_str(&self.name.codegen(indent));
+
+        if self.type_param_names.len() > 0 {
+            s.push_str("<");
+            s.push_str(&self.type_param_names.join(","));
+            s.push_str(">");
+        }
+
+        s.push_str(" {\n");
+
+        for func in &self.functions {
+            s.push_str(func.codegen(indent + 1).as_str());
+            s.push_str("\n");
+        }
+
+        s.push_str(&indent_prefix);
+        s.push_str("}\n");
+        s
+    }
+}
+
 pub(crate) fn get_member_func_name(item_name: &String, func_name: &String) -> String {
     format!("{}`{}", item_name, func_name)
+}
+pub(crate) fn get_extension_func_name(type_path: &PathIdent, item_name: &String, func_name: &String) -> String {
+    format!("#{}#{}`{}", type_path.to_string("."), item_name, func_name)
 }

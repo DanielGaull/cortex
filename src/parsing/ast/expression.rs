@@ -290,14 +290,7 @@ pub struct PathIdent {
 }
 impl SimpleCodeGen for PathIdent {
     fn codegen(&self, _: usize) -> String {
-        let mut s = String::new();
-        for (i, p) in self.path.iter().enumerate() {
-            s.push_str(p);
-            if i + 1 < self.path.len() {
-                s.push_str("::");
-            }
-        }
-        s
+        self.to_string("::")
     }
 }
 #[derive(Error, Debug, PartialEq)]
@@ -428,6 +421,10 @@ impl PathIdent {
     }
     pub fn is_empty(&self) -> bool {
         self.path.len() <= 0
+    }
+
+    pub fn to_string(&self, separator: &str) -> String {
+        self.path.iter().cloned().collect::<Vec<_>>().join(separator)
     }
 }
 

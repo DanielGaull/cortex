@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{get_member_func_name, BasicBody, Body, Bundle, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{get_extension_func_name, get_member_func_name, BasicBody, Body, Bundle, Extension, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{TypeDefinition, Module, ModuleError}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -96,6 +96,17 @@ impl CortexPreprocessor {
                 }
                 Ok(())
             },
+            TopLevel::Extension(extension) => {
+                let mut funcs = Vec::new();
+                self.add_extension(extension, &mut funcs)?;
+                for f in &funcs {
+                    self.add_signature(PathIdent::empty(), &f)?;
+                }
+                for f in funcs {
+                    self.add_function(PathIdent::empty(), f)?;
+                }
+                Ok(())
+            }
         }
     }
 
@@ -108,6 +119,7 @@ impl CortexPreprocessor {
         let mut functions = module.take_functions()?;
         let structs = module.take_structs()?;
         let bundles = module.take_bundles()?;
+        let extensions = module.take_extensions()?;
 
         let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
 
@@ -117,6 +129,10 @@ impl CortexPreprocessor {
 
         for item in bundles {
             self.add_bundle(path.clone(), item, &mut functions)?;
+        }
+
+        for item in extensions {
+            self.add_extension(item, &mut functions)?;
         }
 
         for f in &functions {
@@ -220,7 +236,7 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ignore => Ok(()),
         }
     }
-    pub fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<Function>) -> Result<(), CortexError> {
+    fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<Function>) -> Result<(), CortexError> {
         match &item.name {
             OptionalIdentifier::Ident(item_name) => {
                 let full_path = PathIdent::continued(n, item_name.clone());
@@ -271,6 +287,35 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ignore => Ok(()),
         }
     }
+    fn add_extension(&mut self, item: Extension, funcs_to_add: &mut Vec<Function>) -> Result<(), CortexError> {
+        let item_name = item.name.get_back()?;
+        for func in item.functions {
+            match func.name {
+                OptionalIdentifier::Ident(func_name) => {
+                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.this_arg, item_name, &item.type_param_names));
+                    let mut param_list = vec![new_param];
+                    param_list.extend(func.params);
+                    let mut type_param_names = func.type_param_names;
+                    let intersecting_type_param = item.type_param_names.iter().find(|t| type_param_names.contains(t));
+                    if let Some(name) = intersecting_type_param {
+                        return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
+                    }
+                    type_param_names.extend(item.type_param_names.clone());
+                    let new_func = Function::new(
+                        OptionalIdentifier::Ident(get_extension_func_name(&item.name.without_last(), item_name, &func_name)),
+                        param_list,
+                        func.return_type,
+                        func.body,
+                        type_param_names,
+                    );
+                    funcs_to_add.push(new_func);
+                },
+                OptionalIdentifier::Ignore => (),
+            }
+        }
+        Ok(())
+    }
+
     fn this_arg_to_type(this_arg: ThisArg, item_name: &String, type_param_names: &Vec<String>) -> CortexType {
         match this_arg {
             ThisArg::RefThis => 
@@ -309,6 +354,9 @@ impl CortexPreprocessor {
                 },
                 TopLevel::Bundle(item) => {
                     module.add_bundle(item)?;
+                },
+                TopLevel::Extension(item) => {
+                    module.add_extension(item)?;
                 },
             }
         }
