@@ -53,8 +53,9 @@ impl SimpleCodeGen for TopLevel {
 
 #[derive(PartialEq)]
 pub enum ThisArg {
-    This,
-    MutThis,
+    RefThis,
+    RefMutThis,
+    DirectThis,
     None,
 }
 
@@ -92,8 +93,9 @@ impl SimpleCodeGen for Function {
         
         let mut has_this_arg = true;
         match self.this_arg {
-            ThisArg::This => s.push_str("&this"),
-            ThisArg::MutThis => s.push_str("&mut this"),
+            ThisArg::RefThis => s.push_str("&this"),
+            ThisArg::RefMutThis => s.push_str("&mut this"),
+            ThisArg::DirectThis => s.push_str("this"),
             ThisArg::None => has_this_arg = false,
         }
         if has_this_arg && self.params.len() > 0 {

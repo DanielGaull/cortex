@@ -39,6 +39,8 @@ pub enum ParseError {
     FailProgram,
     #[error("Failed to parse {0}: {1}")]
     ParseFailure(String, String),
+    #[error("Invalid this-arg: {0}")]
+    InvalidThisArg(String),
 }
 
 impl CortexParser {
@@ -724,19 +726,9 @@ impl CortexParser {
             for ident in type_arg_pairs {
                 type_args.push(ident.as_str());
             }
-            this_arg = 
-                if matches!(pairs.next().unwrap().as_rule(), Rule::this) {
-                    ThisArg::This
-                } else {
-                    ThisArg::MutThis
-                };
+            this_arg = Self::parse_this_arg(pairs.next().unwrap())?;
         } else {
-            this_arg = 
-                if matches!(next.as_rule(), Rule::this) {
-                    ThisArg::This
-                } else {
-                    ThisArg::MutThis
-                };
+            this_arg = Self::parse_this_arg(next)?;
         }
         
         let params = Self::parse_param_list(pairs.next().unwrap())?;
@@ -755,6 +747,18 @@ impl CortexParser {
             this_arg: this_arg,
             type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
         })
+    }
+
+    fn parse_this_arg(pair: Pair<Rule>) -> Result<ThisArg, ParseError> {
+        if matches!(pair.as_rule(), Rule::refThis) {
+            Ok(ThisArg::RefThis)
+        } else if matches!(pair.as_rule(), Rule::refMutThis) {
+            Ok(ThisArg::RefMutThis)
+        } else if matches!(pair.as_rule(), Rule::directThis) {
+            Ok(ThisArg::DirectThis)
+        } else {
+            Err(ParseError::InvalidThisArg(String::from(pair.as_str())))
+        }
     }
 
     fn parse_bundle_func_list(pair: Pair<Rule>) -> Result<Vec<Function>, ParseError> {

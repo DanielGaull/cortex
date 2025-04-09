@@ -87,10 +87,11 @@ paramList = { (param ~ ",")* ~ param? }
 exprList = { (expr ~ ",")* ~ expr? }
 body = { statement* ~ expr? }
 
-this = { "&this" }
-mutThis = { "&mut this" }
+directThis = { "this" }
+refThis = { "&this" }
+refMutThis = { "&mut this" }
 bundleParamList = { ("," ~ param)* }
-bundleFunction = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ (this | mutThis) ~ bundleParamList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
+bundleFunction = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ bundleParamList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 bundleFuncList = { bundleFunction* }
 
 typeArgList = { (ident ~ ",")* ~ ident }

@@ -198,12 +198,7 @@ impl CortexPreprocessor {
                     for func in item.functions {
                         match func.name {
                             OptionalIdentifier::Ident(func_name) => {
-                                let new_param = Parameter::named(
-                                    "this", 
-                                    CortexType::reference(
-                                        CortexType::basic(PathIdent::simple(item_name.clone()), false, forwarded_type_args(&item.type_param_names)),
-                                        func.this_arg == ThisArg::MutThis
-                                    ));
+                                let new_param = Parameter::named("this", Self::this_arg_to_type(func.this_arg, item_name, &item.type_param_names, &func_name)?);
                                 let mut param_list = vec![new_param];
                                 param_list.extend(func.params);
                                 let mut type_param_names = func.type_param_names;
@@ -242,6 +237,24 @@ impl CortexPreprocessor {
                 }
             },
             OptionalIdentifier::Ignore => Ok(()),
+        }
+    }
+    fn this_arg_to_type(this_arg: ThisArg, item_name: &String, type_param_names: &Vec<String>, func_name: &String) -> Result<CortexType, CortexError> {
+        match this_arg {
+            ThisArg::RefThis => Ok(
+                CortexType::reference(
+                    CortexType::basic(PathIdent::simple(item_name.clone()), false, forwarded_type_args(type_param_names)),
+                    false,
+                )
+            ),
+            ThisArg::RefMutThis => Ok(
+                CortexType::reference(
+                    CortexType::basic(PathIdent::simple(item_name.clone()), false, forwarded_type_args(type_param_names)),
+                    true,
+                )
+            ),
+            ThisArg::DirectThis => Ok(CortexType::basic(PathIdent::simple(item_name.clone()), false, forwarded_type_args(type_param_names))),
+            ThisArg::None => Err(Box::new(PreprocessingError::InvalidThisArg(Bundle::get_bundle_func_name(item_name, func_name)))),
         }
     }
 

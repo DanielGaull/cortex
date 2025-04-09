@@ -66,7 +66,7 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
                 vec![],
                 CortexType::reference(CortexType::simple("Time", false), true),
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.time")?))),
-                cortex_lang::parsing::ast::top_level::ThisArg::MutThis,
+                cortex_lang::parsing::ast::top_level::ThisArg::RefMutThis,
                 vec![],
             )
         ],
@@ -95,7 +95,7 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
                 vec![],
                 CortexType::basic(PathIdent::simple(String::from("T")), false, vec![]),
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.item")?))),
-                cortex_lang::parsing::ast::top_level::ThisArg::This,
+                cortex_lang::parsing::ast::top_level::ThisArg::RefThis,
                 vec![],
             )
         ],
