@@ -4,7 +4,7 @@ WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
 program = { SOI ~ topLevel* ~ EOI }
 
 // Top-level
-topLevel = { import | function | struct | bundle | module }
+topLevel = { import | function | struct | bundle | extension | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }

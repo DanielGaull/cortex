@@ -1,0 +1,29 @@
+module GeometryExtended {
+    module Geometry {
+        bundle Point {
+            x: number,
+            y: number,
+
+            fn incX(&mut this, amount: number) {
+                this.x += amount;
+            }
+        }
+    }
+
+    extend Geometry::Point {
+        fn incY(&mut this, amount: number) {
+            this.y += amount;
+        }
+    }
+}
+
+fn main(): &GeometryExtended::Geometry::Point {
+    let point = GeometryExtended::Geometry::Point {
+        x: 1,
+        y: 1,
+    };
+    point.incX(3);
+    point.incY(3);
+    
+    point
+}

@@ -56,4 +56,6 @@ pub enum PreprocessingError {
     TupleMemberSyntaxInvalid(String),
     #[error("Tuple has size of {0} but index {1} was attempted to index into it!")]
     TupleIndexValueInvalid(usize, usize),
+    #[error("Ambiguous function call: Multiple extension functions named {0} defined on type {1}")]
+    AmbiguousExtensionCall(String, String),
 }

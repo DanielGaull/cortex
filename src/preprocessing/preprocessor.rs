@@ -289,10 +289,11 @@ impl CortexPreprocessor {
     }
     fn add_extension(&mut self, item: Extension, funcs_to_add: &mut Vec<Function>) -> Result<(), CortexError> {
         let item_name = item.name.get_back()?;
+        let item_prefix = item.name.without_last();
         for func in item.functions {
             match func.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.this_arg, item_name, &item.type_param_names));
+                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.this_arg, item_name, &item.type_param_names).with_prefix(&item_prefix));
                     let mut param_list = vec![new_param];
                     param_list.extend(func.params);
                     let mut type_param_names = func.type_param_names;
@@ -302,7 +303,7 @@ impl CortexPreprocessor {
                     }
                     type_param_names.extend(item.type_param_names.clone());
                     let new_func = Function::new(
-                        OptionalIdentifier::Ident(get_extension_func_name(&item.name.without_last(), item_name, &func_name)),
+                        OptionalIdentifier::Ident(get_extension_func_name(&item_prefix, item_name, &func_name)),
                         param_list,
                         func.return_type,
                         func.body,
@@ -620,10 +621,10 @@ impl CortexPreprocessor {
             Expression::MemberCall { callee, member, mut args, type_args } => {
                 let (_, atom_type) = self.check_exp(*callee.clone())?;
                 let caller_type = atom_type.name()?;
-                let caller_func_prefix = caller_type.without_last();
-                let caller_func_base = caller_type.get_back()?;
-                let member_func_name = get_member_func_name(caller_func_base, &member);
-                let member_func_path = PathIdent::continued(caller_func_prefix.clone(), member_func_name)
+                let caller_type_prefix = caller_type.without_last();
+                let caller_type_base = caller_type.get_back()?;
+                let member_func_name = get_member_func_name(caller_type_base, &member);
+                let member_func_path = PathIdent::continued(caller_type_prefix.clone(), member_func_name)
                     .subtract(&self.current_context)?;
                 args.insert(0, *callee);
 
@@ -645,8 +646,21 @@ impl CortexPreprocessor {
                     true_type_args = None;
                 }
 
+                let actual_func_path;
+                if let Ok(_) = self.lookup_signature(&member_func_path) {
+                    actual_func_path = member_func_path;
+                } else {
+                    let attempted_extension_path = self.search_for_extension(&caller_type_prefix, caller_type_base, &member)?;
+                    if let Some(extension_func_path) = attempted_extension_path {
+                        actual_func_path = extension_func_path.clone();
+                    } else {
+                        let path = PathIdent::concat(&self.current_context, &member_func_path);
+                        return Err(Box::new(ModuleError::FunctionDoesNotExist(path.codegen(0))));
+                    }
+                }
+
                 let call_exp = Expression::Call {
-                    name: member_func_path, 
+                    name: actual_func_path, 
                     args,
                     type_args: true_type_args,
                 };
@@ -1179,6 +1193,20 @@ impl CortexPreprocessor {
             Ok(self.current_env.as_ref().unwrap().get(front)?.clone())
         } else {
             Err(Box::new(PreprocessingError::ValueNotFound(path.codegen(0))))
+        }
+    }
+
+    fn search_for_extension(&self, type_path: &PathIdent, item_name: &String, func_name: &String) -> Result<Option<&PathIdent>, CortexError> {
+        let paths = self.function_signature_map.keys();
+        let extension_name = get_extension_func_name(type_path, item_name, func_name);
+        println!("Paths: {:?}\nExtension Name: {}\ntype_path: {:?}\titem_name: {}\tfunc_name: {}\tcurrent_context: {:?}", paths.clone().collect::<Vec<_>>(), extension_name.clone(), type_path, item_name, func_name, self.current_context);
+        let filtered_paths = paths
+            .filter(|p| !p.is_empty() && *p.get_back().unwrap() == extension_name)
+            .collect::<Vec<&PathIdent>>();
+        if filtered_paths.len() > 1 {
+            Err(Box::new(PreprocessingError::AmbiguousExtensionCall(item_name.clone(), func_name.clone())))
+        } else {
+            Ok(filtered_paths.get(0).map(|p| &**p))
         }
     }
     
