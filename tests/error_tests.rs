@@ -58,7 +58,7 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     assert_err("simple::Time { m: 2, m: 3 };", PreprocessingError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
     interpreter.execute_statement(CortexParser::parse_statement("let box: &simple::IntBox = simple::IntBox { v: 100 };")?)?;
     assert_err("box.v = 7;", PreprocessingError::CannotModifyFieldOnImmutableReference(String::from("simple::IntBox")), &mut interpreter)?;
-    assert_err("5.hello();", ModuleError::FunctionDoesNotExist(String::from("number`hello")), &mut interpreter)?;
+    assert_err("5.hello();", ModuleError::FunctionDoesNotExist(String::from("hello (on type number)")), &mut interpreter)?;
     Ok(())
 }
 

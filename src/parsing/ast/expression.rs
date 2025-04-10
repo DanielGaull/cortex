@@ -1,7 +1,7 @@
 use thiserror::Error;
 use std::error::Error;
 
-use crate::parsing::codegen::r#trait::SimpleCodeGen;
+use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::ast::function_address::FunctionAddress};
 
 use super::{top_level::BasicBody, r#type::CortexType};
 
@@ -31,7 +31,7 @@ pub enum Expression {
     String(String),
     PathIdent(PathIdent),
     Call {
-        name: PathIdent, 
+        name: FunctionAddress, 
         args: Vec<Expression>,
         type_args: Option<Vec<CortexType>>,
     },

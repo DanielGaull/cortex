@@ -407,10 +407,3 @@ impl SimpleCodeGen for Extension {
         s
     }
 }
-
-pub(crate) fn get_member_func_name(item_name: &String, func_name: &String) -> String {
-    format!("{}`{}", item_name, func_name)
-}
-pub(crate) fn get_extension_func_name(type_path: &PathIdent, item_name: &String, func_name: &String) -> String {
-    format!("{}#{}`{}", type_path.to_string("."), item_name, func_name)
-}

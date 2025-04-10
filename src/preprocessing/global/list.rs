@@ -2,7 +2,7 @@ use std::error::Error;
 
 use thiserror::Error;
 
-use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{get_member_func_name, Body, Function}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::CortexPreprocessor}};
+use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, ThisArg}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::CortexPreprocessor}};
 
 #[derive(Error, Debug)]
 pub enum ListError {
@@ -24,231 +24,230 @@ impl PartialEq for ListError {
 
 impl CortexPreprocessor {
     pub(crate) fn add_list_funcs(global: &mut Module) -> Result<(), Box<dyn Error>> {
-        global.add_function(Function::new(
-            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from(INDEX_GET_FN_NAME))),
-            vec![
-                Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
-                Parameter::named("index", CortexType::number(false))
-            ],
-            CortexType::simple("T", false),
-            Body::Native(Box::new(move |env, rheap| {
-                let list_ptr = env.get_value("this")?;
-                if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
-                        if let CortexValue::Number(num) = env.get_value("index")? {
-                            let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
-                            if let Some(item) = items.get(index) {
-                                Ok(item.clone())
+        global.add_extension(Extension {
+            name: PathIdent::simple(String::from("list")),
+            type_param_names: vec![String::from("T")],
+            functions: vec![
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from(INDEX_GET_FN_NAME)), 
+                    vec![
+                        Parameter::named("index", CortexType::number(false))
+                    ], 
+                    CortexType::simple("T", false), 
+                    Body::Native(Box::new(move |env, rheap| {
+                        let list_ptr = env.get_value("this")?;
+                        if let CortexValue::Reference(addr) = list_ptr {
+                            if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
+                                if let CortexValue::Number(num) = env.get_value("index")? {
+                                    let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
+                                    if let Some(item) = items.get(index) {
+                                        Ok(item.clone())
+                                    } else {
+                                        Err(Box::new(ListError::InvalidIndex(num, items.len())))
+                                    }
+                                } else {
+                                    Err(Box::new(ListError::InvalidArg("index", "number")))
+                                }
                             } else {
-                                Err(Box::new(ListError::InvalidIndex(num, items.len())))
+                                Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
                             }
                         } else {
-                            Err(Box::new(ListError::InvalidArg("index", "number")))
+                            Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
                         }
-                    } else {
-                        Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
-                    }
-                } else {
-                    Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
-                }
-            })),
-            vec![String::from("T")],
-        ))?;
-
-        global.add_function(Function::new(
-            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from(INDEX_SET_FN_NAME))),
-            vec![
-                Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
-                Parameter::named("index", CortexType::number(false)),
-                Parameter::named("value", CortexType::simple("T", false)),
-            ],
-            CortexType::void(false),
-            Body::Native(Box::new(move |env, rheap| {
-                let list_ptr = env.get_value("this")?;
-                if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
-                        if let CortexValue::Number(num) = env.get_value("index")? {
-                            let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
-                            if index < items.len() {
-                                items[index] = env.get_value("value")?;
-                                Ok(CortexValue::Void)
+                    })), 
+                    ThisArg::RefThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from(INDEX_SET_FN_NAME)), 
+                    vec![
+                        Parameter::named("index", CortexType::number(false)),
+                        Parameter::named("value", CortexType::simple("T", false)),
+                    ], 
+                    CortexType::void(false), 
+                    Body::Native(Box::new(move |env, rheap| {
+                        let list_ptr = env.get_value("this")?;
+                        if let CortexValue::Reference(addr) = list_ptr {
+                            if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
+                                if let CortexValue::Number(num) = env.get_value("index")? {
+                                    let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
+                                    if index < items.len() {
+                                        items[index] = env.get_value("value")?;
+                                        Ok(CortexValue::Void)
+                                    } else {
+                                        Err(Box::new(ListError::InvalidIndex(num, items.len())))
+                                    }
+                                } else {
+                                    Err(Box::new(ListError::InvalidArg("index", "number")))
+                                }
                             } else {
-                                Err(Box::new(ListError::InvalidIndex(num, items.len())))
+                                Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
                             }
                         } else {
-                            Err(Box::new(ListError::InvalidArg("index", "number")))
+                            Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
                         }
-                    } else {
-                        Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
-                    }
-                } else {
-                    Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
-                }
-            })),
-            vec![String::from("T")],
-        ))?;
-
-        global.add_function(Function::new(
-            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("len"))),
-            vec![
-                Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
-            ],
-            CortexType::number(false),
-            Body::Native(Box::new(move |env, rheap| {
-                let list_ptr = env.get_value("this")?;
-                if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
-                        Ok(CortexValue::Number(items.len() as f64))
-                    } else {
-                        Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
-                    }
-                } else {
-                    Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
-                }
-            })),
-            vec![String::from("T")],
-        ))?;
-
-        global.add_function(Function::new(
-            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("find"))),
-            vec![
-                Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
-                Parameter::named("item", CortexType::simple("T", false)),
-            ],
-            CortexType::number(true),
-            Body::Native(Box::new(move |env, rheap| {
-                let list_ptr = env.get_value("this")?;
-                if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
-                        let item = env.get_value("item")?;
-                        let idx = items.iter().position(|i| *i == item);
-                        if let Some(i) = idx {
-                            Ok(CortexValue::Number(i as f64))
+                    })), 
+                    ThisArg::RefMutThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("len")), 
+                    vec![
+                    ], 
+                    CortexType::number(true),
+                    Body::Native(Box::new(move |env, rheap| {
+                        let list_ptr = env.get_value("this")?;
+                        if let CortexValue::Reference(addr) = list_ptr {
+                            if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
+                                Ok(CortexValue::Number(items.len() as f64))
+                            } else {
+                                Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
+                            }
                         } else {
-                            Ok(CortexValue::None)
+                            Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
                         }
-                    } else {
-                        Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
-                    }
-                } else {
-                    Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
-                }
-            })),
-            vec![String::from("T")],
-        ))?;
-
-        global.add_function(Function::new(
-            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("contains"))),
-            vec![
-                Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), false)),
-                Parameter::named("item", CortexType::simple("T", false)),
-            ],
-            CortexType::boolean(true),
-            Body::Native(Box::new(move |env, rheap| {
-                let list_ptr = env.get_value("this")?;
-                if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
-                        let item = env.get_value("item")?;
-                        Ok(CortexValue::Boolean(items.contains(&item)))
-                    } else {
-                        Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
-                    }
-                } else {
-                    Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
-                }
-            })),
-            vec![String::from("T")],
-        ))?;
-
-        global.add_function(Function::new(
-            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("add"))),
-            vec![
-                Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), true)),
-                Parameter::named("item", CortexType::simple("T", false)),
-            ],
-            CortexType::void(false),
-            Body::Native(Box::new(move |env, rheap| {
-                let list_ptr = env.get_value("this")?;
-                if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
-                        let item = env.get_value("item")?;
-                        items.push(item);
-                        Ok(CortexValue::Void)
-                    } else {
-                        Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
-                    }
-                } else {
-                    Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
-                }
-            })),
-            vec![String::from("T")],
-        ))?;
-
-        global.add_function(Function::new(
-            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("insert"))),
-            vec![
-                Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), true)),
-                Parameter::named("index", CortexType::number(false)),
-                Parameter::named("item", CortexType::simple("T", false)),
-            ],
-            CortexType::void(false),
-            Body::Native(Box::new(move |env, rheap| {
-                let list_ptr = env.get_value("this")?;
-                if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
-                        if let CortexValue::Number(num) = env.get_value("index")? {
-                            let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
-                            if index <= items.len() {
+                    })),
+                    ThisArg::RefThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("find")), 
+                    vec![
+                        Parameter::named("item", CortexType::simple("T", false)),
+                    ], 
+                    CortexType::number(true),
+                    Body::Native(Box::new(move |env, rheap| {
+                        let list_ptr = env.get_value("this")?;
+                        if let CortexValue::Reference(addr) = list_ptr {
+                            if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
                                 let item = env.get_value("item")?;
-                                items.insert(index, item);
-                                Ok(CortexValue::Void)
+                                let idx = items.iter().position(|i| *i == item);
+                                if let Some(i) = idx {
+                                    Ok(CortexValue::Number(i as f64))
+                                } else {
+                                    Ok(CortexValue::None)
+                                }
                             } else {
-                                Err(Box::new(ListError::InvalidIndex(num, items.len())))
+                                Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
                             }
                         } else {
-                            Err(Box::new(ListError::InvalidArg("index", "number")))
+                            Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
                         }
-                    } else {
-                        Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
-                    }
-                } else {
-                    Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
-                }
-            })),
-            vec![String::from("T")],
-        ))?;
-
-        global.add_function(Function::new(
-            OptionalIdentifier::Ident(get_member_func_name(&String::from("list"), &String::from("remove"))),
-            vec![
-                Parameter::named("this", CortexType::reference(CortexType::list(CortexType::simple("T", false), false), true)),
-                Parameter::named("index", CortexType::number(false)),
-            ],
-            CortexType::void(false),
-            Body::Native(Box::new(move |env, rheap| {
-                let list_ptr = env.get_value("this")?;
-                if let CortexValue::Reference(addr) = list_ptr {
-                    if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
-                        if let CortexValue::Number(num) = env.get_value("index")? {
-                            let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
-                            if index < items.len() {
-                                items.remove(index);
-                                Ok(CortexValue::Void)
+                    })),
+                    ThisArg::RefThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("contains")), 
+                    vec![
+                        Parameter::named("item", CortexType::simple("T", false)),
+                    ], 
+                    CortexType::boolean(false),
+                    Body::Native(Box::new(move |env, rheap| {
+                        let list_ptr = env.get_value("this")?;
+                        if let CortexValue::Reference(addr) = list_ptr {
+                            if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
+                                let item = env.get_value("item")?;
+                                Ok(CortexValue::Boolean(items.contains(&item)))
                             } else {
-                                Err(Box::new(ListError::InvalidIndex(num, items.len())))
+                                Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
                             }
                         } else {
-                            Err(Box::new(ListError::InvalidArg("index", "number")))
+                            Err(Box::new(ListError::InvalidArg("this", "&list<T>")))
                         }
-                    } else {
-                        Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
-                    }
-                } else {
-                    Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
-                }
-            })),
-            vec![String::from("T")],
-        ))?;
+                    })),
+                    ThisArg::RefThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("add")), 
+                    vec![
+                        Parameter::named("item", CortexType::simple("T", false)),
+                    ], 
+                    CortexType::void(false),
+                    Body::Native(Box::new(move |env, rheap| {
+                        let list_ptr = env.get_value("this")?;
+                        if let CortexValue::Reference(addr) = list_ptr {
+                            if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
+                                let item = env.get_value("item")?;
+                                items.push(item);
+                                Ok(CortexValue::Void)
+                            } else {
+                                Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
+                            }
+                        } else {
+                            Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
+                        }
+                    })),
+                    ThisArg::RefMutThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("insert")), 
+                    vec![
+                        Parameter::named("index", CortexType::number(false)),
+                        Parameter::named("item", CortexType::simple("T", false)),
+                    ], 
+                    CortexType::void(false),
+                    Body::Native(Box::new(move |env, rheap| {
+                        let list_ptr = env.get_value("this")?;
+                        if let CortexValue::Reference(addr) = list_ptr {
+                            if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
+                                if let CortexValue::Number(num) = env.get_value("index")? {
+                                    let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
+                                    if index <= items.len() {
+                                        let item = env.get_value("item")?;
+                                        items.insert(index, item);
+                                        Ok(CortexValue::Void)
+                                    } else {
+                                        Err(Box::new(ListError::InvalidIndex(num, items.len())))
+                                    }
+                                } else {
+                                    Err(Box::new(ListError::InvalidArg("index", "number")))
+                                }
+                            } else {
+                                Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
+                            }
+                        } else {
+                            Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
+                        }
+                    })),
+                    ThisArg::RefMutThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("remove")), 
+                    vec![
+                        Parameter::named("index", CortexType::number(false)),
+                    ], 
+                    CortexType::void(false),
+                    Body::Native(Box::new(move |env, rheap| {
+                        let list_ptr = env.get_value("this")?;
+                        if let CortexValue::Reference(addr) = list_ptr {
+                            if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
+                                if let CortexValue::Number(num) = env.get_value("index")? {
+                                    let index = f64_to_usize(num).ok_or(ListError::InvalidIndex(num, items.len()))?;
+                                    if index < items.len() {
+                                        items.remove(index);
+                                        Ok(CortexValue::Void)
+                                    } else {
+                                        Err(Box::new(ListError::InvalidIndex(num, items.len())))
+                                    }
+                                } else {
+                                    Err(Box::new(ListError::InvalidArg("index", "number")))
+                                }
+                            } else {
+                                Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
+                            }
+                        } else {
+                            Err(Box::new(ListError::InvalidArg("this", "&mut list<T>")))
+                        }
+                    })),
+                    ThisArg::RefMutThis, 
+                    vec![]
+                ),
+            ]
+        })?;
 
         Ok(())
     }

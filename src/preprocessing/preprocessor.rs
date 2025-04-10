@@ -1,8 +1,8 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{get_extension_func_name, get_member_func_name, BasicBody, Body, Bundle, Extension, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Extension, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
-use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{TypeDefinition, Module, ModuleError}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
+use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
 type CortexError = Box<dyn Error>;
 pub type CheckResult<T> = Result<(T, CortexType), CortexError>;
@@ -12,7 +12,7 @@ pub struct CortexPreprocessor {
     current_context: PathIdent,
     current_type_env: Option<Box<TypeEnvironment>>,
     function_dict: FunctionDict,
-    function_signature_map: HashMap<PathIdent, FunctionSignature>,
+    function_signature_map: HashMap<FunctionAddress, FunctionSignature>,
     type_map: HashMap<PathIdent, TypeDefinition>,
     loop_depth: u32,
 }
@@ -70,40 +70,49 @@ impl CortexPreprocessor {
                 Ok(())
             },
             TopLevel::Function(function) => {
-                self.add_signature(PathIdent::empty(), &function)?;
-                self.add_function(PathIdent::empty(), function)?;
-                Ok(())
+                match &function.name {
+                    OptionalIdentifier::Ident(func_name) => {
+                        let addr = FunctionAddress {
+                            own_module_path: PathIdent::simple(func_name.clone()),
+                            target: None,
+                        };
+                        self.add_signature(&addr, &function)?;
+                        self.add_function(addr, function)?;
+                        Ok(())
+                    },
+                    OptionalIdentifier::Ignore => Ok(()),
+                }
             },
             TopLevel::Struct(struc) => {
                 let mut funcs = Vec::new();
                 self.add_struct(PathIdent::empty(), struc, &mut funcs)?;
-                for f in &funcs {
-                    self.add_signature(PathIdent::empty(), &f)?;
+                for (addr, f) in &funcs {
+                    self.add_signature(addr, &f)?;
                 }
-                for f in funcs {
-                    self.add_function(PathIdent::empty(), f)?;
+                for (addr, f) in funcs {
+                    self.add_function(addr, f)?;
                 }
                 Ok(())
             },
             TopLevel::Bundle(bundle) => {
                 let mut funcs = Vec::new();
                 self.add_bundle(PathIdent::empty(), bundle, &mut funcs)?;
-                for f in &funcs {
-                    self.add_signature(PathIdent::empty(), &f)?;
+                for (addr, f) in &funcs {
+                    self.add_signature(addr, &f)?;
                 }
-                for f in funcs {
-                    self.add_function(PathIdent::empty(), f)?;
+                for (addr, f) in funcs {
+                    self.add_function(addr, f)?;
                 }
                 Ok(())
             },
             TopLevel::Extension(extension) => {
                 let mut funcs = Vec::new();
-                self.add_extension(extension, &mut funcs)?;
-                for f in &funcs {
-                    self.add_signature(PathIdent::empty(), &f)?;
+                self.add_extension(PathIdent::empty(), extension, &mut funcs)?;
+                for (addr, f) in &funcs {
+                    self.add_signature(addr, &f)?;
                 }
-                for f in funcs {
-                    self.add_function(PathIdent::empty(), f)?;
+                for (addr, f) in funcs {
+                    self.add_function(addr, f)?;
                 }
                 Ok(())
             }
@@ -116,7 +125,23 @@ impl CortexPreprocessor {
             self.register_module(&this_path, m)?;
         }
 
-        let mut functions = module.take_functions()?;
+        let mut functions = module
+            .take_functions()?
+            .into_iter()
+            .map(|f| {
+                match &f.name {
+                    OptionalIdentifier::Ident(func_name) => {
+                        let addr = FunctionAddress {
+                            own_module_path: PathIdent::continued(path.clone(), func_name.clone()),
+                            target: None,
+                        };
+                        Some((addr, f))
+                    },
+                    OptionalIdentifier::Ignore => None,
+                }
+            })
+            .filter_map(|x| x)
+            .collect::<Vec<(FunctionAddress, Function)>>();
         let structs = module.take_structs()?;
         let bundles = module.take_bundles()?;
         let extensions = module.take_extensions()?;
@@ -132,58 +157,52 @@ impl CortexPreprocessor {
         }
 
         for item in extensions {
-            self.add_extension(item, &mut functions)?;
+            self.add_extension(path.clone(), item, &mut functions)?;
         }
 
-        for f in &functions {
-            self.add_signature(path.clone(), f)?;
+        for (addr, f) in &functions {
+            self.add_signature(addr, &f)?;
         }
 
-        for f in functions {
-            self.add_function(path.clone(), f)?;
+        for (addr, f) in functions {
+            self.add_function(addr, f)?;
         }
+
         self.current_context = context_to_return_to;
 
         Ok(())
     }
 
-    fn add_signature(&mut self, n: PathIdent, f: &Function) -> Result<(), CortexError> {
+    fn add_signature(&mut self, addr: &FunctionAddress, f: &Function) -> Result<(), CortexError> {
         let sig = f.signature();
-        match f.name() {
-            OptionalIdentifier::Ident(func_name) => {
-                let full_path = PathIdent::continued(n, func_name.clone());
-                if self.function_signature_map.contains_key(&full_path) {
-                    return Err(Box::new(ModuleError::FunctionAlreadyExists(func_name.clone())));
-                }
-                let mut seen_type_param_names = HashSet::new();
-                for t in &sig.type_param_names {
-                    if seen_type_param_names.contains(t) {
-                        return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
-                    }
-                    seen_type_param_names.insert(t);
-                }
-                self.function_signature_map.insert(full_path.clone(), sig);
-            },
-            OptionalIdentifier::Ignore => {},
+        if self.function_signature_map.contains_key(&addr) {
+            return Err(Box::new(ModuleError::FunctionAlreadyExists(addr.own_module_path.codegen(0))));
         }
+        let mut seen_type_param_names = HashSet::new();
+        for t in &sig.type_param_names {
+            if seen_type_param_names.contains(t) {
+                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
+            }
+            seen_type_param_names.insert(t);
+        }
+        self.function_signature_map.insert(addr.clone(), sig);
         Ok(())
     }
-    fn add_function(&mut self, n: PathIdent, f: Function) -> Result<(), CortexError> {
+    fn add_function(&mut self, addr: FunctionAddress, f: Function) -> Result<(), CortexError> {
         let name = f.name().clone();
         let processed = self.preprocess_function(f)?;
         match name {
-            OptionalIdentifier::Ident(func_name) => {
-                let full_path = PathIdent::continued(n, func_name.clone());
-                self.function_dict.add_function(full_path, processed);
+            OptionalIdentifier::Ident(_) => {
+                self.function_dict.add_function(addr, processed);
             },
             OptionalIdentifier::Ignore => {},
         }
         Ok(())
     }
-    fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<Function>) -> Result<(), CortexError> {
+    fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, Function)>) -> Result<(), CortexError> {
         match &item.name {
             OptionalIdentifier::Ident(item_name) => {
-                let full_path = PathIdent::continued(n, item_name.clone());
+                let full_path = PathIdent::continued(n.clone(), item_name.clone());
                 if self.has_type(&full_path) {
                     Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
                 } else {
@@ -204,13 +223,17 @@ impl CortexPreprocessor {
                                     }
                                     type_param_names.extend(item.type_param_names.clone());
                                     let new_func = Function::new(
-                                        OptionalIdentifier::Ident(get_member_func_name(item_name, &func_name)),
+                                        OptionalIdentifier::Ident(func_name.clone()),
                                         param_list,
                                         func.return_type,
                                         func.body,
                                         type_param_names,
                                     );
-                                    funcs_to_add.push(new_func);
+                                    let addr = FunctionAddress {
+                                        own_module_path: PathIdent::continued(n.clone(), func_name),
+                                        target: Some(PathIdent::continued(n.clone(), item_name.clone())),
+                                    };
+                                    funcs_to_add.push((addr, new_func));
                                 },
                                 OptionalIdentifier::Ignore => (),
                             }
@@ -236,10 +259,10 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ignore => Ok(()),
         }
     }
-    fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<Function>) -> Result<(), CortexError> {
+    fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<(FunctionAddress, Function)>) -> Result<(), CortexError> {
         match &item.name {
             OptionalIdentifier::Ident(item_name) => {
-                let full_path = PathIdent::continued(n, item_name.clone());
+                let full_path = PathIdent::continued(n.clone(), item_name.clone());
                 if let Ok(_) = self.lookup_type(&full_path) {
                     Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
                 } else {
@@ -256,13 +279,17 @@ impl CortexPreprocessor {
                                 }
                                 type_param_names.extend(item.type_param_names.clone());
                                 let new_func = Function::new(
-                                    OptionalIdentifier::Ident(get_member_func_name(item_name, &func_name)),
+                                    OptionalIdentifier::Ident(func_name.clone()),
                                     param_list,
                                     func.return_type,
                                     func.body,
                                     type_param_names,
                                 );
-                                funcs_to_add.push(new_func);
+                                let addr = FunctionAddress {
+                                    own_module_path: PathIdent::continued(n.clone(), func_name),
+                                    target: Some(PathIdent::continued(n.clone(), item_name.clone())),
+                                };
+                                funcs_to_add.push((addr, new_func));
                             },
                             OptionalIdentifier::Ignore => (),
                         }
@@ -287,7 +314,7 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ignore => Ok(()),
         }
     }
-    fn add_extension(&mut self, item: Extension, funcs_to_add: &mut Vec<Function>) -> Result<(), CortexError> {
+    fn add_extension(&mut self, n: PathIdent, item: Extension, funcs_to_add: &mut Vec<(FunctionAddress, Function)>) -> Result<(), CortexError> {
         let item_name = item.name.get_back()?;
         let item_prefix = item.name.without_last();
         for func in item.functions {
@@ -303,13 +330,17 @@ impl CortexPreprocessor {
                     }
                     type_param_names.extend(item.type_param_names.clone());
                     let new_func = Function::new(
-                        OptionalIdentifier::Ident(get_extension_func_name(&item_prefix, item_name, &func_name)),
+                        OptionalIdentifier::Ident(func_name.clone()),
                         param_list,
                         func.return_type,
                         func.body,
                         type_param_names,
                     );
-                    funcs_to_add.push(new_func);
+                    let addr = FunctionAddress {
+                        own_module_path: PathIdent::continued(n.clone(), func_name),
+                        target: Some(item.name.clone()),
+                    };
+                    funcs_to_add.push((addr, new_func));
                 },
                 OptionalIdentifier::Ignore => (),
             }
@@ -550,11 +581,15 @@ impl CortexPreprocessor {
             Expression::None => Ok((RExpression::None, CortexType::none())),
             Expression::String(v) => Ok((RExpression::String(v), CortexType::string(false))),
             Expression::PathIdent(path_ident) => Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.get_variable_type(&path_ident)?)),
-            Expression::Call { name: path, args: arg_exps, type_args } => {
-                let extended = PathIdent::concat(&self.current_context, &path.without_last());
+            Expression::Call { name: addr, args: arg_exps, type_args } => {
+                let extended = PathIdent::concat(&self.current_context, &addr.without_last());
                 let context_to_return_to = std::mem::replace(&mut self.current_context, extended);
-                let function_name = path.get_back()?;
-                let result = self.check_call(PathIdent::simple(function_name.clone()), arg_exps, type_args, &st_str);
+                let result = self.check_call(
+                    addr.get_back(), 
+                    arg_exps, 
+                    type_args, 
+                    &st_str
+                );
                 self.current_context = context_to_return_to;
                 result
             },
@@ -620,14 +655,14 @@ impl CortexPreprocessor {
             },
             Expression::MemberCall { callee, member, mut args, type_args } => {
                 let (_, atom_type) = self.check_exp(*callee.clone())?;
-                let caller_type = atom_type.name()?;
-                let caller_type_prefix = caller_type.without_last();
-                let caller_type_base = caller_type.get_back()?;
-                let member_func_name = get_member_func_name(caller_type_base, &member);
-                let member_func_path = PathIdent::continued(caller_type_prefix.clone(), member_func_name)
-                    .subtract(&self.current_context)?;
+                // member = ex. getX
+                let caller_type = atom_type.name()?; // Ex. Geometry::Point
+                let caller_type_prefix = caller_type.without_last(); // Ex. Geometry
+                let non_extension_func_addr = FunctionAddress::member_func(
+                    PathIdent::continued(caller_type_prefix.clone().subtract(&self.current_context)?, member.clone()), 
+                    caller_type.clone());
+                
                 args.insert(0, *callee);
-
                 let true_type_args;
                 if let Some(mut type_args) = type_args {
                     let typedef = self.lookup_type(caller_type)?;
@@ -646,21 +681,23 @@ impl CortexPreprocessor {
                     true_type_args = None;
                 }
 
-                let actual_func_path;
-                if let Ok(_) = self.lookup_signature(&member_func_path) {
-                    actual_func_path = member_func_path;
-                } else {
-                    let attempted_extension_path = self.search_for_extension(&caller_type_prefix, caller_type_base, &member)?;
-                    if let Some(extension_func_path) = attempted_extension_path {
-                        actual_func_path = extension_func_path.clone();
-                    } else {
-                        let path = PathIdent::concat(&self.current_context, &member_func_path);
-                        return Err(Box::new(ModuleError::FunctionDoesNotExist(path.codegen(0))));
-                    }
-                }
+                let actual_func_addr = non_extension_func_addr;
+                // let actual_func_addr;
+                // if self.has_function(&non_extension_func_addr) {
+                //     actual_func_addr = non_extension_func_addr;
+                // } else {
+                //     let attempted_extension_path = self.search_for_extension(&caller_type_prefix, caller_type_base, &member)?;
+                //     if let Some(extension_func_path) = attempted_extension_path {
+                //         actual_func_addr = extension_func_path.clone();
+                //     } else {
+                //         let path = PathIdent::concat(&self.current_context, &member_func_path);
+                //         return Err(Box::new(ModuleError::FunctionDoesNotExist(path.codegen(0))));
+                //     }
+                //     return Err(Box::new(ModuleError::FunctionDoesNotExist(non_extension_func_addr.codegen(0))));
+                // }
 
                 let call_exp = Expression::Call {
-                    name: actual_func_path, 
+                    name: actual_func_addr, 
                     args,
                     type_args: true_type_args,
                 };
@@ -730,7 +767,7 @@ impl CortexPreprocessor {
         Ok((RExpression::TupleMemberAccess(Box::new(atom_exp), index), member_type))
     }
 
-    fn check_call(&mut self, path_ident: PathIdent, arg_exps: Vec<Expression>, type_args: Option<Vec<CortexType>>, st_str: &String) -> CheckResult<RExpression> {
+    fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<Expression>, type_args: Option<Vec<CortexType>>, st_str: &String) -> CheckResult<RExpression> {
         let provided_arg_count = arg_exps.len();
         let mut processed_args = Vec::new();
         let mut arg_types = Vec::new();
@@ -740,9 +777,9 @@ impl CortexPreprocessor {
             processed_args.push(arg);
         }
         
-        let sig = self.lookup_signature(&path_ident)?.clone();
+        let sig = self.lookup_signature(&addr)?.clone();
 
-        let full_path = PathIdent::concat(&self.current_context, &path_ident);
+        let full_path = FunctionAddress::concat(&self.current_context, &addr);
         if provided_arg_count != sig.params.len() {
             return Err(Box::new(
                 PreprocessingError::MismatchedArgumentCount(full_path.codegen(0), sig.params.len(), provided_arg_count)
@@ -1072,7 +1109,7 @@ impl CortexPreprocessor {
         }
         Ok(bindings)
     }
-    fn infer_type_args(&self, sig: &FunctionSignature, args: &Vec<CortexType>, name: &PathIdent, st_str: &String) -> Result<HashMap<String, CortexType>, CortexError> {
+    fn infer_type_args(&self, sig: &FunctionSignature, args: &Vec<CortexType>, name: &FunctionAddress, st_str: &String) -> Result<HashMap<String, CortexType>, CortexError> {
         let mut bindings = HashMap::<String, CortexType>::new();
         for (arg, param) in args.iter().zip(&sig.params) {
             self.infer_arg(&param.typ, &arg, &sig.type_param_names, &mut bindings, param.name(), st_str)?;
@@ -1196,22 +1233,12 @@ impl CortexPreprocessor {
         }
     }
 
-    fn search_for_extension(&self, type_path: &PathIdent, item_name: &String, func_name: &String) -> Result<Option<&PathIdent>, CortexError> {
-        let paths = self.function_signature_map.keys();
-        let extension_name = get_extension_func_name(type_path, item_name, func_name);
-        println!("Paths: {:?}\nExtension Name: {}\ntype_path: {:?}\titem_name: {}\tfunc_name: {}\tcurrent_context: {:?}", paths.clone().collect::<Vec<_>>(), extension_name.clone(), type_path, item_name, func_name, self.current_context);
-        let filtered_paths = paths
-            .filter(|p| !p.is_empty() && *p.get_back().unwrap() == extension_name)
-            .collect::<Vec<&PathIdent>>();
-        if filtered_paths.len() > 1 {
-            Err(Box::new(PreprocessingError::AmbiguousExtensionCall(item_name.clone(), func_name.clone())))
-        } else {
-            Ok(filtered_paths.get(0).map(|p| &**p))
-        }
+    fn has_function(&self, path: &FunctionAddress) -> bool {
+        let full_path: FunctionAddress = FunctionAddress::concat(&self.current_context, &path);
+        self.function_signature_map.contains_key(&full_path)
     }
-    
-    fn lookup_signature(&self, path: &PathIdent) -> Result<&FunctionSignature, CortexError> {
-        let full_path = PathIdent::concat(&self.current_context, &path);
+    fn lookup_signature(&self, path: &FunctionAddress) -> Result<&FunctionSignature, CortexError> {
+        let full_path: FunctionAddress = FunctionAddress::concat(&self.current_context, &path);
         if let Some(sig) = self.function_signature_map.get(&full_path) {
             Ok(sig)
         } else {

@@ -5,7 +5,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use crate::constants::{INDEX_SET_FN_NAME, INDEX_GET_FN_NAME};
+use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
 use super::ast::{expression::{BinaryOperator, ConditionBody, Expression, IdentExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, program::Program, statement::Statement, top_level::{BasicBody, Body, Bundle, Extension, Function, MemberFunction, Struct, ThisArg, TopLevel}, r#type::CortexType};
 
@@ -405,7 +405,7 @@ impl CortexParser {
                 }
                 let args_pair = pairs.next().unwrap();
                 let args = Self::parse_expr_list(args_pair)?;
-                Ok(Expression::Call { name, args, type_args })
+                Ok(Expression::Call { name: FunctionAddress::simple(name), args, type_args })
             },
             Rule::structConstruction => {
                 let mut pairs = pair.into_inner().peekable();

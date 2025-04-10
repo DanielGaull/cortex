@@ -1,8 +1,8 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::ast::expression::PathIdent, preprocessing::module::ModuleError};
+use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, preprocessing::module::ModuleError};
 
-use super::{expression::RExpression, statement::RStatement};
+use super::{expression::RExpression, function_address::FunctionAddress, statement::RStatement};
 
 pub enum RBody {
     Native(Box<dyn Fn(&Environment, &mut Heap) -> Result<CortexValue, CortexError>>),
@@ -36,9 +36,9 @@ impl RFunction {
 }
 
 pub struct FunctionDict {
-    all_functions: HashMap<PathIdent, Rc<RFunction>>,
-    name_to_id: HashMap<PathIdent, usize>,
-    id_to_name: HashMap<usize, PathIdent>,
+    all_functions: HashMap<FunctionAddress, Rc<RFunction>>,
+    name_to_id: HashMap<FunctionAddress, usize>,
+    id_to_name: HashMap<usize, FunctionAddress>,
     next_id: usize,
 }
 impl FunctionDict {
@@ -51,10 +51,10 @@ impl FunctionDict {
         }
     }
 
-    pub(crate) fn add_function(&mut self, name: PathIdent, function: RFunction) {
+    pub(crate) fn add_function(&mut self, name: FunctionAddress, function: RFunction) {
         self.all_functions.insert(name, Rc::new(function));
     }
-    pub(crate) fn add_call(&mut self, name: PathIdent) -> Result<usize, ModuleError> {
+    pub(crate) fn add_call(&mut self, name: FunctionAddress) -> Result<usize, ModuleError> {
         if let Some(id) = self.name_to_id.get(&name) {
             Ok(*id)
         } else {
