@@ -27,7 +27,7 @@ fn to_string(val: CortexValue, heap: &Heap) -> String {
         CortexValue::None => String::from("none"),
         CortexValue::Composite { field_values } => {
             let mut s = String::new();
-            s.push_str(" {");
+            s.push_str("{");
             s.push_str(&field_values
                 .iter()
                 .map(|(f, v)| format!("{}: {}", f, to_string(v.borrow().clone(), heap)))

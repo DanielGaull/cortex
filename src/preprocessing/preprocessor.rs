@@ -338,7 +338,7 @@ impl CortexPreprocessor {
                     );
                     let addr = FunctionAddress {
                         own_module_path: PathIdent::continued(n.clone(), func_name),
-                        target: Some(item.name.clone()),
+                        target: Some(PathIdent::concat(&n, &item.name)),
                     };
                     funcs_to_add.push((addr, new_func));
                 },
@@ -585,7 +585,7 @@ impl CortexPreprocessor {
                 let extended = PathIdent::concat(&self.current_context, &addr.without_last());
                 let context_to_return_to = std::mem::replace(&mut self.current_context, extended);
                 let result = self.check_call(
-                    addr.get_back(), 
+                    addr.get_back()?,
                     arg_exps, 
                     type_args, 
                     &st_str
@@ -655,12 +655,12 @@ impl CortexPreprocessor {
             },
             Expression::MemberCall { callee, member, mut args, type_args } => {
                 let (_, atom_type) = self.check_exp(*callee.clone())?;
-                // member = ex. getX
-                let caller_type = atom_type.name()?; // Ex. Geometry::Point
-                let caller_type_prefix = caller_type.without_last(); // Ex. Geometry
+                
+                let caller_type = atom_type.name()?;
+                let caller_type_prefix = caller_type.without_last();
                 let non_extension_func_addr = FunctionAddress::member_func(
                     PathIdent::continued(caller_type_prefix.clone().subtract(&self.current_context)?, member.clone()), 
-                    caller_type.clone());
+                    caller_type.clone().subtract(&self.current_context)?);
                 
                 args.insert(0, *callee);
                 let true_type_args;
@@ -681,20 +681,17 @@ impl CortexPreprocessor {
                     true_type_args = None;
                 }
 
-                let actual_func_addr = non_extension_func_addr;
-                // let actual_func_addr;
-                // if self.has_function(&non_extension_func_addr) {
-                //     actual_func_addr = non_extension_func_addr;
-                // } else {
-                //     let attempted_extension_path = self.search_for_extension(&caller_type_prefix, caller_type_base, &member)?;
-                //     if let Some(extension_func_path) = attempted_extension_path {
-                //         actual_func_addr = extension_func_path.clone();
-                //     } else {
-                //         let path = PathIdent::concat(&self.current_context, &member_func_path);
-                //         return Err(Box::new(ModuleError::FunctionDoesNotExist(path.codegen(0))));
-                //     }
-                //     return Err(Box::new(ModuleError::FunctionDoesNotExist(non_extension_func_addr.codegen(0))));
-                // }
+                let actual_func_addr;
+                if self.has_function(&non_extension_func_addr) {
+                    actual_func_addr = non_extension_func_addr;
+                } else {
+                    let attempted_extension_path = self.search_for_extension(&caller_type, &member)?;
+                    if let Some(extension_func_path) = attempted_extension_path {
+                        actual_func_addr = extension_func_path.clone();
+                    } else {
+                        return Err(Box::new(ModuleError::FunctionDoesNotExist(non_extension_func_addr.codegen(0))));
+                    }
+                }
 
                 let call_exp = Expression::Call {
                     name: actual_func_addr, 
@@ -765,6 +762,41 @@ impl CortexPreprocessor {
         let member_type = atom_type.types.get(index).unwrap().clone();
         
         Ok((RExpression::TupleMemberAccess(Box::new(atom_exp), index), member_type))
+    }
+
+    fn search_for_extension(&self, typ: &PathIdent, member: &String) -> Result<Option<&FunctionAddress>, CortexError> {
+        // Search through *ALL* functions
+        // If they are prefixed by the current_context, and have a target type = to `typ`,
+        // and a function name .getBack() == member, then return that address
+        let candidates = self.function_signature_map.keys().filter_map(|p| {
+            // Must be prefixed by current_context to be in scope at this point
+            if p.own_module_path.is_prefixed_by(&self.current_context) {
+                // Must have the same target type to be able to be called
+                if let Some(target) = &p.target {
+                    if target == typ {
+                        // Finally, must have same method name (getBack() == member)
+                        let back = p.own_module_path.get_back();
+                        match back {
+                            Ok(back_name) => {
+                                if back_name == member {
+                                    return Some(Ok::<_, CortexError>(p));
+                                }
+                            },
+                            Err(err) => {
+                                return Some(Err(Box::new(err)));
+                            },
+                        }
+                    }
+                }
+            }
+            None
+        }).collect::<Result<Vec<_>, _>>()?;
+
+        if candidates.len() > 1 {
+            Err(Box::new(PreprocessingError::AmbiguousExtensionCall(member.clone(), typ.codegen(0))))
+        } else {
+            Ok(candidates.get(0).cloned())
+        }
     }
 
     fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<Expression>, type_args: Option<Vec<CortexType>>, st_str: &String) -> CheckResult<RExpression> {

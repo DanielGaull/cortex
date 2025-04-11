@@ -1,4 +1,4 @@
-use crate::parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::expression::{PathError, PathIdent}, codegen::r#trait::SimpleCodeGen};
 
 /// Represents an address/path to a function: so the key in a map to function signatures
 /// If an extension/member function, then target will be set to Some, and point to the calling type
@@ -33,11 +33,14 @@ impl FunctionAddress {
     pub(crate) fn without_last(&self) -> PathIdent {
         self.own_module_path.without_last()
     }
-    pub(crate) fn get_back(self) -> FunctionAddress {
-        FunctionAddress {
-            own_module_path: PathIdent::simple(self.own_module_path.get_back().unwrap().clone()),
-            target: self.target.map(|t| PathIdent::simple(t.get_back().unwrap().clone())),
-        }
+    pub(crate) fn get_back(self) -> Result<FunctionAddress, PathError> {
+        let prefix = self.own_module_path.without_last();
+        Ok(
+            FunctionAddress {
+                own_module_path: PathIdent::simple(self.own_module_path.get_back()?.clone()),
+                target: self.target.map(|t| Ok(t.subtract(&prefix)?)).transpose()?,
+            }
+        )
     }
 }
 impl SimpleCodeGen for FunctionAddress {

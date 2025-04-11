@@ -377,6 +377,13 @@ impl PathIdent {
             )
         }
     }
+    pub fn subtract_if_possible(self, second: &PathIdent) -> Self {
+        if self.is_prefixed_by(second) {
+            self.subtract(second).unwrap()
+        } else {
+            self
+        }
+    }
 
     pub fn without_last(&self) -> Self {
         let mut new_vec = self.path.clone();
