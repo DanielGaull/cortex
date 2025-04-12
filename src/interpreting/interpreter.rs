@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::{parsing::ast::{expression::{BinaryOperator, Expression, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Function, TopLevel}, r#type::CortexType}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement}, module::Module, preprocessor::CortexPreprocessor, program::Program}};
+use crate::{parsing::ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, statement::PStatement, top_level::{BasicBody, PFunction, TopLevel}, r#type::CortexType}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement}, module::Module, preprocessor::CortexPreprocessor, program::Program}};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
 
 pub struct CortexInterpreter {
@@ -18,25 +18,25 @@ impl CortexInterpreter {
         })
     }
 
-    pub fn preprocess_function(&mut self, function: Function) -> Result<RFunction, CortexError> {
+    pub fn preprocess_function(&mut self, function: PFunction) -> Result<RFunction, CortexError> {
         Ok(self.preprocessor.preprocess_function(function)?)
     }
 
     pub fn execute(&mut self, program: Program) -> Result<CortexValue, CortexError> {
         Ok(self.evaluate_interpreted_body(&program.code)?)
     }
-    pub fn execute_expression(&mut self, expression: Expression) -> Result<CortexValue, CortexError> {
+    pub fn execute_expression(&mut self, expression: PExpression) -> Result<CortexValue, CortexError> {
         let body = BasicBody::new(vec![], Some(expression));
         let program = self.preprocessor.preprocess(body)?;
         Ok(self.execute(program)?)
     }
-    pub fn execute_statement(&mut self, statement: Statement) -> Result<(), CortexError> {
+    pub fn execute_statement(&mut self, statement: PStatement) -> Result<(), CortexError> {
         let body = BasicBody::new(vec![statement], None);
         let program = self.preprocessor.preprocess(body)?;
         self.execute(program)?;
         Ok(())
     }
-    pub fn determine_type(&mut self, expression: Expression) -> Result<CortexType, CortexError> {
+    pub fn determine_type(&mut self, expression: PExpression) -> Result<CortexType, CortexError> {
         Ok(self.preprocessor.determine_type(expression)?)
     }
 

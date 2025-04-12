@@ -1,26 +1,26 @@
 use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
-use super::{expression::{ConditionBody, Expression, IdentExpression, OptionalIdentifier}, r#type::CortexType};
+use super::{expression::{PConditionBody, PExpression, IdentExpression, OptionalIdentifier}, r#type::CortexType};
 
 #[derive(Clone)]
-pub enum Statement {
-    Expression(Expression),
-    Throw(Expression),
+pub enum PStatement {
+    Expression(PExpression),
+    Throw(PExpression),
     VariableDeclaration {
         name: OptionalIdentifier,
         is_const: bool,
         typ: Option<CortexType>,
-        initial_value: Expression,
+        initial_value: PExpression,
     },
     Assignment {
         name: IdentExpression,
-        value: Expression,
+        value: PExpression,
     },
-    WhileLoop(ConditionBody),
+    WhileLoop(PConditionBody),
     Break,
     Continue,
 }
-impl SimpleCodeGen for Statement {
+impl SimpleCodeGen for PStatement {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
         let indent_prefix = "    ".repeat(indent);

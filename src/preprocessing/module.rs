@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Extension, Function, Struct}, r#type::{CortexType, TypeError}};
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Extension, PFunction, Struct}, r#type::{CortexType, TypeError}};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -44,7 +44,7 @@ pub struct TypeDefinition {
 
 pub struct Module {
     children: HashMap<String, Module>,
-    functions: HashMap<String, Function>,
+    functions: HashMap<String, PFunction>,
     structs: HashMap<String, Struct>,
     bundles: HashMap<String, Bundle>,
     extensions: Vec<Extension>,
@@ -120,11 +120,11 @@ impl Module {
         }
     }
 
-    pub fn take_functions(&mut self) -> Result<Vec<Function>, ModuleError> {
+    pub fn take_functions(&mut self) -> Result<Vec<PFunction>, ModuleError> {
         let res = std::mem::take(&mut self.functions).into_values().collect();
         Ok(res)
     }
-    pub fn add_function(&mut self, func: Function) -> Result<(), ModuleError> {
+    pub fn add_function(&mut self, func: PFunction) -> Result<(), ModuleError> {
         match &func.name {
             OptionalIdentifier::Ident(name) => {
                 if self.functions.contains_key(name) {

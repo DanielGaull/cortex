@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, ConditionBody, Expression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::Statement, top_level::{BasicBody, Body, Bundle, Extension, Function, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, PConditionBody, PExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::PStatement, top_level::{BasicBody, Body, Bundle, Extension, PFunction, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -54,7 +54,7 @@ impl CortexPreprocessor {
         self.function_dict.get(id)
     }
 
-    pub(crate) fn determine_type(&mut self, expr: Expression) -> Result<CortexType, CortexError> {
+    pub(crate) fn determine_type(&mut self, expr: PExpression) -> Result<CortexType, CortexError> {
         let (_, typ) = self.check_exp(expr)?;
         Ok(typ)
     }
@@ -141,7 +141,7 @@ impl CortexPreprocessor {
                 }
             })
             .filter_map(|x| x)
-            .collect::<Vec<(FunctionAddress, Function)>>();
+            .collect::<Vec<(FunctionAddress, PFunction)>>();
         let structs = module.take_structs()?;
         let bundles = module.take_bundles()?;
         let extensions = module.take_extensions()?;
@@ -173,7 +173,7 @@ impl CortexPreprocessor {
         Ok(())
     }
 
-    fn add_signature(&mut self, addr: &FunctionAddress, f: &Function) -> Result<(), CortexError> {
+    fn add_signature(&mut self, addr: &FunctionAddress, f: &PFunction) -> Result<(), CortexError> {
         let sig = f.signature();
         if self.function_signature_map.contains_key(&addr) {
             return Err(Box::new(ModuleError::FunctionAlreadyExists(addr.own_module_path.codegen(0))));
@@ -188,7 +188,7 @@ impl CortexPreprocessor {
         self.function_signature_map.insert(addr.clone(), sig);
         Ok(())
     }
-    fn add_function(&mut self, addr: FunctionAddress, f: Function) -> Result<(), CortexError> {
+    fn add_function(&mut self, addr: FunctionAddress, f: PFunction) -> Result<(), CortexError> {
         let name = f.name().clone();
         let processed = self.preprocess_function(f)?;
         match name {
@@ -199,7 +199,7 @@ impl CortexPreprocessor {
         }
         Ok(())
     }
-    fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, Function)>) -> Result<(), CortexError> {
+    fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         match &item.name {
             OptionalIdentifier::Ident(item_name) => {
                 let full_path = PathIdent::continued(n.clone(), item_name.clone());
@@ -222,7 +222,7 @@ impl CortexPreprocessor {
                                         return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
                                     }
                                     type_param_names.extend(item.type_param_names.clone());
-                                    let new_func = Function::new(
+                                    let new_func = PFunction::new(
                                         OptionalIdentifier::Ident(func_name.clone()),
                                         param_list,
                                         func.return_type,
@@ -259,7 +259,7 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ignore => Ok(()),
         }
     }
-    fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<(FunctionAddress, Function)>) -> Result<(), CortexError> {
+    fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         match &item.name {
             OptionalIdentifier::Ident(item_name) => {
                 let full_path = PathIdent::continued(n.clone(), item_name.clone());
@@ -278,7 +278,7 @@ impl CortexPreprocessor {
                                     return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
                                 }
                                 type_param_names.extend(item.type_param_names.clone());
-                                let new_func = Function::new(
+                                let new_func = PFunction::new(
                                     OptionalIdentifier::Ident(func_name.clone()),
                                     param_list,
                                     func.return_type,
@@ -314,7 +314,7 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ignore => Ok(()),
         }
     }
-    fn add_extension(&mut self, n: PathIdent, item: Extension, funcs_to_add: &mut Vec<(FunctionAddress, Function)>) -> Result<(), CortexError> {
+    fn add_extension(&mut self, n: PathIdent, item: Extension, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         let item_name = item.name.get_back()?;
         let item_prefix = item.name.without_last();
         for func in item.functions {
@@ -329,7 +329,7 @@ impl CortexPreprocessor {
                         return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
                     }
                     type_param_names.extend(item.type_param_names.clone());
-                    let new_func = Function::new(
+                    let new_func = PFunction::new(
                         OptionalIdentifier::Ident(func_name.clone()),
                         param_list,
                         func.return_type,
@@ -395,7 +395,7 @@ impl CortexPreprocessor {
         Ok(module)
     }
 
-    pub fn preprocess_function(&mut self, function: Function) -> Result<RFunction, CortexError> {
+    pub fn preprocess_function(&mut self, function: PFunction) -> Result<RFunction, CortexError> {
         let parent_env = self.current_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         let mut new_env = TypeCheckingEnvironment::new(*parent_env);
         let mut params = Vec::new();
@@ -427,18 +427,18 @@ impl CortexPreprocessor {
         Ok(RFunction::new(params, final_fn_body))
     }
 
-    fn check_statement(&mut self, statement: Statement) -> Result<RStatement, CortexError> {
+    fn check_statement(&mut self, statement: PStatement) -> Result<RStatement, CortexError> {
         let st_str = statement.codegen(0);
         match statement {
-            Statement::Expression(expression) => {
+            PStatement::Expression(expression) => {
                 let (exp, _) = self.check_exp(expression)?;
                 Ok(RStatement::Expression(exp))
             },
-            Statement::Throw(expression) => {
+            PStatement::Throw(expression) => {
                 let (exp, _) = self.check_exp(expression)?;
                 Ok(RStatement::Throw(exp))
             },
-            Statement::VariableDeclaration { name, is_const, typ, initial_value } => {
+            PStatement::VariableDeclaration { name, is_const, typ, initial_value } => {
                 match name {
                     OptionalIdentifier::Ident(ident) => {
                         let (assigned_exp, assigned_type) = self.check_exp(initial_value)?;
@@ -471,7 +471,7 @@ impl CortexPreprocessor {
                     },
                 }
             },
-            Statement::Assignment { name, value } => {
+            PStatement::Assignment { name, value } => {
                 let (assigned_exp, assigned_type) = self.check_exp(value)?;
                 if name.is_simple() {
                     let var_name = &name.base;
@@ -527,7 +527,7 @@ impl CortexPreprocessor {
 
                 Ok(RStatement::Assignment { name: name.into(), value: assigned_exp })
             },
-            Statement::WhileLoop(condition_body) => {
+            PStatement::WhileLoop(condition_body) => {
                 let (cond, cond_type) = self.check_exp(condition_body.condition)?;
                 if !cond_type.is_subtype_of(&CortexType::boolean(false)) {
                     return Err(
@@ -555,14 +555,14 @@ impl CortexPreprocessor {
 
                 Ok(RStatement::WhileLoop(RConditionBody::new(cond, body)))
             },
-            Statement::Break => {
+            PStatement::Break => {
                 if self.loop_depth <= 0 {
                     Err(Box::new(PreprocessingError::BreakUsedInNonLoopContext))
                 } else {
                     Ok(RStatement::Break)
                 }
             },
-            Statement::Continue => {
+            PStatement::Continue => {
                 if self.loop_depth <= 0 {
                     Err(Box::new(PreprocessingError::ContinueUsedInNonLoopContext))
                 } else {
@@ -572,16 +572,16 @@ impl CortexPreprocessor {
         }
     }
 
-    fn check_exp(&mut self, exp: Expression) -> CheckResult<RExpression> {
+    fn check_exp(&mut self, exp: PExpression) -> CheckResult<RExpression> {
         let st_str = exp.codegen(0);
         match exp {
-            Expression::Number(v) => Ok((RExpression::Number(v), CortexType::number(false))),
-            Expression::Boolean(v) => Ok((RExpression::Boolean(v), CortexType::boolean(false))),
-            Expression::Void => Ok((RExpression::Void, CortexType::void(false))),
-            Expression::None => Ok((RExpression::None, CortexType::none())),
-            Expression::String(v) => Ok((RExpression::String(v), CortexType::string(false))),
-            Expression::PathIdent(path_ident) => Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.get_variable_type(&path_ident)?)),
-            Expression::Call { name: addr, args: arg_exps, type_args } => {
+            PExpression::Number(v) => Ok((RExpression::Number(v), CortexType::number(false))),
+            PExpression::Boolean(v) => Ok((RExpression::Boolean(v), CortexType::boolean(false))),
+            PExpression::Void => Ok((RExpression::Void, CortexType::void(false))),
+            PExpression::None => Ok((RExpression::None, CortexType::none())),
+            PExpression::String(v) => Ok((RExpression::String(v), CortexType::string(false))),
+            PExpression::PathIdent(path_ident) => Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.get_variable_type(&path_ident)?)),
+            PExpression::Call { name: addr, args: arg_exps, type_args } => {
                 let extended = PathIdent::concat(&self.current_context, &addr.without_last());
                 let context_to_return_to = std::mem::replace(&mut self.current_context, extended);
                 let result = self.check_call(
@@ -593,13 +593,13 @@ impl CortexPreprocessor {
                 self.current_context = context_to_return_to;
                 result
             },
-            Expression::Construction { name, type_args, assignments } => {
+            PExpression::Construction { name, type_args, assignments } => {
                 self.check_construction(name, type_args, assignments, &st_str)
             },
-            Expression::IfStatement { first, conds, last } => {
+            PExpression::IfStatement { first, conds, last } => {
                 self.check_if_statement(*first, conds, last.map(|b| *b), &st_str)
             },
-            Expression::UnaryOperation { op, exp } => {
+            PExpression::UnaryOperation { op, exp } => {
                 let (exp, typ) = self.check_exp(*exp)?;
                 match op {
                     UnaryOperator::Negate => {
@@ -618,7 +618,7 @@ impl CortexPreprocessor {
                     },
                 }
             },
-            Expression::ListLiteral(items) => {
+            PExpression::ListLiteral(items) => {
                 let mut contained_type = CortexType::Unknown(false);
                 let mut new_items = Vec::new();
                 for item in items {
@@ -633,11 +633,11 @@ impl CortexPreprocessor {
                 let true_type = CortexType::reference(CortexType::list(contained_type, false), true);
                 Ok((RExpression::ListLiteral(new_items), true_type))
             },
-            Expression::Bang(inner) => {
+            PExpression::Bang(inner) => {
                 let (exp, typ) = self.check_exp(*inner)?;
                 Ok((RExpression::Bang(Box::new(exp)), typ.to_non_optional()))
             },
-            Expression::MemberAccess(inner, member) => {
+            PExpression::MemberAccess(inner, member) => {
                 let inner_as_string = inner.codegen(0);
                 let (atom_exp, atom_type) = self.check_exp(*inner)?;
                 match &atom_type {
@@ -660,7 +660,7 @@ impl CortexPreprocessor {
                     },
                 }
             },
-            Expression::MemberCall { callee, member, mut args, type_args } => {
+            PExpression::MemberCall { callee, member, mut args, type_args } => {
                 let (_, atom_type) = self.check_exp(*callee.clone())?;
                 
                 let caller_type = atom_type.name()?;
@@ -700,7 +700,7 @@ impl CortexPreprocessor {
                     }
                 }
 
-                let call_exp = Expression::Call {
+                let call_exp = PExpression::Call {
                     name: actual_func_addr, 
                     args,
                     type_args: true_type_args,
@@ -708,13 +708,13 @@ impl CortexPreprocessor {
                 let result = self.check_exp(call_exp)?;
                 Ok(result)
             },
-            Expression::BinaryOperation { left, op, right } => {
+            PExpression::BinaryOperation { left, op, right } => {
                 let (left_exp, left_type) = self.check_exp(*left)?;
                 let (right_exp, right_type) = self.check_exp(*right)?;
                 let op_type = self.check_operator(left_type, &op, right_type)?;
                 Ok((RExpression::BinaryOperation { left: Box::new(left_exp), op: op, right: Box::new(right_exp) }, op_type))
             },
-            Expression::Tuple(items) => {
+            PExpression::Tuple(items) => {
                 let results = items
                     .into_iter()
                     .map(|e| self.check_exp(e))
@@ -806,7 +806,7 @@ impl CortexPreprocessor {
         }
     }
 
-    fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<Expression>, type_args: Option<Vec<CortexType>>, st_str: &String) -> CheckResult<RExpression> {
+    fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<PExpression>, type_args: Option<Vec<CortexType>>, st_str: &String) -> CheckResult<RExpression> {
         let provided_arg_count = arg_exps.len();
         let mut processed_args = Vec::new();
         let mut arg_types = Vec::new();
@@ -875,7 +875,7 @@ impl CortexPreprocessor {
 
         Ok((RExpression::Call(func_id, processed_args), return_type))
     }
-    fn check_construction(&mut self, name: PathIdent, type_args: Vec<CortexType>, assignments: Vec<(String, Expression)>, st_str: &String) -> CheckResult<RExpression> {
+    fn check_construction(&mut self, name: PathIdent, type_args: Vec<CortexType>, assignments: Vec<(String, PExpression)>, st_str: &String) -> CheckResult<RExpression> {
         let typedef = self.lookup_type(&name)?;
         let base_type = CortexType::basic(name.clone(), false, type_args.clone()).with_prefix_if_not_core(&self.current_context);
 
@@ -941,7 +941,7 @@ impl CortexPreprocessor {
             Err(Box::new(PreprocessingError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
         }
     }
-    fn check_if_statement(&mut self, first: ConditionBody, conds: Vec<ConditionBody>, last: Option<BasicBody>, st_str: &String) -> CheckResult<RExpression> {
+    fn check_if_statement(&mut self, first: PConditionBody, conds: Vec<PConditionBody>, last: Option<BasicBody>, st_str: &String) -> CheckResult<RExpression> {
         let (cond_exp, cond_typ) = self.check_exp(first.condition)?;
         if cond_typ != CortexType::boolean(false) {
             return Err(

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
 
-use super::{expression::{Expression, OptionalIdentifier, Parameter, PathIdent}, statement::Statement, r#type::CortexType};
+use super::{expression::{PExpression, OptionalIdentifier, Parameter, PathIdent}, statement::PStatement, r#type::CortexType};
 
 pub enum TopLevel {
     Import {
@@ -13,7 +13,7 @@ pub enum TopLevel {
         name: String,
         contents: Vec<TopLevel>,
     },
-    Function(Function),
+    Function(PFunction),
     Struct(Struct),
     Bundle(Bundle),
     Extension(Extension),
@@ -67,14 +67,14 @@ pub(crate) struct FunctionSignature {
     pub(crate) type_param_names: Vec<String>,
 }
 
-pub struct Function {
+pub struct PFunction {
     pub(crate) name: OptionalIdentifier,
     pub(crate) params: Vec<Parameter>,
     pub(crate) return_type: CortexType,
     pub(crate) body: Body,
     pub(crate) type_param_names: Vec<String>,
 }
-impl SimpleCodeGen for Function {
+impl SimpleCodeGen for PFunction {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
         let indent_prefix = &"    ".repeat(indent);
@@ -108,9 +108,9 @@ impl SimpleCodeGen for Function {
         s
     }
 }
-impl Function {
+impl PFunction {
     pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, type_param_names: Vec<String>) -> Self {
-        Function {
+        PFunction {
             name: name,
             params: params,
             return_type: return_type,
@@ -206,11 +206,11 @@ impl MemberFunction {
 
 #[derive(Clone)]
 pub struct BasicBody {
-    pub(crate) statements: Vec<Statement>,
-    pub(crate) result: Option<Expression>,
+    pub(crate) statements: Vec<PStatement>,
+    pub(crate) result: Option<PExpression>,
 }
 impl BasicBody {
-    pub fn new(statements: Vec<Statement>, result: Option<Expression>) -> Self {
+    pub fn new(statements: Vec<PStatement>, result: Option<PExpression>) -> Self {
         Self {
             statements: statements,
             result: result,

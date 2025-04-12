@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
+use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, Bundle, PFunction, Struct}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -121,7 +121,7 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
             Err(Box::new(TestError::Err("a is not a number")))
         }
     }));
-    let add_func = Function::new(
+    let add_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("add")),
         vec![
             Parameter::named("a", CortexType::number(false)),
@@ -155,7 +155,7 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
         ],
         Some(CortexParser::parse_expression("x")?),
     ));
-    let test_func = Function::new(
+    let test_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("test")),
         Vec::new(),
         CortexType::number(false),

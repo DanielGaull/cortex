@@ -6,11 +6,11 @@ use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::ast::functi
 use super::{top_level::BasicBody, r#type::CortexType};
 
 #[derive(Clone)]
-pub struct ConditionBody {
-    pub(crate) condition: Expression,
+pub struct PConditionBody {
+    pub(crate) condition: PExpression,
     pub(crate) body: BasicBody,
 }
-impl SimpleCodeGen for ConditionBody {
+impl SimpleCodeGen for PConditionBody {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
         s.push_str(&self.condition.codegen(indent));
@@ -23,7 +23,7 @@ impl SimpleCodeGen for ConditionBody {
 }
 
 #[derive(Clone)]
-pub enum Expression {
+pub enum PExpression {
     Number(f64),
     Boolean(bool),
     Void,
@@ -32,49 +32,49 @@ pub enum Expression {
     PathIdent(PathIdent),
     Call {
         name: FunctionAddress, 
-        args: Vec<Expression>,
+        args: Vec<PExpression>,
         type_args: Option<Vec<CortexType>>,
     },
     Construction {
         name: PathIdent,
         type_args: Vec<CortexType>,
-        assignments: Vec<(String, Expression)>,
+        assignments: Vec<(String, PExpression)>,
     },
     IfStatement {
-        first: Box<ConditionBody>,
-        conds: Vec<ConditionBody>,
+        first: Box<PConditionBody>,
+        conds: Vec<PConditionBody>,
         last: Option<Box<BasicBody>>,
     },
     UnaryOperation {
         op: UnaryOperator,
-        exp: Box<Expression>,
+        exp: Box<PExpression>,
     },
-    ListLiteral(Vec<Expression>),
-    Bang(Box<Expression>),
-    MemberAccess(Box<Expression>, String),
+    ListLiteral(Vec<PExpression>),
+    Bang(Box<PExpression>),
+    MemberAccess(Box<PExpression>, String),
     MemberCall {
-        callee: Box<Expression>,
+        callee: Box<PExpression>,
         member: String,
-        args: Vec<Expression>,
+        args: Vec<PExpression>,
         type_args: Option<Vec<CortexType>>,
     },
     BinaryOperation {
-        left: Box<Expression>,
+        left: Box<PExpression>,
         op: BinaryOperator,
-        right: Box<Expression>,
+        right: Box<PExpression>,
     },
-    Tuple(Vec<Expression>),
+    Tuple(Vec<PExpression>),
 }
-impl SimpleCodeGen for Expression {
+impl SimpleCodeGen for PExpression {
     fn codegen(&self, indent: usize) -> String {
         match self {
-            Expression::Number(v) => format!("{}", v),
-            Expression::Boolean(v) => format!("{}", v),
-            Expression::String(v) => format!("\"{}\"", v),
-            Expression::Void => String::from("void"),
-            Expression::None => String::from("none"),
-            Expression::PathIdent(path) => path.codegen(indent),
-            Expression::Call{ name, args, type_args } => {
+            PExpression::Number(v) => format!("{}", v),
+            PExpression::Boolean(v) => format!("{}", v),
+            PExpression::String(v) => format!("\"{}\"", v),
+            PExpression::Void => String::from("void"),
+            PExpression::None => String::from("none"),
+            PExpression::PathIdent(path) => path.codegen(indent),
+            PExpression::Call{ name, args, type_args } => {
                 let mut s = String::new();
                 s.push_str(&name.codegen(indent));
                 if let Some(type_args) = type_args {
@@ -92,7 +92,7 @@ impl SimpleCodeGen for Expression {
                 s.push_str(")");
                 s
             },
-            Expression::Construction { name, type_args, assignments } => {
+            PExpression::Construction { name, type_args, assignments } => {
                 let mut s = String::new();
                 s.push_str(&name.codegen(0));
                 if type_args.len() > 0 {
@@ -110,7 +110,7 @@ impl SimpleCodeGen for Expression {
                 s.push_str("}");
                 s
             },
-            Expression::IfStatement { first, conds, last } => {
+            PExpression::IfStatement { first, conds, last } => {
                 let mut s = String::new();
                 let indent_prefix = "    ".repeat(indent);
                 s.push_str(&indent_prefix);
@@ -128,10 +128,10 @@ impl SimpleCodeGen for Expression {
                 }
                 s
             },
-            Expression::UnaryOperation { op, exp } => {
+            PExpression::UnaryOperation { op, exp } => {
                 format!("{}{}", op.codegen(indent), exp.codegen_as_sub(indent))
             },
-            Expression::ListLiteral(items) => {
+            PExpression::ListLiteral(items) => {
                 let mut s = String::new();
                 s.push_str("[");
                 s.push_str(
@@ -144,12 +144,12 @@ impl SimpleCodeGen for Expression {
                 s.push_str("]");
                 s
             },
-            Expression::Bang(ex) => format!("{}!", ex.codegen(indent)),
-            Expression::BinaryOperation { left, op, right } => {
+            PExpression::Bang(ex) => format!("{}!", ex.codegen(indent)),
+            PExpression::BinaryOperation { left, op, right } => {
                 format!("{} {} {}", left.codegen_as_sub(indent), op.codegen(indent), right.codegen_as_sub(indent))
             },
-            Expression::MemberAccess(ex, member) => format!("{}.{}", ex.codegen_as_sub(indent), member),
-            Expression::MemberCall { callee, member: member_name, args, type_args } => {
+            PExpression::MemberAccess(ex, member) => format!("{}.{}", ex.codegen_as_sub(indent), member),
+            PExpression::MemberCall { callee, member: member_name, args, type_args } => {
                 if let Some(type_args) = type_args {
                     format!("{}.{}<{}>({})", 
                         callee.codegen_as_sub(indent), 
@@ -165,25 +165,25 @@ impl SimpleCodeGen for Expression {
                     )
                 }
             },
-            Expression::Tuple(items) => {
+            PExpression::Tuple(items) => {
                 format!("({})", items.iter().map(|i| i.codegen(indent)).collect::<Vec<_>>().join(", "))
             }
         }
     }
 }
-impl Expression {
+impl PExpression {
     fn is_atomic(&self) -> bool {
         match self {
-            Expression::Number(_) | Expression::Boolean(_) | Expression::Void | Expression::None | 
-            Expression::String(_) | Expression::PathIdent(_) | Expression::Call { name: _, args: _, type_args: _ } |
-            Expression::Construction { name: _, type_args: _, assignments: _ } |
-            Expression::IfStatement { first: _, conds: _, last: _ } | Expression::MemberAccess(_, _) |
-            Expression::ListLiteral(_) | Expression::MemberCall { callee: _, member: _, args: _, type_args: _ } |
-            Expression::Tuple(_)
+            PExpression::Number(_) | PExpression::Boolean(_) | PExpression::Void | PExpression::None | 
+            PExpression::String(_) | PExpression::PathIdent(_) | PExpression::Call { name: _, args: _, type_args: _ } |
+            PExpression::Construction { name: _, type_args: _, assignments: _ } |
+            PExpression::IfStatement { first: _, conds: _, last: _ } | PExpression::MemberAccess(_, _) |
+            PExpression::ListLiteral(_) | PExpression::MemberCall { callee: _, member: _, args: _, type_args: _ } |
+            PExpression::Tuple(_)
                 => true,
             
-            Expression::UnaryOperation { op: _, exp: _ } | Expression::Bang(_) | 
-            Expression::BinaryOperation { left: _, op: _, right: _ }
+            PExpression::UnaryOperation { op: _, exp: _ } | PExpression::Bang(_) | 
+            PExpression::BinaryOperation { left: _, op: _, right: _ }
                 => false,
         }
     }
@@ -248,10 +248,10 @@ impl IdentExpression {
         self.chain.is_empty()
     }
 
-    pub fn to_member_access_expr(self) -> Expression {
-        let mut expr = Expression::PathIdent(PathIdent::simple(self.base));
+    pub fn to_member_access_expr(self) -> PExpression {
+        let mut expr = PExpression::PathIdent(PathIdent::simple(self.base));
         for link in self.chain {
-            expr = Expression::MemberAccess(Box::new(expr), link);
+            expr = PExpression::MemberAccess(Box::new(expr), link);
         }
         expr
     }

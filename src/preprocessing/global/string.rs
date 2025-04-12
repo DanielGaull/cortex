@@ -1,10 +1,10 @@
 use std::error::Error;
 
-use crate::{interpreting::{heap::Heap, value::CortexValue}, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::CortexPreprocessor}};
+use crate::{interpreting::{heap::Heap, value::CortexValue}, parsing::ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, PFunction}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::CortexPreprocessor}};
 
 impl CortexPreprocessor {
     pub(crate) fn add_string_funcs(global: &mut Module) -> Result<(), Box<dyn Error>> {
-        global.add_function(Function::new(
+        global.add_function(PFunction::new(
             OptionalIdentifier::Ident(String::from("toString")),
             vec![Parameter::named("item", CortexType::simple("T", false))],
             CortexType::string(false),

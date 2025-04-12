@@ -1,4 +1,4 @@
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, Function}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
+use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, PFunction}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
 use thiserror::Error;
 use std::error::Error;
 
@@ -36,7 +36,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
             Err(Box::new(TestError::Err("a is not a number")))
         }
     }));
-    let add_func = Function::new(
+    let add_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("add")),
         vec![
             Parameter::named("a", CortexType::number(false)),

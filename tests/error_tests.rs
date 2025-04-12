@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{Expression, OptionalIdentifier, Parameter}, top_level::{BasicBody, Body, Bundle, Function, Struct}, r#type::CortexType}, parser::CortexParser}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
+use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{PExpression, OptionalIdentifier, Parameter}, top_level::{BasicBody, Body, Bundle, PFunction, Struct}, r#type::CortexType}, parser::CortexParser}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -175,7 +175,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
             Err(Box::new(TestError::Err("a is not a number")))
         }
     }));
-    let add_func = Function::new(
+    let add_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("add")),
         vec![
             Parameter::named("a", CortexType::number(false)),
@@ -185,13 +185,13 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         add_body,
         vec![],
     );
-    let generic_func = Function::new(
+    let generic_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("generic")),
         vec![
             Parameter::named("t", CortexType::simple("T", false))
         ],
         CortexType::simple("T", true),
-        Body::Basic(BasicBody::new(vec![], Some(Expression::None))),
+        Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
         vec![String::from("T")],
     );
     let test_struct = Struct::new("Time", vec![
