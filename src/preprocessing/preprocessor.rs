@@ -761,7 +761,7 @@ impl CortexPreprocessor {
 
         let member_type = atom_type.types.get(index).unwrap().clone();
         
-        Ok((RExpression::TupleMemberAccess(Box::new(atom_exp), index), member_type))
+        Ok((RExpression::MemberAccess(Box::new(atom_exp), format!("t{}", index)), member_type))
     }
 
     fn search_for_extension(&self, typ: &PathIdent, member: &String) -> Result<Option<&FunctionAddress>, CortexError> {

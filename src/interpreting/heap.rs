@@ -70,10 +70,6 @@ impl Heap {
                     // NOTE: we are allowed to clone fields of composites
                     // We are only not allowed to clone values that directly appear on the heap
                     self.mark_children(marked, Rc::new(RefCell::new(fvalue.clone())));
-                } else if let CortexValue::Tuple(items) = &*fvalue {
-                    for i in items {
-                        self.mark_children(marked, Rc::new(RefCell::new(i.clone())));
-                    }
                 }
             }
         } else if let CortexValue::List(items) = &*value.borrow() {
@@ -84,10 +80,6 @@ impl Heap {
                     // NOTE: we are allowed to clone fields of composites
                     // We are only not allowed to clone values that directly appear on the heap
                     self.mark_children(marked, Rc::new(RefCell::new(fvalue.clone())));
-                } else if let CortexValue::Tuple(items) = &*fvalue {
-                    for i in items {
-                        self.mark_children(marked, Rc::new(RefCell::new(i.clone())));
-                    }
                 }
             }
         }

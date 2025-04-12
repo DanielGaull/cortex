@@ -26,7 +26,6 @@ pub enum RExpression {
     ListLiteral(Vec<RExpression>),
     Bang(Box<RExpression>),
     MemberAccess(Box<RExpression>, String),
-    TupleMemberAccess(Box<RExpression>, usize),
     BinaryOperation {
         left: Box<RExpression>,
         op: BinaryOperator,

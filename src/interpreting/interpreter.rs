@@ -58,10 +58,6 @@ impl CortexInterpreter {
             }
         } else if let CortexValue::Reference(addr) = *value_ref {
             current.insert(addr);
-        } else if let CortexValue::Tuple(items) = &*value_ref {
-            for i in items {
-                self.find_reachables(current, Rc::new(RefCell::new(i.clone())));
-            }
         }
     }
     pub fn hpsz(&self) -> usize {
@@ -349,17 +345,20 @@ impl CortexInterpreter {
                 let values = items
                     .iter()
                     .map(|e| self.evaluate_expression(e))
-                    .collect::<Result<Vec<_>, _>>()?;
-                Ok(CortexValue::Tuple(values))
-            },
-            RExpression::TupleMemberAccess(tuple, idx) => {
-                let tuple_val = self.evaluate_expression(tuple)?;
-                match tuple_val {
-                    CortexValue::Tuple(items) => {
-                        Ok(items.get(*idx).unwrap().clone())
-                    },
-                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
-                }
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .map(|v| Rc::new(RefCell::new(v)))
+                    .collect::<Vec<_>>();
+                let keys = values
+                    .iter()
+                    .enumerate()
+                    .map(|(i, _)| format!("t{}", i))
+                    .collect::<Vec<_>>();
+                let field_values = keys.into_iter().zip(values).collect::<HashMap<_, _>>();
+                
+                Ok(CortexValue::Composite {
+                    field_values,
+                })
             },
         }
     }

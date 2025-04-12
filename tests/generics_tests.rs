@@ -17,11 +17,11 @@ fn test_identity() -> Result<(), Box<dyn Error>> {
     
     assert_exp("identity(5)", "5", &mut interpreter)?;
     assert_exp("identity(none)", "none", &mut interpreter)?;
-    assert_exp("identity((2, 3))", "(2, 3)", &mut interpreter)?;
+    assert_exp_or("identity((2, 3))", "{ t0:2;t1:3; }", "{ t1:3;t0:2; }", &mut interpreter)?;
 
     assert_exp("identity<number?>(5)", "5", &mut interpreter)?;
     assert_exp("identity<number?>(none)", "none", &mut interpreter)?;
-    assert_exp("identity<(number,)>((5,))", "(5,)", &mut interpreter)?;
+    assert_exp("identity<(number,)>((5,))", "{ t0:5; }", &mut interpreter)?;
 
     assert_exp("getFirst((2, \"string\"))", "2", &mut interpreter)?;
 
@@ -60,6 +60,13 @@ fn assert_exp(input: &str, expected: &str, interpreter: &mut CortexInterpreter) 
     let value = interpreter.execute_expression(ast)?;
     let value_string = format!("{}", value);
     assert_eq!(expected, value_string);
+    Ok(())
+}
+fn assert_exp_or(input: &str, expected1: &str, expected2: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+    let ast = CortexParser::parse_expression(input)?;
+    let value = interpreter.execute_expression(ast)?;
+    let value_string = format!("{}", value);
+    assert!(expected1 == value_string || expected2 == value_string);
     Ok(())
 }
 fn run(input: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
