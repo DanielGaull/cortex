@@ -93,5 +93,9 @@ fn statement_tests() -> Result<(), Box<dyn Error>> {
     run_statement("myOptionalNum = none;", &mut interpreter)?;
     assert_expression("myOptionalNum", "none", &mut interpreter)?;
 
+    run_statement("let myt = (1, 2, 3);", &mut interpreter)?;
+    run_statement("myt.t0 = 6;", &mut interpreter)?;
+    assert_expression("myt.t0", "6", &mut interpreter)?;
+
     Ok(())
 }
