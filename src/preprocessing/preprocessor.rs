@@ -427,16 +427,16 @@ impl CortexPreprocessor {
         Ok(RFunction::new(params, final_fn_body))
     }
 
-    fn check_statement(&mut self, statement: PStatement) -> Result<RStatement, CortexError> {
+    fn check_statement(&mut self, statement: PStatement) -> Result<Vec<RStatement>, CortexError> {
         let st_str = statement.codegen(0);
         match statement {
             PStatement::Expression(expression) => {
                 let (exp, _) = self.check_exp(expression)?;
-                Ok(RStatement::Expression(exp))
+                Ok(vec![RStatement::Expression(exp)])
             },
             PStatement::Throw(expression) => {
                 let (exp, _) = self.check_exp(expression)?;
-                Ok(RStatement::Throw(exp))
+                Ok(vec![RStatement::Throw(exp)])
             },
             PStatement::VariableDeclaration { name, is_const, typ, initial_value } => {
                 match name {
@@ -463,11 +463,11 @@ impl CortexPreprocessor {
 
                         self.current_env.as_mut().unwrap().add(ident.clone(), type_of_var, is_const)?;
 
-                        Ok(RStatement::VariableDeclaration { name: ident, is_const: is_const, initial_value: assigned_exp })
+                        Ok(vec![RStatement::VariableDeclaration { name: ident, is_const: is_const, initial_value: assigned_exp }])
                     },
                     OptionalIdentifier::Ignore => {
                         let (exp, _) = self.check_exp(initial_value)?;
-                        Ok(RStatement::Expression(exp))
+                        Ok(vec![RStatement::Expression(exp)])
                     },
                 }
             },
@@ -525,7 +525,7 @@ impl CortexPreprocessor {
                     }
                 }
 
-                Ok(RStatement::Assignment { name: name.into(), value: assigned_exp })
+                Ok(vec![RStatement::Assignment { name: name.into(), value: assigned_exp }])
             },
             PStatement::WhileLoop(condition_body) => {
                 let (cond, cond_type) = self.check_exp(condition_body.condition)?;
@@ -553,20 +553,20 @@ impl CortexPreprocessor {
                 }
                 self.loop_depth -= 1;
 
-                Ok(RStatement::WhileLoop(RConditionBody::new(cond, body)))
+                Ok(vec![RStatement::WhileLoop(RConditionBody::new(cond, body))])
             },
             PStatement::Break => {
                 if self.loop_depth <= 0 {
                     Err(Box::new(PreprocessingError::BreakUsedInNonLoopContext))
                 } else {
-                    Ok(RStatement::Break)
+                    Ok(vec![RStatement::Break])
                 }
             },
             PStatement::Continue => {
                 if self.loop_depth <= 0 {
                     Err(Box::new(PreprocessingError::ContinueUsedInNonLoopContext))
                 } else {
-                    Ok(RStatement::Continue)
+                    Ok(vec![RStatement::Continue])
                 }
             },
         }
@@ -1020,7 +1020,7 @@ impl CortexPreprocessor {
         let mut statements = Vec::new();
         for st in body.statements {
             let s = self.check_statement(st)?;
-            statements.push(s);
+            statements.extend(s);
         }
         if let Some(exp) = body.result {
             let (exp, typ) = self.check_exp(exp)?;
