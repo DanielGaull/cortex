@@ -58,4 +58,6 @@ pub enum PreprocessingError {
     TupleIndexValueInvalid(usize, usize),
     #[error("Ambiguous function call: Multiple extension functions named {0} defined on type {1}")]
     AmbiguousExtensionCall(String, String),
+    #[error("Cannot access members on optional value: {0} (consider using `!` to assert it is not `none`")]
+    CannotAccessMemberOfOptional(String),
 }

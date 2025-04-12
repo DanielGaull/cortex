@@ -63,6 +63,16 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn nullable_member_access_tests() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+    interpreter.execute_statement(CortexParser::parse_statement("let x: (bool,)? = (true,);")?)?;
+    assert_err("x.t0;", PreprocessingError::CannotAccessMemberOfOptional(String::from("x")), &mut interpreter)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let myTime: simple::Time? = simple::Time { m: 5, s: 2 };")?)?;
+    assert_err("myTime.m;", PreprocessingError::CannotAccessMemberOfOptional(String::from("myTime")), &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
 fn test_none_related_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_err("let notOptional: number = none;", PreprocessingError::MismatchedType(String::from("number"), String::from("none?"), String::from("notOptional"), String::from("let notOptional: number = none;")), &mut interpreter)?;

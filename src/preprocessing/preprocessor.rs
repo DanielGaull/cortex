@@ -638,6 +638,7 @@ impl CortexPreprocessor {
                 Ok((RExpression::Bang(Box::new(exp)), typ.to_non_optional()))
             },
             Expression::MemberAccess(inner, member) => {
+                let inner_as_string = inner.codegen(0);
                 let (atom_exp, atom_type) = self.check_exp(*inner)?;
                 match &atom_type {
                     CortexType::BasicType(_) |
@@ -645,10 +646,16 @@ impl CortexPreprocessor {
                         if atom_type.is_non_composite() {
                             return Err(Box::new(PreprocessingError::CannotAccessMemberOfNonComposite));
                         }
+                        if atom_type.optional() {
+                            return Err(Box::new(PreprocessingError::CannotAccessMemberOfOptional(inner_as_string)));
+                        }
                         Ok(self.check_composite_member_access(atom_exp, atom_type, member)?)
                     },
                     CortexType::Unknown(_) => Err(Box::new(TypeError::UnknownTypeNotValid)),
                     CortexType::TupleType(t) => {
+                        if t.optional {
+                            return Err(Box::new(PreprocessingError::CannotAccessMemberOfOptional(inner_as_string)));
+                        }
                         Ok(self.check_tuple_member_access(atom_exp, t, member)?)
                     },
                 }
