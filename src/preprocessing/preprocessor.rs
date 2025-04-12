@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, PConditionBody, PExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, statement::PStatement, top_level::{BasicBody, Body, Bundle, Extension, PFunction, FunctionSignature, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, FunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -15,6 +15,7 @@ pub struct CortexPreprocessor {
     function_signature_map: HashMap<FunctionAddress, FunctionSignature>,
     type_map: HashMap<PathIdent, TypeDefinition>,
     loop_depth: u32,
+    temp_num: usize,
 }
 
 impl CortexPreprocessor {
@@ -27,6 +28,7 @@ impl CortexPreprocessor {
             function_signature_map: HashMap::new(),
             type_map: HashMap::new(),
             loop_depth: 0,
+            temp_num: 0,
         };
 
         macro_rules! add_core_type {
@@ -472,60 +474,7 @@ impl CortexPreprocessor {
                 }
             },
             PStatement::Assignment { name, value } => {
-                let (assigned_exp, assigned_type) = self.check_exp(value)?;
-                if name.is_simple() {
-                    let var_name = &name.base;
-                    let var_type = &self.current_env.as_ref().unwrap().get(var_name)?.clone();
-                    if !assigned_type.is_subtype_of(var_type) {
-                        return Err(
-                            Box::new(
-                                PreprocessingError::MismatchedType(
-                                    var_type.codegen(0),
-                                    assigned_type.codegen(0),
-                                    var_name.clone(),
-                                    st_str,
-                                )
-                            )
-                        );
-                    }
-                    
-                    if self.current_env.as_ref().unwrap().is_const(var_name)? {
-                        return Err(
-                            Box::new(
-                                PreprocessingError::CannotModifyConst(var_name.clone())
-                            )
-                        )
-                    }
-                } else {
-                    let source_expr = name.clone().without_last()?.to_member_access_expr();
-                    let (_, source_type) = self.check_exp(source_expr)?;
-                    if let CortexType::RefType(r) = source_type {
-                        if !r.mutable {
-                            return Err(
-                                Box::new(
-                                    PreprocessingError::CannotModifyFieldOnImmutableReference(r.contained.codegen(0))
-                                )
-                            );
-                        }
-                    }
-
-                    let name_expr = name.clone().to_member_access_expr();
-                    let (_, var_type) = self.check_exp(name_expr)?;
-                    if !assigned_type.is_subtype_of(&var_type) {
-                        return Err(
-                            Box::new(
-                                PreprocessingError::MismatchedType(
-                                    var_type.codegen(0),
-                                    assigned_type.codegen(0),
-                                    name.codegen(0),
-                                    st_str,
-                                )
-                            )
-                        );
-                    }
-                }
-
-                Ok(vec![RStatement::Assignment { name: name.into(), value: assigned_exp }])
+                Ok(self.check_assignment_recursive(name, value, &st_str)?)
             },
             PStatement::WhileLoop(condition_body) => {
                 let (cond, cond_type) = self.check_exp(condition_body.condition)?;
@@ -568,6 +517,86 @@ impl CortexPreprocessor {
                 } else {
                     Ok(vec![RStatement::Continue])
                 }
+            },
+        }
+    }
+
+    fn check_assignment(&mut self, name: IdentExpression, value: PExpression, st_str: &String) -> Result<Vec<RStatement>, CortexError> {
+        let (assigned_exp, assigned_type) = self.check_exp(value)?;
+        if name.is_simple() {
+            let var_name = &name.base;
+            let var_type = &self.current_env.as_ref().unwrap().get(var_name)?.clone();
+            if !assigned_type.is_subtype_of(var_type) {
+                return Err(
+                    Box::new(
+                        PreprocessingError::MismatchedType(
+                            var_type.codegen(0),
+                            assigned_type.codegen(0),
+                            var_name.clone(),
+                            st_str.clone(),
+                        )
+                    )
+                );
+            }
+            
+            if self.current_env.as_ref().unwrap().is_const(var_name)? {
+                return Err(
+                    Box::new(
+                        PreprocessingError::CannotModifyConst(var_name.clone())
+                    )
+                )
+            }
+        } else {
+            let source_expr = name.clone().without_last()?.to_member_access_expr();
+            let (_, source_type) = self.check_exp(source_expr)?;
+            if let CortexType::RefType(r) = source_type {
+                if !r.mutable {
+                    return Err(
+                        Box::new(
+                            PreprocessingError::CannotModifyFieldOnImmutableReference(r.contained.codegen(0))
+                        )
+                    );
+                }
+            }
+
+            let name_expr = name.clone().to_member_access_expr();
+            let (_, var_type) = self.check_exp(name_expr)?;
+            if !assigned_type.is_subtype_of(&var_type) {
+                return Err(
+                    Box::new(
+                        PreprocessingError::MismatchedType(
+                            var_type.codegen(0),
+                            assigned_type.codegen(0),
+                            name.codegen(0),
+                            st_str.clone(),
+                        )
+                    )
+                );
+            }
+        }
+
+        Ok(vec![RStatement::Assignment { name: name.into(), value: assigned_exp }])
+    }
+    fn check_assignment_recursive(&mut self, name: AssignmentName, value: PExpression, st_str: &String) -> Result<Vec<RStatement>, CortexError> {
+        match name {
+            AssignmentName::Single(name) => {
+                Ok(self.check_assignment(name, value, &st_str)?)
+            },
+            AssignmentName::Tuple(names) => {
+                let mut result = Vec::new();
+                // We want to save off the initial expression in case it is an expensive calculation
+                let temp_name = self.next_temp();
+                result.push(RStatement::VariableDeclaration { 
+                    name: temp_name.clone(), 
+                    is_const: true, 
+                    initial_value: self.check_exp(value)?.0,
+                });
+                let temp_expr = PExpression::PathIdent(PathIdent::simple(temp_name));
+                for (i, name) in names.into_iter().enumerate() {
+                    let new_value = PExpression::MemberAccess(Box::new(temp_expr.clone()), format!("t{}", i));
+                    result.extend(self.check_assignment_recursive(name, new_value, &st_str)?);
+                }
+                Ok(result)
             },
         }
     }
@@ -1296,5 +1325,11 @@ impl CortexPreprocessor {
     fn has_type(&self, path: &PathIdent) -> bool {
         let full_path = PathIdent::concat(&self.current_context, &path);
         self.type_map.contains_key(&full_path)
+    }
+
+    fn next_temp(&mut self) -> String {
+        let res = format!("$temp{}", self.temp_num);
+        self.temp_num += 1;
+        res
     }
 }

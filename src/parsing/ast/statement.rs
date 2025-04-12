@@ -3,6 +3,28 @@ use crate::parsing::codegen::r#trait::SimpleCodeGen;
 use super::{expression::{PConditionBody, PExpression, IdentExpression, OptionalIdentifier}, r#type::CortexType};
 
 #[derive(Clone)]
+pub enum AssignmentName {
+    Single(IdentExpression),
+    Tuple(Vec<AssignmentName>),
+}
+impl SimpleCodeGen for AssignmentName {
+    fn codegen(&self, indent: usize) -> String {
+        match self {
+            AssignmentName::Single(ident_expression) => {
+                ident_expression.codegen(indent)
+            },
+            AssignmentName::Tuple(items) => {
+                if items.len() == 1 {
+                    format!("({},)", items.get(0).unwrap().codegen(indent))
+                } else {
+                    format!("({})", items.iter().map(|i| i.codegen(indent)).collect::<Vec<_>>().join(", "))
+                }
+            },
+        }
+    }
+}
+
+#[derive(Clone)]
 pub enum PStatement {
     Expression(PExpression),
     Throw(PExpression),
@@ -13,7 +35,7 @@ pub enum PStatement {
         initial_value: PExpression,
     },
     Assignment {
-        name: IdentExpression,
+        name: AssignmentName,
         value: PExpression,
     },
     WhileLoop(PConditionBody),

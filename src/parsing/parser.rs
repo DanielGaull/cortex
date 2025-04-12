@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::ast::{expression::{BinaryOperator, PConditionBody, PExpression, IdentExpression, OptionalIdentifier, Parameter, PathIdent, UnaryOperator}, program::Program, statement::PStatement, top_level::{BasicBody, Body, Bundle, Extension, PFunction, MemberFunction, Struct, ThisArg, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::CortexType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -234,7 +234,7 @@ impl CortexParser {
                 }
 
                 Ok(PStatement::Assignment { 
-                    name: left,
+                    name: AssignmentName::Single(left),
                     value: value,
                 })
             },
