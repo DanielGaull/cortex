@@ -645,6 +645,7 @@ impl CortexPreprocessor {
             PExpression::Void => Ok((RExpression::Void, CortexType::void(false))),
             PExpression::None => Ok((RExpression::None, CortexType::none())),
             PExpression::String(v) => Ok((RExpression::String(v), CortexType::string(false))),
+            PExpression::Char(v) => Ok((RExpression::Char(v), CortexType::char(false))),
             PExpression::PathIdent(path_ident) => Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.get_variable_type(&path_ident)?)),
             PExpression::Call { name: addr, args: arg_exps, type_args } => {
                 let extended = PathIdent::concat(&self.current_context, &addr.without_last());

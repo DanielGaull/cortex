@@ -464,6 +464,10 @@ impl CortexParser {
             Rule::string => {
                 Ok(PExpression::String(String::from(pair.into_inner().next().unwrap().as_str())))
             },
+            Rule::r#char => {
+                let s = pair.into_inner().next().unwrap().as_str();
+                Ok(PExpression::Char(unescape(s)))
+            },
             Rule::none => {
                 Ok(PExpression::None)
             },
@@ -950,5 +954,18 @@ impl CortexParser {
                 result: result,
             }
         )
+    }
+}
+
+fn unescape(s: &str) -> u8 {
+    match s {
+        "\\n" => '\n' as u8,
+        "\\t" => '\t' as u8,
+        "\\\\" => '\\' as u8,
+        "\\r" => '\r' as u8,
+        "\\0" => '\0' as u8,
+        "\\\"" => '\"' as u8,
+        "\\\'" => '\'' as u8,
+        _ => s.as_bytes()[0],
     }
 }

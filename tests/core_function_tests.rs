@@ -162,7 +162,7 @@ fn test_string_index_errors() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_char_conditions() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
-    run("let (ch1, ch2, ch3) = (\"h\"[0], \"1\"[0], \" \"[0]);", &mut interpreter)?;
+    run("let (ch1, ch2, ch3) = (\'h\', \'1\', \' \');", &mut interpreter)?;
     assert("ch1.isAlpha()", "true", &mut interpreter)?;
     assert("ch1.isDigit()", "false", &mut interpreter)?;
     assert("ch1.isWhitespace()", "false", &mut interpreter)?;

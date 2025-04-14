@@ -34,7 +34,7 @@ indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ e
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
-atom = { number | boolean | none | void | string | tuple | listLiteral | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
+atom = { number | boolean | none | void | string | char | tuple | listLiteral | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberCallTail | memberAccessTail | indexTail | "" }
 
 primary = { atom ~ exprTail }
@@ -71,12 +71,15 @@ void = { "void" }
 listLiteral = { "[" ~ exprList ~ "]" }
 tuple = { "(" ~ expr ~ "," ~ expr? ~ ("," ~ expr)* ~ ")" }
 
+char = @{ "\'" ~ charinner ~ "\'" }
+charinner = ${ strchar }
+
 string = ${ "\"" ~ strinner ~ "\"" }
 strinner = @{ strchar* }
 strchar = {
     !("\"" | "\\") ~ ANY
-    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
-    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+    | "\\" ~ ("\"" | "\'" | "\\" | "n" | "r" | "t" | "0")
+    // | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 
 optIdentifier = { ident | ignoredIdentifier }

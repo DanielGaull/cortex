@@ -29,6 +29,8 @@ fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
     run_test("void", "void", &mut interpreter)?;
     run_test("(5,)", "{ t0:5; }", &mut interpreter)?;
     run_test("(5, true, \"hello\").t0", "5", &mut interpreter)?;
+    run_test("'a'", "'a'", &mut interpreter)?;
+    run_test("'\\n'", "'\n'", &mut interpreter)?;
     Ok(())
 }
 

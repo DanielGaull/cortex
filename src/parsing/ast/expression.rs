@@ -29,6 +29,7 @@ pub enum PExpression {
     Void,
     None,
     String(String),
+    Char(u8),
     PathIdent(PathIdent),
     Call {
         name: FunctionAddress, 
@@ -171,6 +172,9 @@ impl SimpleCodeGen for PExpression {
                 } else {
                     format!("({})", items.iter().map(|i| i.codegen(indent)).collect::<Vec<_>>().join(", "))
                 }
+            },
+            PExpression::Char(c) => {
+                format!("'{}'", *c as char)
             }
         }
     }
@@ -183,7 +187,7 @@ impl PExpression {
             PExpression::Construction { name: _, type_args: _, assignments: _ } |
             PExpression::IfStatement { first: _, conds: _, last: _ } | PExpression::MemberAccess(_, _) |
             PExpression::ListLiteral(_) | PExpression::MemberCall { callee: _, member: _, args: _, type_args: _ } |
-            PExpression::Tuple(_)
+            PExpression::Tuple(_) | PExpression::Char(_)
                 => true,
             
             PExpression::UnaryOperation { op: _, exp: _ } | PExpression::Bang(_) | 

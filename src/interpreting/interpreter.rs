@@ -243,6 +243,7 @@ impl CortexInterpreter {
             RExpression::Boolean(v) => Ok(CortexValue::Boolean(*v)),
             RExpression::Number(v) => Ok(CortexValue::Number(*v)),
             RExpression::String(v) => Ok(CortexValue::String(v.clone())),
+            RExpression::Char(v) => Ok(CortexValue::Char(*v)),
             RExpression::Void => Ok(CortexValue::Void),
             RExpression::None => Ok(CortexValue::None),
             RExpression::Identifier(path) => Ok(self.lookup_value(path)?),

@@ -8,6 +8,7 @@ pub enum RExpression {
     Void,
     None,
     String(String),
+    Char(u8),
     Identifier(String),
     Call(usize, Vec<RExpression>),
     Construction {
