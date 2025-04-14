@@ -118,5 +118,8 @@ fn tuple_statement_tests() -> Result<(), Box<dyn Error>> {
     assert_expression("z", "7", &mut interpreter)?;
     assert_expression("w", "6", &mut interpreter)?;
 
+    run_statement("(x, ~, ~) = (10, 9, 8);", &mut interpreter)?;
+    assert_expression("x", "10", &mut interpreter)?;
+
     Ok(())
 }

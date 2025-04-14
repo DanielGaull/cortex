@@ -6,6 +6,7 @@ use super::{expression::{PConditionBody, PExpression, IdentExpression, OptionalI
 pub enum AssignmentName {
     Single(IdentExpression),
     Tuple(Vec<AssignmentName>),
+    Ignore,
 }
 impl SimpleCodeGen for AssignmentName {
     fn codegen(&self, indent: usize) -> String {
@@ -20,6 +21,7 @@ impl SimpleCodeGen for AssignmentName {
                     format!("({})", items.iter().map(|i| i.codegen(indent)).collect::<Vec<_>>().join(", "))
                 }
             },
+            AssignmentName::Ignore => String::from("~"),
         }
     }
 }

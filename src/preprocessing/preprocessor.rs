@@ -582,6 +582,9 @@ impl CortexPreprocessor {
             AssignmentName::Single(name) => {
                 Ok(self.check_assignment(name, value, &st_str)?)
             },
+            AssignmentName::Ignore => {
+                Ok(self.check_statement(PStatement::Expression(value))?)
+            },
             AssignmentName::Tuple(names) => {
                 let mut result = Vec::new();
                 // We want to save off the initial expression in case it is an expensive calculation

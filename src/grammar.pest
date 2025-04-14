@@ -73,12 +73,13 @@ strchar = {
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 
-optIdentifier = { ident | "~" }
+optIdentifier = { ident | ignoredIdentifier }
+ignoredIdentifier = { "~" }
 ident = ${ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
 pathIdent = { (ident ~ "::")* ~ ident }
 identExpr = { ident ~ ("." ~ ident)* }
 tupleAssign = { "(" ~ assignName ~ "," ~ (assignName ~ ("," ~ assignName)*)? ~ ")" }
-assignName = { tupleAssign | identExpr }
+assignName = { tupleAssign | identExpr | ignoredIdentifier }
 
 typ = { ((basicType | tupleType) ~ "?"?) | refType }
 refType = { ("&mut" | "&") ~ typ }

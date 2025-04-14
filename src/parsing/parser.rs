@@ -319,6 +319,9 @@ impl CortexParser {
                 }
                 Ok(AssignmentName::Tuple(collection))
             },
+            Rule::ignoredIdentifier => {
+                Ok(AssignmentName::Ignore)
+            },
             _ => Err(ParseError::FailStatement(String::from(pair.as_str())))
         }
     }
