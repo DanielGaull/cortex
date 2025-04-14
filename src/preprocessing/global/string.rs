@@ -63,6 +63,164 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("len")), 
+                    vec![
+                    ], 
+                    CortexType::number(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            let bytes = strval.as_bytes();
+                            Ok(CortexValue::Number(bytes.len() as f64))
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("isEmpty")), 
+                    vec![
+                    ], 
+                    CortexType::boolean(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            let bytes = strval.as_bytes();
+                            Ok(CortexValue::Boolean(bytes.len() <= 0))
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("startsWith")), 
+                    vec![
+                        Parameter::named("substring", CortexType::string(false))
+                    ], 
+                    CortexType::boolean(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            if let CortexValue::String(substring) = env.get_value("substring")? {
+                                Ok(CortexValue::Boolean(strval.starts_with(&substring)))
+                            } else {
+                                Err(Box::new(StringError::InvalidArg("substring", "string")))
+                            }
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("endsWith")), 
+                    vec![
+                        Parameter::named("substring", CortexType::string(false))
+                    ], 
+                    CortexType::boolean(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            if let CortexValue::String(substring) = env.get_value("substring")? {
+                                Ok(CortexValue::Boolean(strval.ends_with(&substring)))
+                            } else {
+                                Err(Box::new(StringError::InvalidArg("substring", "string")))
+                            }
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("contains")), 
+                    vec![
+                        Parameter::named("substring", CortexType::string(false))
+                    ], 
+                    CortexType::boolean(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            if let CortexValue::String(substring) = env.get_value("substring")? {
+                                Ok(CortexValue::Boolean(strval.contains(&substring)))
+                            } else {
+                                Err(Box::new(StringError::InvalidArg("substring", "string")))
+                            }
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("indexOf")), 
+                    vec![
+                        Parameter::named("substring", CortexType::string(false))
+                    ], 
+                    CortexType::number(true),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            if let CortexValue::String(substring) = env.get_value("substring")? {
+                                let idx = strval.find(&substring);
+                                if let Some(i) = idx {
+                                    Ok(CortexValue::Number(i as f64))
+                                } else {
+                                    Ok(CortexValue::None)
+                                }
+                            } else {
+                                Err(Box::new(StringError::InvalidArg("substring", "string")))
+                            }
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("trim")), 
+                    vec![
+                    ], 
+                    CortexType::string(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            Ok(CortexValue::String(String::from(strval.trim())))
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("replace")), 
+                    vec![
+                        Parameter::named("from", CortexType::string(false)),
+                        Parameter::named("to", CortexType::string(false))
+                    ], 
+                    CortexType::string(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            if let CortexValue::String(from) = env.get_value("from")? {
+                                if let CortexValue::String(to) = env.get_value("to")? {
+                                    let result = strval.replace(&from, &to);
+                                    Ok(CortexValue::String(result))
+                                } else {
+                                    Err(Box::new(StringError::InvalidArg("to", "string")))
+                                }
+                            } else {
+                                Err(Box::new(StringError::InvalidArg("from", "string")))
+                            }
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
             ],
         })?;
 

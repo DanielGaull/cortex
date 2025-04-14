@@ -94,11 +94,68 @@ fn test_string_index() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn test_string_len() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let str: string = \"hello!\";", &mut interpreter)?;
+    assert("str.len()", "6", &mut interpreter)?;
+    Ok(())
+}
+
+#[allow(non_snake_case)]
+#[test]
+fn test_string_isEmpty() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let str: string = \"hello!\";", &mut interpreter)?;
+    assert("str.isEmpty()", "false", &mut interpreter)?;
+    assert("\"\".isEmpty()", "true", &mut interpreter)?;
+    Ok(())
+}
+
+#[allow(non_snake_case)]
+#[test]
+fn test_string_startsWith_endsWith_contains() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let str: string = \"hello!\";", &mut interpreter)?;
+    assert("str.startsWith(\"he\")", "true", &mut interpreter)?;
+    assert("str.startsWith(\"lo!\")", "false", &mut interpreter)?;
+    assert("str.startsWith(\"nothing\")", "false", &mut interpreter)?;
+
+    assert("str.endsWith(\"he\")", "false", &mut interpreter)?;
+    assert("str.endsWith(\"lo!\")", "true", &mut interpreter)?;
+    assert("str.startsWith(\"nothing\")", "false", &mut interpreter)?;
+    
+    assert("str.contains(\"he\")", "true", &mut interpreter)?;
+    assert("str.contains(\"lo!\")", "true", &mut interpreter)?;
+    assert("str.contains(\"nothing\")", "false", &mut interpreter)?;
+    Ok(())
+}
+
+#[allow(non_snake_case)]
+#[test]
+fn test_string_indexOf() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let str: string = \"hello!\";", &mut interpreter)?;
+    assert("str.indexOf(\"llo\")", "2", &mut interpreter)?;
+    assert("str.indexOf(\"invalid\")", "none", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn test_string_trim_replace() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let str: string = \"  hello  !   \";", &mut interpreter)?;
+    assert("str.trim()", "\"hello  !\"", &mut interpreter)?;
+    assert("str.replace(\"hello\", \"goodbye\")", "\"  goodbye  !   \"", &mut interpreter)?;
+    assert("str.replace(\"l\", \"\")", "\"  heo  !   \"", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
 fn test_string_index_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     run("let str: string = \"hello!\";", &mut interpreter)?;
-    assert_err("str[-2];", StringError::InvalidIndex(-2f64, 5usize), &mut interpreter)?;
-    assert_err("str[4];", StringError::InvalidIndex(4f64, 5usize), &mut interpreter)?;
+    assert_err("str[-2];", StringError::InvalidIndex(-2f64, 6usize), &mut interpreter)?;
+    assert_err("str[10];", StringError::InvalidIndex(10f64, 6usize), &mut interpreter)?;
     Ok(())
 }
 
