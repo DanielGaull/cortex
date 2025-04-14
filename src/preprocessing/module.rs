@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Extension, PFunction, Struct}, r#type::{CortexType, TypeError}};
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Extension, PFunction, Struct}, r#type::CortexType};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -15,24 +15,11 @@ pub enum ModuleError {
 
     #[error("Function \"{0}\" already exists")]
     FunctionAlreadyExists(String),
-    #[error("Function \"{0}\" was not found")]
-    FunctionDoesNotExist(String),
-    #[error("Function \"{0}\" is in use")]
-    FunctionInUse(String),
-
     #[error("Type \"{0}\" already exists")]
     TypeAlreadyExists(String),
-    #[error("Type \"{0}\" does not exist")]
-    TypeDoesNotExist(String),
-
-    #[error("Struct \"{0}\" contains at least one field that references back to itself")]
-    StructContainsCircularFields(String),
-
+    
     #[error("Duplicate type argument name: {0}")]
     DuplicateTypeArgumentName(String),
-
-    #[error("Type Error: {0}")]
-    TypeError(TypeError),
 }
 
 pub struct TypeDefinition {

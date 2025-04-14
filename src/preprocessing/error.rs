@@ -60,4 +60,10 @@ pub enum PreprocessingError {
     AmbiguousExtensionCall(String, String),
     #[error("Cannot access members on optional value: {0} (consider using `!` to assert it is not `none`")]
     CannotAccessMemberOfOptional(String),
+    #[error("Struct \"{0}\" contains at least one field that references back to itself")]
+    StructContainsCircularFields(String),
+    #[error("Type \"{0}\" does not exist")]
+    TypeDoesNotExist(String),
+    #[error("Function \"{0}\" was not found")]
+    FunctionDoesNotExist(String),
 }

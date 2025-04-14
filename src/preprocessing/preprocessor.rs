@@ -210,7 +210,7 @@ impl CortexPreprocessor {
                 } else {
                     let has_loop = self.search_struct_for_loops(&item)?;
                     if has_loop {
-                        Err(Box::new(ModuleError::StructContainsCircularFields(full_path.codegen(0))))
+                        Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))))
                     } else {
                         for func in item.functions {
                             match func.name {
@@ -761,7 +761,7 @@ impl CortexPreprocessor {
                     if let Some(extension_func_path) = attempted_extension_path {
                         actual_func_addr = extension_func_path.clone();
                     } else {
-                        return Err(Box::new(ModuleError::FunctionDoesNotExist(non_extension_func_addr.codegen(0))));
+                        return Err(Box::new(PreprocessingError::FunctionDoesNotExist(non_extension_func_addr.codegen(0))));
                     }
                 }
 
@@ -1308,7 +1308,7 @@ impl CortexPreprocessor {
                     }
                     if !typ.is_core() {
                         // Enqueue all fields of this type
-                        let typ_name = typ.name().map_err(|e| ModuleError::TypeError(e))?;
+                        let typ_name = typ.name()?;
 
                         // It's ok if the struct doesn't exist yet
                         // If it has loops, then they will be caught when we visit this function upon registering it
@@ -1346,7 +1346,7 @@ impl CortexPreprocessor {
         if let Some(sig) = self.function_signature_map.get(&full_path) {
             Ok(sig)
         } else {
-            Err(Box::new(ModuleError::FunctionDoesNotExist(full_path.codegen(0))))
+            Err(Box::new(PreprocessingError::FunctionDoesNotExist(full_path.codegen(0))))
         }
     }
 
@@ -1355,7 +1355,7 @@ impl CortexPreprocessor {
         if let Some(c) = self.type_map.get(&full_path) {
             Ok(c)
         } else {
-            Err(Box::new(ModuleError::TypeDoesNotExist(full_path.codegen(0))))
+            Err(Box::new(PreprocessingError::TypeDoesNotExist(full_path.codegen(0))))
         }
     }
     fn has_type(&self, path: &PathIdent) -> bool {

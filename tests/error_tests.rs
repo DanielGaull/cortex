@@ -36,7 +36,7 @@ fn test_operator_errors() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_function_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("simple::hi();", ModuleError::FunctionDoesNotExist(String::from("simple::hi")), &mut interpreter)?;
+    assert_err("simple::hi();", PreprocessingError::FunctionDoesNotExist(String::from("simple::hi")), &mut interpreter)?;
     assert_err("simple::add(1);", PreprocessingError::MismatchedArgumentCount(String::from("simple::add"), 2, 1), &mut interpreter)?;
     assert_err("simple::add(1, 2, 3);", PreprocessingError::MismatchedArgumentCount(String::from("simple::add"), 2, 3), &mut interpreter)?;
     assert_err("simple::add(1, true);", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("b"), String::from("simple::add(1, true)")), &mut interpreter)?;
@@ -53,12 +53,12 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     assert_err("myTime.z = 2;", PreprocessingError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;
     assert_err("myTime.m = true;", PreprocessingError::MismatchedType(String::from("number"), String::from("bool"), String::from("myTime.m"), String::from("myTime.m = true;")), &mut interpreter)?;
     assert_err("5.foo;", PreprocessingError::CannotAccessMemberOfNonComposite, &mut interpreter)?;
-    assert_err("dneStruct { foo: 5 };", ModuleError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
+    assert_err("dneStruct { foo: 5 };", PreprocessingError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", PreprocessingError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
     assert_err("simple::Time { m: 2, m: 3 };", PreprocessingError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
     interpreter.execute_statement(CortexParser::parse_statement("let box: &simple::IntBox = simple::IntBox { v: 100 };")?)?;
     assert_err("box.v = 7;", PreprocessingError::CannotModifyFieldOnImmutableReference(String::from("simple::IntBox")), &mut interpreter)?;
-    assert_err("5.hello();", ModuleError::FunctionDoesNotExist(String::from("hello (on type number)")), &mut interpreter)?;
+    assert_err("5.hello();", PreprocessingError::FunctionDoesNotExist(String::from("hello (on type number)")), &mut interpreter)?;
     Ok(())
 }
 
@@ -121,13 +121,16 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     assert_err_toplevel("struct s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
     assert_err_toplevel("module myMod{ module m{} module m{} }", ModuleError::ModuleAlreadyExists(String::from("m")), &mut interpreter)?;
 
-    assert_err_toplevel("struct A{a:A}", ModuleError::StructContainsCircularFields(String::from("A")), &mut interpreter)?;
+    assert_err_toplevel("struct A{a:A}", PreprocessingError::StructContainsCircularFields(String::from("A")), &mut interpreter)?;
     // interpreter.run_top_level(CortexParser::parse_top_level("struct B{c:C}")?)?;
     // assert_err_toplevel("struct C{b:B}", ModuleError::StructContainsCircularFields(String::from("C")), &mut interpreter)?;
 
     assert_err_toplevel("bundle s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
     interpreter.run_top_level(CortexParser::parse_top_level("bundle b{}")?)?;
     assert_err_toplevel("struct b{}", ModuleError::TypeAlreadyExists(String::from("b")), &mut interpreter)?;
+
+    // assert_err_toplevel("struct A{a:number,a:number}", PreprocessingError::StructContainsCircularFields(String::from("A")), &mut interpreter)?;
+
     Ok(())
 }
 
