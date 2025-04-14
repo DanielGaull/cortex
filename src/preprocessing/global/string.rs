@@ -224,6 +224,73 @@ impl CortexPreprocessor {
             ],
         })?;
 
+        global.add_extension(Extension {
+            name: PathIdent::simple(String::from("char")),
+            type_param_names: vec![],
+            functions: vec![
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("isAlpha")), 
+                    vec![], 
+                    CortexType::boolean(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::Char(ch) = env.get_value("this")? {
+                            let c = ch as char;
+                            Ok(CortexValue::Boolean(c.is_alphabetic()))
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "char")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("isDigit")), 
+                    vec![], 
+                    CortexType::boolean(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::Char(ch) = env.get_value("this")? {
+                            let c = ch as char;
+                            Ok(CortexValue::Boolean(c.is_digit(10)))
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "char")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("isWhitespace")), 
+                    vec![], 
+                    CortexType::boolean(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::Char(ch) = env.get_value("this")? {
+                            let c = ch as char;
+                            Ok(CortexValue::Boolean(c.is_whitespace()))
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "char")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("isAlphanumeric")), 
+                    vec![], 
+                    CortexType::boolean(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::Char(ch) = env.get_value("this")? {
+                            let c = ch as char;
+                            Ok(CortexValue::Boolean(c.is_alphanumeric()))
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "char")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+            ],
+        })?;
+
         Ok(())
     }
 }

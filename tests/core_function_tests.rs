@@ -159,6 +159,27 @@ fn test_string_index_errors() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn test_char_conditions() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let (ch1, ch2, ch3) = (\"h\"[0], \"1\"[0], \" \"[0]);", &mut interpreter)?;
+    assert("ch1.isAlpha()", "true", &mut interpreter)?;
+    assert("ch1.isDigit()", "false", &mut interpreter)?;
+    assert("ch1.isWhitespace()", "false", &mut interpreter)?;
+    assert("ch1.isAlphanumeric()", "true", &mut interpreter)?;
+
+    assert("ch2.isAlpha()", "false", &mut interpreter)?;
+    assert("ch2.isDigit()", "true", &mut interpreter)?;
+    assert("ch2.isWhitespace()", "false", &mut interpreter)?;
+    assert("ch2.isAlphanumeric()", "true", &mut interpreter)?;
+
+    assert("ch3.isAlpha()", "false", &mut interpreter)?;
+    assert("ch3.isDigit()", "false", &mut interpreter)?;
+    assert("ch3.isWhitespace()", "true", &mut interpreter)?;
+    assert("ch3.isAlphanumeric()", "false", &mut interpreter)?;
+    Ok(())
+}
+
 fn assert(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
     let value = interpreter.execute_expression(ast)?;
