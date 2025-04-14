@@ -318,6 +318,44 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("substring")), 
+                    vec![
+                        Parameter::named("range", CortexType::range(false)),
+                    ], 
+                    CortexType::string(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            if let CortexValue::Composite { field_values } = env.get_value("range")? {
+                                let startv = field_values.get(&String::from("start")).unwrap().borrow().clone();
+                                let endv = field_values.get(&String::from("end")).unwrap().borrow().clone();
+                                let stepv = field_values.get(&String::from("step")).unwrap().borrow().clone();
+                                let start = some_or(startv, 0usize, strval.len())?;
+                                let end = some_or(endv, strval.len(), strval.len())?;
+                                let step = some_or(stepv, 1usize, strval.len())?;
+                                if start > strval.len() {
+                                    return Err(Box::new(RuntimeError::InvalidIndex(start as f64, strval.len())));
+                                }
+                                if end > strval.len() {
+                                    return Err(Box::new(RuntimeError::InvalidIndex(end as f64, strval.len())));
+                                }
+                                
+                                if step == 1 {
+                                    let substring = &strval[start..end];
+                                    Ok(CortexValue::String(String::from(substring)))
+                                } else {
+                                    Err(Box::new(RuntimeError::InvalidArg("range", "range (step == 1)")))
+                                }
+                            } else {
+                                Err(Box::new(RuntimeError::InvalidArg("range", "range")))
+                            }
+                        } else {
+                            Err(Box::new(RuntimeError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
             ],
         })?;
 
@@ -473,5 +511,17 @@ fn pad_end(s: &str, width: usize, pad_char: char) -> String {
         s.to_string()
     } else {
         s.to_string() + &pad_char.to_string().repeat(width - len)
+    }
+}
+
+fn some_or(v: CortexValue, other: usize, max: usize) -> Result<usize, Box<dyn Error>> {
+    if let CortexValue::Number(n) = v {
+        if let Some(v) = f64_to_usize(n) {
+            Ok(v)
+        } else {
+            Err(Box::new(RuntimeError::InvalidIndex(n, max)))
+        }
+    } else {
+        Ok(other)
     }
 }

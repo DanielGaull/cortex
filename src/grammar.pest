@@ -64,6 +64,7 @@ unOp = _{ negate | invert }
 unOpAtom = { unOp ~ expr }
 
 // Literals/Primitives
+int = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ }
 number = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ ~ ("." ~ (ASCII_DIGIT)+)? }
 boolean = { "true" | "false" }
 none = { "none" }
@@ -71,7 +72,7 @@ void = { "void" }
 listLiteral = { "[" ~ exprList ~ "]" }
 tuple = { "(" ~ expr ~ "," ~ expr? ~ ("," ~ expr)* ~ ")" }
 
-rangeVal = { number | "" }
+rangeVal = { int | "" }
 range = { rangeVal ~ ":" ~ rangeVal ~ (":" ~ rangeVal)? }
 
 char = @{ "\'" ~ charinner ~ "\'" }

@@ -557,7 +557,7 @@ impl CortexParser {
                     let p = pair.into_inner().next();
                     if let Some(p) = p {
                         match p.as_rule() {
-                            Rule::number => Some(p.as_str().parse().unwrap()),
+                            Rule::int => Some(p.as_str().parse().unwrap()),
                             _ => None,
                         }
                     } else {

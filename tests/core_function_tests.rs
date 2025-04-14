@@ -268,6 +268,19 @@ fn test_range_basic() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn test_substring() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    assert("\"hello world\".substring(0:5)", "\"hello\"", &mut interpreter)?;
+    assert("\"hello world\".substring(6:11)", "\"world\"", &mut interpreter)?;
+    assert("\"test\".substring(:)", "\"test\"", &mut interpreter)?;
+    assert("\"abcdef\".substring(2:)", "\"cdef\"", &mut interpreter)?;
+    assert("\"abc\".substring(1:1)", "\"\"", &mut interpreter)?;
+    assert("\"abc\".substring(3:)", "\"\"", &mut interpreter)?;
+    assert("\"abcdef\".substring(:3)", "\"abc\"", &mut interpreter)?;
+    Ok(())
+}
+
 fn assert(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
     let value = interpreter.execute_expression(ast)?;
