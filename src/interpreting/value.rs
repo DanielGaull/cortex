@@ -21,6 +21,7 @@ pub enum CortexValue {
     Number(f64),
     Boolean(bool),
     String(String),
+    Char(u8),
     Void,
     None,
     Composite {
@@ -59,6 +60,7 @@ impl Display for CortexValue {
                 }
                 write!(f, "]")
             },
+            CortexValue::Char(v) => write!(f, "\'{}\'", *v as char),
         }
     }
 }
@@ -73,6 +75,7 @@ impl CortexValue {
             CortexValue::Composite { field_values: _ } => "composite",
             CortexValue::Reference(_) => "pointer",
             CortexValue::List(_) => "list",
+            CortexValue::Char(_) => "char",
         }
     }
 

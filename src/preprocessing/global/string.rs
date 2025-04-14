@@ -43,5 +43,6 @@ fn to_string(val: CortexValue, heap: &Heap) -> String {
         CortexValue::List(items) => {
             format!("[{}]", items.iter().map(|i| to_string(i.clone(), heap)).collect::<Vec<_>>().join(", "))
         },
+        CortexValue::Char(c) => (c as char).to_string(),
     }
 }

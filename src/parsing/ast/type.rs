@@ -119,6 +119,9 @@ impl CortexType {
     pub fn list(typ: CortexType, optional: bool) -> Self {
         Self::basic(PathIdent::simple(String::from("list")), optional, vec![typ])
     }
+    pub fn char(optional: bool) -> Self {
+        Self::simple("char", optional)
+    }
     pub fn with_prefix(&self, path: &PathIdent) -> Self {
         match self {
             CortexType::BasicType(b) => {
@@ -208,7 +211,7 @@ impl CortexType {
         match self {
             CortexType::BasicType(b) => {
                 b.name.is_final() && 
-                    matches!(b.name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "none" | "list")
+                    matches!(b.name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "none" | "list" | "char")
             },
             CortexType::RefType(r) => {
                 r.contained.is_core()
@@ -221,7 +224,7 @@ impl CortexType {
         match self {
             CortexType::BasicType(b) => {
                 b.name.is_final() && 
-                    matches!(b.name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "none")
+                    matches!(b.name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "none" | "char")
             },
             CortexType::RefType(r) => {
                 r.contained.is_non_composite()
