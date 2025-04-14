@@ -586,11 +586,14 @@ impl CortexPreprocessor {
                 let mut result = Vec::new();
                 // We want to save off the initial expression in case it is an expensive calculation
                 let temp_name = self.next_temp();
-                result.push(RStatement::VariableDeclaration { 
-                    name: temp_name.clone(), 
-                    is_const: true, 
-                    initial_value: self.check_exp(value)?.0,
-                });
+                // We need to run through this so that the preprocessor registers that the temp var was created
+                let var_dec = self.check_statement(PStatement::VariableDeclaration {
+                    name: OptionalIdentifier::Ident(temp_name.clone()),
+                    is_const: true,
+                    typ: None,
+                    initial_value: value,
+                })?;
+                result.extend(var_dec);
                 let temp_expr = PExpression::PathIdent(PathIdent::simple(temp_name));
                 for (i, name) in names.into_iter().enumerate() {
                     let new_value = PExpression::MemberAccess(Box::new(temp_expr.clone()), format!("t{}", i));

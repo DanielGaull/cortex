@@ -278,6 +278,18 @@ impl CortexParser {
                     }
                 ))
             },
+            Rule::tupleVarAssign => {
+                let mut pairs = pair.into_inner();
+                let left_pair = pairs.next().unwrap();
+                let right_pair = pairs.next().unwrap();
+                let left = Self::parse_assignment_name(left_pair)?;
+                let right = Self::parse_expr_pair(right_pair)?;
+
+                Ok(PStatement::Assignment {
+                    name: left,
+                    value: right,
+                })
+            },
             Rule::r#while => {
                 let mut pairs = pair.into_inner();
                 let cond = Self::parse_expr_pair(pairs.next().unwrap())?;
@@ -291,6 +303,23 @@ impl CortexParser {
                 Ok(PStatement::Continue)
             },
             _ => Err(ParseError::FailStatement(String::from(pair.as_str()))),
+        }
+    }
+
+    fn parse_assignment_name(pair: Pair<Rule>) -> Result<AssignmentName, ParseError> {
+        match pair.as_rule() {
+            Rule::identExpr => {
+                Ok(AssignmentName::Single(Self::parse_ident_expr(pair)?))
+            },
+            Rule::tupleAssign => {
+                let pairs = pair.into_inner();
+                let mut collection = Vec::new();
+                for p in pairs {
+                    collection.push(Self::parse_assignment_name(p.into_inner().next().unwrap())?);
+                }
+                Ok(AssignmentName::Tuple(collection))
+            },
+            _ => Err(ParseError::FailStatement(String::from(pair.as_str())))
         }
     }
 

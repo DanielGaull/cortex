@@ -166,7 +166,11 @@ impl SimpleCodeGen for PExpression {
                 }
             },
             PExpression::Tuple(items) => {
-                format!("({})", items.iter().map(|i| i.codegen(indent)).collect::<Vec<_>>().join(", "))
+                if items.len() == 1 {
+                    format!("({},)", items.get(0).unwrap().codegen(indent))
+                } else {
+                    format!("({})", items.iter().map(|i| i.codegen(indent)).collect::<Vec<_>>().join(", "))
+                }
             }
         }
     }

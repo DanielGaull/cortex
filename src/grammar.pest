@@ -13,7 +13,7 @@ bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramLi
 extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
 
 // Statements
-statementNeedingSemicolon = _{ (throw | break | continue | varDec | indexVarAssign | varAssign | expr) }
+statementNeedingSemicolon = _{ (throw | break | continue | varDec | indexVarAssign | tupleVarAssign | varAssign | expr) }
 statement = { (statementNeedingSemicolon ~ ";") | while }
 
 throw = { "throw" ~ expr }
@@ -22,6 +22,7 @@ continue = { "continue" }
 
 varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
 varAssign = { identExpr ~ arithLogicBinOp? ~ "=" ~ expr }
+tupleVarAssign = { tupleAssign ~ "=" ~ expr }
 indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ expr }
 
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
@@ -76,6 +77,8 @@ optIdentifier = { ident | "~" }
 ident = ${ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
 pathIdent = { (ident ~ "::")* ~ ident }
 identExpr = { ident ~ ("." ~ ident)* }
+tupleAssign = { "(" ~ assignName ~ "," ~ (assignName ~ ("," ~ assignName)*)? ~ ")" }
+assignName = { tupleAssign | identExpr }
 
 typ = { ((basicType | tupleType) ~ "?"?) | refType }
 refType = { ("&mut" | "&") ~ typ }

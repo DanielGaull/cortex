@@ -99,3 +99,24 @@ fn statement_tests() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn tuple_statement_tests() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+
+    run_statement("let x = 0;", &mut interpreter)?;
+    run_statement("let y = 0;", &mut interpreter)?;
+    run_statement("(x, y) = (5, 3);", &mut interpreter)?;
+    assert_expression("x", "5", &mut interpreter)?;
+    assert_expression("y", "3", &mut interpreter)?;
+
+    run_statement("let z = 0;", &mut interpreter)?;
+    run_statement("let w = 0;", &mut interpreter)?;
+    run_statement("((x, y), z, ((w,),)) = ((1, 2), 7, ((6,),));", &mut interpreter)?;
+    assert_expression("x", "1", &mut interpreter)?;
+    assert_expression("y", "2", &mut interpreter)?;
+    assert_expression("z", "7", &mut interpreter)?;
+    assert_expression("w", "6", &mut interpreter)?;
+
+    Ok(())
+}
