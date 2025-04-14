@@ -183,6 +183,14 @@ fn test_string_repeat() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn test_string_split() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let str: string = \"foo,bar,baz\";", &mut interpreter)?;
+    assert("toString(str.split(\",\"))", "\"&([foo, bar, baz])\"", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
 fn test_string_index_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     run("let str: string = \"hello!\";", &mut interpreter)?;

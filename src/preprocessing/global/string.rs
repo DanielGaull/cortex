@@ -315,6 +315,29 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("split")), 
+                    vec![
+                        Parameter::named("delimiter", CortexType::string(false)),
+                    ], 
+                    CortexType::reference(CortexType::list(CortexType::string(false), false), false),
+                    Body::Native(Box::new(move |env, heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            if let CortexValue::String(delimiter) = env.get_value("delimiter")? {
+                                let split: Vec<&str> = strval.split(&delimiter).collect();
+                                let split_list = CortexValue::List(split.into_iter().map(|s| CortexValue::String(String::from(s))).collect());
+                                let addr = heap.allocate(split_list);
+                                Ok(CortexValue::Reference(addr))
+                            } else {
+                                Err(Box::new(StringError::InvalidArg("times", "number")))
+                            }
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
             ],
         })?;
 
