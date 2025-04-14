@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::parser::CortexParser, preprocessing::global::{list::ListError, string::StringError}};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::parser::CortexParser, preprocessing::global::runtime_error::RuntimeError};
 
 #[test]
 fn test_list_get_set() -> Result<(), Box<dyn Error>> {
@@ -75,8 +75,8 @@ fn test_list_add_insert_remove() -> Result<(), Box<dyn Error>> {
 fn test_list_index_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     run("let myList: &list<number> = [1, 2, 3];", &mut interpreter)?;
-    assert_err("myList[-2];", ListError::InvalidIndex(-2f64, 3usize), &mut interpreter)?;
-    assert_err("myList[4];", ListError::InvalidIndex(4f64, 3usize), &mut interpreter)?;
+    assert_err("myList[-2];", RuntimeError::InvalidIndex(-2f64, 3usize), &mut interpreter)?;
+    assert_err("myList[4];", RuntimeError::InvalidIndex(4f64, 3usize), &mut interpreter)?;
     Ok(())
 }
 
@@ -194,10 +194,10 @@ fn test_string_split() -> Result<(), Box<dyn Error>> {
 fn test_string_index_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     run("let str: string = \"hello!\";", &mut interpreter)?;
-    assert_err("str[-2];", StringError::InvalidIndex(-2f64, 6usize), &mut interpreter)?;
-    assert_err("str[10];", StringError::InvalidIndex(10f64, 6usize), &mut interpreter)?;
+    assert_err("str[-2];", RuntimeError::InvalidIndex(-2f64, 6usize), &mut interpreter)?;
+    assert_err("str[10];", RuntimeError::InvalidIndex(10f64, 6usize), &mut interpreter)?;
 
-    assert_err("str.repeat(-1);", StringError::ExpectedInteger(-1f64), &mut interpreter)?;
+    assert_err("str.repeat(-1);", RuntimeError::ExpectedInteger(-1f64), &mut interpreter)?;
     Ok(())
 }
 
