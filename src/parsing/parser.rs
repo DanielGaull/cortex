@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::CortexType};
+use super::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -15,7 +15,7 @@ struct PestCortexParser;
 
 pub struct CortexParser;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ParseError {
     #[error("Failed to parse statement '{0}'")]
     FailStatement(String),
@@ -39,8 +39,11 @@ pub enum ParseError {
     FailProgram,
     #[error("Failed to parse {0}: {1}")]
     ParseFailure(String, String),
+
     #[error("Invalid this-arg: {0}")]
     InvalidThisArg(String),
+    #[error("Composite {0} contains multiple fields named \"{1}\"")]
+    CompositeContainsDuplicateFields(String, String),
 }
 
 impl CortexParser {
@@ -725,6 +728,9 @@ impl CortexParser {
 
         let mut fields = HashMap::new();
         for p in field_params {
+            if fields.contains_key(&p.name) {
+                return Err(ParseError::CompositeContainsDuplicateFields(name.codegen(0), p.name.clone()));
+            }
             fields.insert(p.name, p.typ);
         }
         
@@ -756,6 +762,9 @@ impl CortexParser {
 
         let mut fields = HashMap::new();
         for p in field_params {
+            if fields.contains_key(&p.name) {
+                return Err(ParseError::CompositeContainsDuplicateFields(name.codegen(0), p.name.clone()));
+            }
             fields.insert(p.name, p.typ);
         }
         

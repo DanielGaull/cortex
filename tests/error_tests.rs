@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{PExpression, OptionalIdentifier, Parameter}, top_level::{BasicBody, Body, Bundle, PFunction, Struct}, r#type::CortexType}, parser::CortexParser}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
+use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter}, top_level::{BasicBody, Body, Bundle, PFunction, Struct}, r#type::CortexType}, parser::{CortexParser, ParseError}}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -129,7 +129,7 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     interpreter.run_top_level(CortexParser::parse_top_level("bundle b{}")?)?;
     assert_err_toplevel("struct b{}", ModuleError::TypeAlreadyExists(String::from("b")), &mut interpreter)?;
 
-    // assert_err_toplevel("struct A{a:number,a:number}", PreprocessingError::StructContainsCircularFields(String::from("A")), &mut interpreter)?;
+    assert_err_equal(CortexParser::parse_top_level("struct A{a:number, a:number}").map_err(|e| Box::new(e) as Box<dyn Error>), ParseError::CompositeContainsDuplicateFields(String::from("A"), String::from("a")))?;
 
     Ok(())
 }
@@ -168,6 +168,15 @@ fn assert_err_toplevel<T: Error + PartialEq + 'static>(statement: &str, flavor: 
         Ok(())
     } else {
         panic!("Statement did not result in an error: {}", statement);
+    }
+}
+fn assert_err_equal<T: Error + PartialEq + 'static, S>(result: Result<S, Box<dyn Error>>, flavor: T) -> Result<(), Box<dyn Error>> {
+    if let Err(e) = result {
+        let error = *e.downcast::<T>().expect("Expected provided error type");
+        assert_eq!(flavor, error);
+        Ok(())
+    } else {
+        panic!("Result did not result in an error");
     }
 }
 

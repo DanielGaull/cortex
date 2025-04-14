@@ -17,7 +17,7 @@ pub enum ModuleError {
     FunctionAlreadyExists(String),
     #[error("Type \"{0}\" already exists")]
     TypeAlreadyExists(String),
-    
+
     #[error("Duplicate type argument name: {0}")]
     DuplicateTypeArgumentName(String),
 }
