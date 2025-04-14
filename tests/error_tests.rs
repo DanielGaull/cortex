@@ -89,6 +89,14 @@ fn test_conditional_errors() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn test_tuple_var_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+    assert_err("let (x, y): number = (1, 2);", PreprocessingError::MismatchedType(String::from("number"), String::from("(number, number)"), String::from("$temp0"), String::from("const $temp0: number = (1, 2);")), &mut interpreter)?;
+    assert_err("let (x, y): (bool, bool) = (1, 2);", PreprocessingError::MismatchedType(String::from("(bool, bool)"), String::from("(number, number)"), String::from("$temp1"), String::from("const $temp1: (bool, bool) = (1, 2);")), &mut interpreter)?;
+    Ok(())
+}
+
 fn assert_err<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let parsed = CortexParser::parse_statement(statement)?;
     let evaled = interpreter.execute_statement(parsed);

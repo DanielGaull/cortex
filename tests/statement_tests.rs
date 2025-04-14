@@ -101,7 +101,7 @@ fn statement_tests() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn tuple_statement_tests() -> Result<(), Box<dyn Error>> {
+fn tuple_assign_tests() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
 
     run_statement("let x = 0;", &mut interpreter)?;
@@ -120,6 +120,25 @@ fn tuple_statement_tests() -> Result<(), Box<dyn Error>> {
 
     run_statement("(x, ~, ~) = (10, 9, 8);", &mut interpreter)?;
     assert_expression("x", "10", &mut interpreter)?;
+
+    Ok(())
+}
+
+#[test]
+fn tuple_declaration_tests() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+
+    run_statement("let (x, y) = (3, 5);", &mut interpreter)?;
+    assert_expression("x", "3", &mut interpreter)?;
+    assert_expression("y", "5", &mut interpreter)?;
+
+    run_statement("let (tx, ty, tz): (number, number, number) = (1, 2, 3);", &mut interpreter)?;
+    assert_expression("tx", "1", &mut interpreter)?;
+    assert_expression("ty", "2", &mut interpreter)?;
+    assert_expression("tz", "3", &mut interpreter)?;
+
+    run_statement("let (a, ~, ~) = (10, 9, 8);", &mut interpreter)?;
+    assert_expression("a", "10", &mut interpreter)?;
 
     Ok(())
 }
