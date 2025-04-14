@@ -1,2 +1,2 @@
 pub mod list;
-mod string;
+pub mod string;
