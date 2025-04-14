@@ -13,14 +13,20 @@ bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramLi
 extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
 
 // Statements
-statementNeedingSemicolon = _{ (throw | break | continue | varDec | indexVarAssign | tupleVarAssign | varAssign | expr) }
+statementNeedingSemicolon = _{ (throw | break | continue | tupleVarDec | varDec | indexVarAssign | tupleVarAssign | varAssign | expr) }
 statement = { (statementNeedingSemicolon ~ ";") | while }
 
 throw = { "throw" ~ expr }
 break = { "break" }
 continue = { "continue" }
 
-varDec = { ("let" | "const") ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
+let = { "let" }
+const = { "const" }
+varDec = { (let | const) ~ optIdentifier ~ (":" ~ typ)? ~ "=" ~ expr }
+tupleVarDec = { (let | const) ~ tupleVarDecName ~ (":" ~ typ)? ~ "=" ~ expr }
+tupleVarDecName = { "(" ~ varDecName ~ "," ~ (varDecName ~ ("," ~ varDecName)*)? ~ ")" }
+varDecName = { tupleVarDecName | optIdentifier }
+
 varAssign = { identExpr ~ arithLogicBinOp? ~ "=" ~ expr }
 tupleVarAssign = { tupleAssign ~ "=" ~ expr }
 indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ expr }

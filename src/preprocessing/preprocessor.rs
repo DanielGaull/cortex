@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, FunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, FunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -441,37 +441,7 @@ impl CortexPreprocessor {
                 Ok(vec![RStatement::Throw(exp)])
             },
             PStatement::VariableDeclaration { name, is_const, typ, initial_value } => {
-                match name {
-                    OptionalIdentifier::Ident(ident) => {
-                        let (assigned_exp, assigned_type) = self.check_exp(initial_value)?;
-                        let type_of_var = if let Some(mut declared_type) = typ {
-                            declared_type = self.clean_type(declared_type.with_prefix_if_not_core(&self.current_context));
-                            if !assigned_type.is_subtype_of(&declared_type) {
-                                return Err(
-                                    Box::new(
-                                        PreprocessingError::MismatchedType(
-                                            declared_type.codegen(0),
-                                            assigned_type.codegen(0),
-                                            ident.clone(),
-                                            st_str,
-                                        )
-                                    )
-                                );
-                            }
-                            declared_type.clone()
-                        } else {
-                            assigned_type
-                        };
-
-                        self.current_env.as_mut().unwrap().add(ident.clone(), type_of_var, is_const)?;
-
-                        Ok(vec![RStatement::VariableDeclaration { name: ident, is_const: is_const, initial_value: assigned_exp }])
-                    },
-                    OptionalIdentifier::Ignore => {
-                        let (exp, _) = self.check_exp(initial_value)?;
-                        Ok(vec![RStatement::Expression(exp)])
-                    },
-                }
+                Ok(self.check_declaration_recursive(name, typ, is_const, initial_value, &st_str)?)
             },
             PStatement::Assignment { name, value } => {
                 Ok(self.check_assignment_recursive(name, value, &st_str)?)
@@ -517,6 +487,66 @@ impl CortexPreprocessor {
                 } else {
                     Ok(vec![RStatement::Continue])
                 }
+            },
+        }
+    }
+
+    fn check_declaration(&mut self, name: OptionalIdentifier, typ: Option<CortexType>, is_const: bool, initial_value: PExpression, st_str: &String) -> Result<Vec<RStatement>, CortexError> {
+        match name {
+            OptionalIdentifier::Ident(ident) => {
+                let (assigned_exp, assigned_type) = self.check_exp(initial_value)?;
+                let type_of_var = if let Some(mut declared_type) = typ {
+                    declared_type = self.clean_type(declared_type.with_prefix_if_not_core(&self.current_context));
+                    if !assigned_type.is_subtype_of(&declared_type) {
+                        return Err(
+                            Box::new(
+                                PreprocessingError::MismatchedType(
+                                    declared_type.codegen(0),
+                                    assigned_type.codegen(0),
+                                    ident.clone(),
+                                    st_str.clone(),
+                                )
+                            )
+                        );
+                    }
+                    declared_type.clone()
+                } else {
+                    assigned_type
+                };
+
+                self.current_env.as_mut().unwrap().add(ident.clone(), type_of_var, is_const)?;
+
+                Ok(vec![RStatement::VariableDeclaration { name: ident, is_const: is_const, initial_value: assigned_exp }])
+            },
+            OptionalIdentifier::Ignore => {
+                let (exp, _) = self.check_exp(initial_value)?;
+                Ok(vec![RStatement::Expression(exp)])
+            },
+        }
+    }
+    fn check_declaration_recursive(&mut self, name: DeclarationName, typ: Option<CortexType>, is_const: bool, initial_value: PExpression, st_str: &String) -> Result<Vec<RStatement>, CortexError> {
+        match name {
+            DeclarationName::Single(name) => {
+                Ok(self.check_declaration(name, typ, is_const, initial_value, &st_str)?)
+            },
+            DeclarationName::Tuple(names) => {
+                let mut result = Vec::new();
+                // We want to save off the initial expression in case it is an expensive calculation
+                let temp_name = self.next_temp();
+                // We need to run through this so that the preprocessor registers that the temp var was created
+                let var_dec = self.check_statement(PStatement::VariableDeclaration {
+                    name: DeclarationName::Single(OptionalIdentifier::Ident(temp_name.clone())),
+                    is_const: true,
+                    typ,
+                    initial_value,
+                })?;
+                result.extend(var_dec);
+                let temp_expr = PExpression::PathIdent(PathIdent::simple(temp_name));
+                for (i, name) in names.into_iter().enumerate() {
+                    let new_value = PExpression::MemberAccess(Box::new(temp_expr.clone()), format!("t{}", i));
+                    result.extend(self.check_declaration_recursive(name, None, is_const, new_value, &st_str)?);
+                }
+                Ok(result)
             },
         }
     }
@@ -591,7 +621,7 @@ impl CortexPreprocessor {
                 let temp_name = self.next_temp();
                 // We need to run through this so that the preprocessor registers that the temp var was created
                 let var_dec = self.check_statement(PStatement::VariableDeclaration {
-                    name: OptionalIdentifier::Ident(temp_name.clone()),
+                    name: DeclarationName::Single(OptionalIdentifier::Ident(temp_name.clone())),
                     is_const: true,
                     typ: None,
                     initial_value: value,

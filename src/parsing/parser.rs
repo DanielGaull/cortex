@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::CortexType};
+use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::CortexType};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -192,8 +192,14 @@ impl CortexParser {
                 Ok(PStatement::Throw(expression))
             },
             Rule::varDec => {
-                let is_const = pair.as_str().starts_with("const");
                 let mut pairs = pair.into_inner();
+                let is_const = match pairs.next().unwrap().as_rule() {
+                    Rule::r#let => false,
+                    Rule::r#const => true,
+                    _ => {
+                        return Err(ParseError::FailStatement(String::from(orig)));
+                    }
+                };
                 let name = Self::parse_opt_ident(pairs.next().unwrap())?;
                 let third_pair = pairs.next().unwrap();
                 let mut typ: Option<CortexType> = None;
@@ -205,9 +211,36 @@ impl CortexParser {
                         Self::parse_expr_pair(third_pair)?
                     };
                 Ok(PStatement::VariableDeclaration { 
-                    name: name,
+                    name: DeclarationName::Single(name),
                     is_const: is_const,
                     typ: typ,
+                    initial_value: init_value,
+                })
+            },
+            Rule::tupleVarDec => {
+                let mut pairs = pair.into_inner();
+                let is_const = match pairs.next().unwrap().as_rule() {
+                    Rule::r#let => false,
+                    Rule::r#const => true,
+                    _ => {
+                        return Err(ParseError::FailStatement(String::from(orig)));
+                    }
+                };
+                let name = Self::parse_declaration_name(pairs.next().unwrap())?;
+                let third_pair = pairs.next().unwrap();
+                let mut typ: Option<CortexType> = None;
+                let init_value = 
+                    if third_pair.as_rule() == Rule::typ {
+                        typ = Some(Self::parse_type_pair(third_pair)?);
+                        Self::parse_expr_pair(pairs.next().unwrap())?
+                    } else {
+                        Self::parse_expr_pair(third_pair)?
+                    };
+
+                Ok(PStatement::VariableDeclaration { 
+                    name,
+                    is_const,
+                    typ,
                     initial_value: init_value,
                 })
             },
@@ -321,6 +354,22 @@ impl CortexParser {
             },
             Rule::ignoredIdentifier => {
                 Ok(AssignmentName::Ignore)
+            },
+            _ => Err(ParseError::FailStatement(String::from(pair.as_str())))
+        }
+    }
+    fn parse_declaration_name(pair: Pair<Rule>) -> Result<DeclarationName, ParseError> {
+        match pair.as_rule() {
+            Rule::optIdentifier => {
+                Ok(DeclarationName::Single(Self::parse_opt_ident(pair)?))
+            },
+            Rule::tupleVarDecName => {
+                let pairs = pair.into_inner();
+                let mut collection = Vec::new();
+                for p in pairs {
+                    collection.push(Self::parse_declaration_name(p.into_inner().next().unwrap())?);
+                }
+                Ok(DeclarationName::Tuple(collection))
             },
             _ => Err(ParseError::FailStatement(String::from(pair.as_str())))
         }

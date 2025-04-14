@@ -27,11 +27,33 @@ impl SimpleCodeGen for AssignmentName {
 }
 
 #[derive(Clone)]
+pub enum DeclarationName {
+    Single(OptionalIdentifier),
+    Tuple(Vec<DeclarationName>),
+}
+impl SimpleCodeGen for DeclarationName {
+    fn codegen(&self, indent: usize) -> String {
+        match self {
+            DeclarationName::Single(elem) => {
+                elem.codegen(indent)
+            },
+            DeclarationName::Tuple(items) => {
+                if items.len() == 1 {
+                    format!("({},)", items.get(0).unwrap().codegen(indent))
+                } else {
+                    format!("({})", items.iter().map(|i| i.codegen(indent)).collect::<Vec<_>>().join(", "))
+                }
+            },
+        }
+    }
+}
+
+#[derive(Clone)]
 pub enum PStatement {
     Expression(PExpression),
     Throw(PExpression),
     VariableDeclaration {
-        name: OptionalIdentifier,
+        name: DeclarationName,
         is_const: bool,
         typ: Option<CortexType>,
         initial_value: PExpression,
