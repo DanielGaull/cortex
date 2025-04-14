@@ -151,11 +151,45 @@ fn test_string_trim_replace() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn test_string_reverse() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let str: string = \"hello!\";", &mut interpreter)?;
+    assert("str.reverse()", "\"!olleh\"", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn test_string_padding() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let str: string = \"foo\";", &mut interpreter)?;
+    assert("str.padStart(5, ' ')", "\"  foo\"", &mut interpreter)?;
+    assert("str.padStart(3, ' ')", "\"foo\"", &mut interpreter)?;
+    assert("str.padStart(1, ' ')", "\"foo\"", &mut interpreter)?;
+
+    assert("str.padEnd(5, ' ')", "\"foo  \"", &mut interpreter)?;
+    assert("str.padEnd(3, ' ')", "\"foo\"", &mut interpreter)?;
+    assert("str.padEnd(1, ' ')", "\"foo\"", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn test_string_repeat() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let str: string = \"foo\";", &mut interpreter)?;
+    assert("str.repeat(5)", "\"foofoofoofoofoo\"", &mut interpreter)?;
+    assert("str.repeat(1)", "\"foo\"", &mut interpreter)?;
+    assert("str.repeat(0)", "\"\"", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
 fn test_string_index_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     run("let str: string = \"hello!\";", &mut interpreter)?;
     assert_err("str[-2];", StringError::InvalidIndex(-2f64, 6usize), &mut interpreter)?;
     assert_err("str[10];", StringError::InvalidIndex(10f64, 6usize), &mut interpreter)?;
+
+    assert_err("str.repeat(-1);", StringError::ExpectedInteger(-1f64), &mut interpreter)?;
     Ok(())
 }
 
@@ -177,6 +211,21 @@ fn test_char_conditions() -> Result<(), Box<dyn Error>> {
     assert("ch3.isDigit()", "false", &mut interpreter)?;
     assert("ch3.isWhitespace()", "true", &mut interpreter)?;
     assert("ch3.isAlphanumeric()", "false", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn test_char_upper_lower() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    run("let (ch1, ch2, ch3) = (\'h\', \'A\', \' \');", &mut interpreter)?;
+    assert("ch1.toUpper()", "'H'", &mut interpreter)?;
+    assert("ch1.toLower()", "'h'", &mut interpreter)?;
+
+    assert("ch2.toUpper()", "'A'", &mut interpreter)?;
+    assert("ch2.toLower()", "'a'", &mut interpreter)?;
+
+    assert("ch3.toUpper()", "' '", &mut interpreter)?;
+    assert("ch3.toLower()", "' '", &mut interpreter)?;
     Ok(())
 }
 

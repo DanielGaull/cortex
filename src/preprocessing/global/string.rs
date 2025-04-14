@@ -10,12 +10,15 @@ pub enum StringError {
     InvalidArg(&'static str, &'static str),
     #[error("Invalid index {0} for string of length {1}")]
     InvalidIndex(f64, usize),
+    #[error("Expected arg {0} to be a non-negative integer")]
+    ExpectedInteger(f64),
 }
 impl PartialEq for StringError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::InvalidArg(l0, l1), Self::InvalidArg(r0, r1)) => *l0 == *r0 && *l1 == *r1,
             (Self::InvalidIndex(l0, l1), Self::InvalidIndex(r0, r1)) => (*l0 - *r0).abs() < f64::EPSILON && *l1 == *r1,
+            (Self::ExpectedInteger(l0), Self::ExpectedInteger(r0)) => (*l0 - *r0).abs() < f64::EPSILON,
             _ => false,
         }
     }
@@ -221,6 +224,97 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("reverse")), 
+                    vec![
+                    ], 
+                    CortexType::string(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            Ok(CortexValue::String(strval.chars().rev().collect()))
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("padStart")), 
+                    vec![
+                        Parameter::named("width", CortexType::number(false)),
+                        Parameter::named("c", CortexType::char(false)),
+                    ], 
+                    CortexType::string(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            if let CortexValue::Number(widthval) = env.get_value("width")? {
+                                if let CortexValue::Char(charval) = env.get_value("c")? {
+                                    let width = f64_to_usize(widthval).ok_or(StringError::ExpectedInteger(widthval))?;
+                                    let s = pad_start(&strval, width, charval as char);
+                                    Ok(CortexValue::String(String::from(s)))
+                                } else {
+                                    Err(Box::new(StringError::InvalidArg("c", "char")))
+                                }
+                            } else {
+                                Err(Box::new(StringError::InvalidArg("width", "number")))
+                            }
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("padEnd")), 
+                    vec![
+                        Parameter::named("width", CortexType::number(false)),
+                        Parameter::named("c", CortexType::char(false)),
+                    ], 
+                    CortexType::string(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            if let CortexValue::Number(widthval) = env.get_value("width")? {
+                                if let CortexValue::Char(charval) = env.get_value("c")? {
+                                    let width = f64_to_usize(widthval).ok_or(StringError::ExpectedInteger(widthval))?;
+                                    let s = pad_end(&strval, width, charval as char);
+                                    Ok(CortexValue::String(String::from(s)))
+                                } else {
+                                    Err(Box::new(StringError::InvalidArg("c", "char")))
+                                }
+                            } else {
+                                Err(Box::new(StringError::InvalidArg("width", "number")))
+                            }
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("repeat")), 
+                    vec![
+                        Parameter::named("times", CortexType::number(false)),
+                    ], 
+                    CortexType::string(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::String(strval) = env.get_value("this")? {
+                            if let CortexValue::Number(widthval) = env.get_value("times")? {
+                                let width = f64_to_usize(widthval).ok_or(StringError::ExpectedInteger(widthval))?;
+                                let s = strval.repeat(width);
+                                Ok(CortexValue::String(String::from(s)))
+                            } else {
+                                Err(Box::new(StringError::InvalidArg("times", "number")))
+                            }
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "string")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
             ],
         })?;
 
@@ -288,6 +382,36 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("toUpper")), 
+                    vec![], 
+                    CortexType::char(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::Char(ch) = env.get_value("this")? {
+                            let c = ch as char;
+                            Ok(CortexValue::Char(c.to_ascii_uppercase() as u8))
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "char")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
+                MemberFunction::new(OptionalIdentifier::Ident(
+                    String::from("toLower")), 
+                    vec![], 
+                    CortexType::char(false),
+                    Body::Native(Box::new(move |env, _heap| {
+                        if let CortexValue::Char(ch) = env.get_value("this")? {
+                            let c = ch as char;
+                            Ok(CortexValue::Char(c.to_ascii_lowercase() as u8))
+                        } else {
+                            Err(Box::new(StringError::InvalidArg("this", "char")))
+                        }
+                    })), 
+                    ThisArg::DirectThis, 
+                    vec![]
+                ),
             ],
         })?;
 
@@ -329,5 +453,22 @@ fn f64_to_usize(value: f64) -> Option<usize> {
         Some(value as usize)
     } else {
         None
+    }
+}
+
+fn pad_start(s: &str, width: usize, pad_char: char) -> String {
+    let len = s.chars().count();
+    if len >= width {
+        s.to_string()
+    } else {
+        pad_char.to_string().repeat(width - len) + s
+    }
+}
+fn pad_end(s: &str, width: usize, pad_char: char) -> String {
+    let len = s.chars().count();
+    if len >= width {
+        s.to_string()
+    } else {
+        s.to_string() + &pad_char.to_string().repeat(width - len)
     }
 }
