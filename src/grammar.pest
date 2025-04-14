@@ -34,7 +34,7 @@ indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ e
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
-atom = { number | boolean | none | void | string | char | tuple | listLiteral | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
+atom = { range | number | boolean | none | void | string | char | tuple | listLiteral | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberCallTail | memberAccessTail | indexTail | "" }
 
 primary = { atom ~ exprTail }
@@ -70,6 +70,9 @@ none = { "none" }
 void = { "void" }
 listLiteral = { "[" ~ exprList ~ "]" }
 tuple = { "(" ~ expr ~ "," ~ expr? ~ ("," ~ expr)* ~ ")" }
+
+rangeVal = { number | "" }
+range = { rangeVal ~ ":" ~ rangeVal ~ (":" ~ rangeVal)? }
 
 char = @{ "\'" ~ charinner ~ "\'" }
 charinner = ${ strchar }

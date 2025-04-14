@@ -4,6 +4,17 @@ use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
 use super::expression::PathIdent;
 
+macro_rules! core_types {
+    () => {
+        "number" | "bool" | "string" | "void" | "none" | "list" | "char" | "range"
+    }
+}
+macro_rules! non_composite_types {
+    () => {
+        "number" | "bool" | "string" | "void" | "none" | "char"
+    }
+}
+
 #[derive(Error, Debug, PartialEq)]
 pub enum TypeError {
     #[error("Unknown type: not valid in this context")]
@@ -122,6 +133,9 @@ impl CortexType {
     pub fn char(optional: bool) -> Self {
         Self::simple("char", optional)
     }
+    pub fn range(optional: bool) -> Self {
+        Self::simple("range", optional)
+    }
     pub fn with_prefix(&self, path: &PathIdent) -> Self {
         match self {
             CortexType::BasicType(b) => {
@@ -211,7 +225,7 @@ impl CortexType {
         match self {
             CortexType::BasicType(b) => {
                 b.name.is_final() && 
-                    matches!(b.name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "none" | "list" | "char")
+                    matches!(b.name.get_back().unwrap().as_str(), core_types!())
             },
             CortexType::RefType(r) => {
                 r.contained.is_core()
@@ -224,7 +238,7 @@ impl CortexType {
         match self {
             CortexType::BasicType(b) => {
                 b.name.is_final() && 
-                    matches!(b.name.get_back().unwrap().as_str(), "number" | "bool" | "string" | "void" | "none" | "char")
+                    matches!(b.name.get_back().unwrap().as_str(), non_composite_types!())
             },
             CortexType::RefType(r) => {
                 r.contained.is_non_composite()

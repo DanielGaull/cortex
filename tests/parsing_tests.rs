@@ -47,6 +47,14 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
     run_expression_test("void")?;
     run_expression_test("[1, 2, 3]")?;
     run_expression_test("'a'")?;
+
+    run_expression_test("1:10")?;
+    run_expression_test("1:10:2")?;
+    run_expression_test("5:-5:-2")?;
+    run_expression_test("1:")?;
+    run_expression_test(":10")?;
+    run_expression_test(":")?;
+    
     Ok(())
 }
 

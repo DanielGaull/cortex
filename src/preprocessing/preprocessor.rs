@@ -46,6 +46,7 @@ impl CortexPreprocessor {
         let mut global_module = Module::new();
         Self::add_list_funcs(&mut global_module)?;
         Self::add_string_funcs(&mut global_module)?;
+        Self::add_range_funcs(&mut global_module)?;
 
         this.register_module(&PathIdent::empty(), global_module)?;
 
@@ -787,7 +788,24 @@ impl CortexPreprocessor {
                     .collect::<Result<Vec<_>, _>>()?;
                 let (exps, types): (Vec<RExpression>, Vec<CortexType>) = results.into_iter().unzip();
                 Ok((RExpression::Tuple(exps), CortexType::tuple(types, false)))
-            }
+            },
+            PExpression::Range { start, end, step } => {
+                fn otov(o: Option<f64>) -> RExpression {
+                    match o {
+                        Some(v) => RExpression::Number(v),
+                        None => RExpression::None,
+                    }
+                }
+                let construction = RExpression::Construction {
+                    assignments: vec![
+                        (String::from("start"), otov(start)),
+                        (String::from("end"), otov(end)),
+                        (String::from("step"), otov(step)),
+                    ],
+                    is_heap_allocated: false,
+                };
+                Ok((construction, CortexType::range(false)))
+            },
         }
     }
     fn check_composite_member_access(&mut self, atom_exp: RExpression, atom_type: CortexType, member: String) -> CheckResult<RExpression> {

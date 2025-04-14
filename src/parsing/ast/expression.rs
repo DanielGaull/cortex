@@ -65,6 +65,11 @@ pub enum PExpression {
         right: Box<PExpression>,
     },
     Tuple(Vec<PExpression>),
+    Range {
+        start: Option<f64>,
+        end: Option<f64>,
+        step: Option<f64>,
+    }
 }
 impl SimpleCodeGen for PExpression {
     fn codegen(&self, indent: usize) -> String {
@@ -175,7 +180,21 @@ impl SimpleCodeGen for PExpression {
             },
             PExpression::Char(c) => {
                 format!("'{}'", *c as char)
-            }
+            },
+            PExpression::Range { start, end, step } => {
+                fn ts(v: &Option<f64>) -> String {
+                    match v {
+                        Some(v) => v.to_string(),
+                        None => String::from(""),
+                    }
+                }
+
+                if let Some(step) = step {
+                    format!("{}:{}:{}", ts(start), ts(end), step)
+                } else {
+                    format!("{}:{}", ts(start), ts(end))
+                }
+            },
         }
     }
 }
@@ -187,11 +206,11 @@ impl PExpression {
             PExpression::Construction { name: _, type_args: _, assignments: _ } |
             PExpression::IfStatement { first: _, conds: _, last: _ } | PExpression::MemberAccess(_, _) |
             PExpression::ListLiteral(_) | PExpression::MemberCall { callee: _, member: _, args: _, type_args: _ } |
-            PExpression::Tuple(_) | PExpression::Char(_)
+            PExpression::Tuple(_) | PExpression::Char(_) 
                 => true,
             
             PExpression::UnaryOperation { op: _, exp: _ } | PExpression::Bang(_) | 
-            PExpression::BinaryOperation { left: _, op: _, right: _ }
+            PExpression::BinaryOperation { left: _, op: _, right: _ } | PExpression::Range { start: _, end: _, step: _ }
                 => false,
         }
     }

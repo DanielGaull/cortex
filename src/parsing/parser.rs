@@ -552,6 +552,30 @@ impl CortexParser {
                 let items = Self::parse_expr_list(pair)?;
                 Ok(PExpression::Tuple(items))
             },
+            Rule::range => {
+                fn parse_range_val(pair: Pair<Rule>) -> Option<f64> {
+                    let p = pair.into_inner().next();
+                    if let Some(p) = p {
+                        match p.as_rule() {
+                            Rule::number => Some(p.as_str().parse().unwrap()),
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                }
+                let mut pairs = pair.into_inner().peekable();
+                let start = parse_range_val(pairs.next().unwrap());
+                let end = parse_range_val(pairs.next().unwrap());
+                let step;
+                if let Some(_) = pairs.peek() {
+                    step = parse_range_val(pairs.next().unwrap());
+                } else {
+                    step = None;
+                }
+
+                Ok(PExpression::Range { start, end, step })
+            },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }
