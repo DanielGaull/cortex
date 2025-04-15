@@ -12,6 +12,12 @@ struct = { "struct" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramLi
 bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
 
+forward = { "forward" ~ "this" ~ "." ~ ident ~ forwardPrefix? ~ forwardRestriction? }
+forwardPrefix = { "prefix" ~ ident }
+only = { "only" }
+exclude = { "exclude" }
+forwardRestriction = { (only | exclude) ~ "(" ~ ident ~ ("," ~ ident)* ~ ")" }
+
 // Statements
 statementNeedingSemicolon = _{ (throw | break | continue | tupleVarDec | varDec | indexVarAssign | tupleVarAssign | varAssign | expr) }
 statement = { (statementNeedingSemicolon ~ ";") | while }
