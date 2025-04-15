@@ -140,22 +140,21 @@ impl PFunction {
     }
 }
 
-pub struct MemberFunction {
-    pub(crate) name: OptionalIdentifier,
+pub struct MemberFunctionSignature {
+    pub(crate) name: String,
     pub(crate) this_arg: ThisArg,
     pub(crate) params: Vec<Parameter>,
     pub(crate) return_type: CortexType,
-    pub(crate) body: Body,
     pub(crate) type_param_names: Vec<String>,
 }
-impl SimpleCodeGen for MemberFunction {
+impl SimpleCodeGen for MemberFunctionSignature {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
         let indent_prefix = &"    ".repeat(indent);
 
         s.push_str(indent_prefix);
         s.push_str("fn ");
-        s.push_str(&self.name.codegen(indent));
+        s.push_str(&self.name);
 
         if self.type_param_names.len() > 0 {
             s.push_str("<");
@@ -182,6 +181,21 @@ impl SimpleCodeGen for MemberFunction {
         }
         s.push_str("): ");
         s.push_str(&self.return_type.codegen(indent));
+        s
+    }
+}
+
+pub struct MemberFunction {
+    pub(crate) signature: MemberFunctionSignature,
+    pub(crate) body: Body,
+}
+impl SimpleCodeGen for MemberFunction {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        let indent_prefix = &"    ".repeat(indent);
+
+        s.push_str(&self.signature.codegen(indent));
+
         s.push_str(" {\n");
 
         s.push_str(&self.body.codegen(indent + 1));
@@ -192,14 +206,16 @@ impl SimpleCodeGen for MemberFunction {
     }
 }
 impl MemberFunction {
-    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, this_arg: ThisArg, type_param_names: Vec<String>) -> Self {
+    pub fn new(name: String, params: Vec<Parameter>, return_type: CortexType, body: Body, this_arg: ThisArg, type_param_names: Vec<String>) -> Self {
         MemberFunction {
-            name: name,
-            params: params,
-            return_type: return_type,
-            body: body,
-            this_arg: this_arg,
-            type_param_names: type_param_names,
+            signature: MemberFunctionSignature {
+                name,
+                params,
+                return_type,
+                this_arg,
+                type_param_names,
+            },
+            body,
         }
     }
 }

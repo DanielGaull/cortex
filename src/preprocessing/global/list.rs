@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, ThisArg}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::CortexPreprocessor}};
+use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, interpreting::value::CortexValue, parsing::ast::{expression::{Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, ThisArg}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::CortexPreprocessor}};
 
 use super::runtime_error::RuntimeError;
 
@@ -10,8 +10,8 @@ impl CortexPreprocessor {
             name: PathIdent::simple(String::from("list")),
             type_param_names: vec![String::from("T")],
             functions: vec![
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from(INDEX_GET_FN_NAME)), 
+                MemberFunction::new(
+                    String::from(INDEX_GET_FN_NAME), 
                     vec![
                         Parameter::named("index", CortexType::number(false))
                     ], 
@@ -40,8 +40,8 @@ impl CortexPreprocessor {
                     ThisArg::RefThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from(INDEX_SET_FN_NAME)), 
+                MemberFunction::new(
+                    String::from(INDEX_SET_FN_NAME), 
                     vec![
                         Parameter::named("index", CortexType::number(false)),
                         Parameter::named("value", CortexType::simple("T", false)),
@@ -72,8 +72,8 @@ impl CortexPreprocessor {
                     ThisArg::RefMutThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("len")), 
+                MemberFunction::new(
+                    String::from("len"), 
                     vec![
                     ], 
                     CortexType::number(true),
@@ -92,8 +92,8 @@ impl CortexPreprocessor {
                     ThisArg::RefThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("find")), 
+                MemberFunction::new(
+                    String::from("find"), 
                     vec![
                         Parameter::named("item", CortexType::simple("T", false)),
                     ], 
@@ -119,8 +119,8 @@ impl CortexPreprocessor {
                     ThisArg::RefThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("contains")), 
+                MemberFunction::new(
+                    String::from("contains"), 
                     vec![
                         Parameter::named("item", CortexType::simple("T", false)),
                     ], 
@@ -141,8 +141,8 @@ impl CortexPreprocessor {
                     ThisArg::RefThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("add")), 
+                MemberFunction::new(
+                    String::from("add"), 
                     vec![
                         Parameter::named("item", CortexType::simple("T", false)),
                     ], 
@@ -164,8 +164,8 @@ impl CortexPreprocessor {
                     ThisArg::RefMutThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("insert")), 
+                MemberFunction::new(
+                    String::from("insert"), 
                     vec![
                         Parameter::named("index", CortexType::number(false)),
                         Parameter::named("item", CortexType::simple("T", false)),
@@ -197,8 +197,8 @@ impl CortexPreprocessor {
                     ThisArg::RefMutThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("remove")), 
+                MemberFunction::new(
+                    String::from("remove"), 
                     vec![
                         Parameter::named("index", CortexType::number(false)),
                     ], 

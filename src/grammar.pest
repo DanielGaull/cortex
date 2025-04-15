@@ -116,8 +116,10 @@ refThis = { "&this" }
 refMutThis = { "&mut this" }
 
 memberParamList = { ("," ~ param)* }
-memberFunction = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ memberParamList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
+memberFunction = { memberFuncSig ~ "{" ~ body ~ "}" }
 memberFuncList = { memberFunction* }
+
+memberFuncSig = { "fn" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ memberParamList ~ ")" ~ (":" ~ typ)? }
 
 typeArgList = { (ident ~ ",")* ~ ident }
 typeList = { (typ ~ ",")* ~ typ }

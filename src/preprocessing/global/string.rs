@@ -21,8 +21,8 @@ impl CortexPreprocessor {
             name: PathIdent::simple(String::from("string")),
             type_param_names: vec![],
             functions: vec![
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from(INDEX_GET_FN_NAME)), 
+                MemberFunction::new(
+                    String::from(INDEX_GET_FN_NAME), 
                     vec![
                         Parameter::named("index", CortexType::number(false))
                     ], 
@@ -46,8 +46,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("len")), 
+                MemberFunction::new(
+                    String::from("len"), 
                     vec![
                     ], 
                     CortexType::number(false),
@@ -62,8 +62,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("isEmpty")), 
+                MemberFunction::new(
+                    String::from("isEmpty"), 
                     vec![
                     ], 
                     CortexType::boolean(false),
@@ -78,8 +78,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("startsWith")), 
+                MemberFunction::new(
+                    String::from("startsWith"), 
                     vec![
                         Parameter::named("substring", CortexType::string(false))
                     ], 
@@ -98,8 +98,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("endsWith")), 
+                MemberFunction::new(
+                    String::from("endsWith"), 
                     vec![
                         Parameter::named("substring", CortexType::string(false))
                     ], 
@@ -118,8 +118,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("contains")), 
+                MemberFunction::new(
+                    String::from("contains"), 
                     vec![
                         Parameter::named("substring", CortexType::string(false))
                     ], 
@@ -138,8 +138,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("indexOf")), 
+                MemberFunction::new(
+                    String::from("indexOf"), 
                     vec![
                         Parameter::named("substring", CortexType::string(false))
                     ], 
@@ -163,8 +163,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("trim")), 
+                MemberFunction::new(
+                    String::from("trim"), 
                     vec![
                     ], 
                     CortexType::string(false),
@@ -178,8 +178,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("replace")), 
+                MemberFunction::new(
+                    String::from("replace"), 
                     vec![
                         Parameter::named("from", CortexType::string(false)),
                         Parameter::named("to", CortexType::string(false))
@@ -204,8 +204,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("reverse")), 
+                MemberFunction::new(
+                    String::from("reverse"), 
                     vec![
                     ], 
                     CortexType::string(false),
@@ -219,8 +219,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("padStart")), 
+                MemberFunction::new(
+                    String::from("padStart"), 
                     vec![
                         Parameter::named("width", CortexType::number(false)),
                         Parameter::named("c", CortexType::char(false)),
@@ -246,8 +246,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("padEnd")), 
+                MemberFunction::new(
+                    String::from("padEnd"), 
                     vec![
                         Parameter::named("width", CortexType::number(false)),
                         Parameter::named("c", CortexType::char(false)),
@@ -273,8 +273,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("repeat")), 
+                MemberFunction::new(
+                    String::from("repeat"), 
                     vec![
                         Parameter::named("times", CortexType::number(false)),
                     ], 
@@ -295,8 +295,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("split")), 
+                MemberFunction::new(
+                    String::from("split"), 
                     vec![
                         Parameter::named("delimiter", CortexType::string(false)),
                     ], 
@@ -318,8 +318,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("substring")), 
+                MemberFunction::new(
+                    String::from("substring"), 
                     vec![
                         Parameter::named("range", CortexType::range(false)),
                     ], 
@@ -363,8 +363,8 @@ impl CortexPreprocessor {
             name: PathIdent::simple(String::from("char")),
             type_param_names: vec![],
             functions: vec![
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("isAlpha")), 
+                MemberFunction::new(
+                    String::from("isAlpha"), 
                     vec![], 
                     CortexType::boolean(false),
                     Body::Native(Box::new(move |env, _heap| {
@@ -378,8 +378,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("isDigit")), 
+                MemberFunction::new(
+                    String::from("isDigit"), 
                     vec![], 
                     CortexType::boolean(false),
                     Body::Native(Box::new(move |env, _heap| {
@@ -393,8 +393,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("isWhitespace")), 
+                MemberFunction::new(
+                    String::from("isWhitespace"), 
                     vec![], 
                     CortexType::boolean(false),
                     Body::Native(Box::new(move |env, _heap| {
@@ -408,8 +408,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("isAlphanumeric")), 
+                MemberFunction::new(
+                    String::from("isAlphanumeric"), 
                     vec![], 
                     CortexType::boolean(false),
                     Body::Native(Box::new(move |env, _heap| {
@@ -423,8 +423,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("toUpper")), 
+                MemberFunction::new(
+                    String::from("toUpper"), 
                     vec![], 
                     CortexType::char(false),
                     Body::Native(Box::new(move |env, _heap| {
@@ -438,8 +438,8 @@ impl CortexPreprocessor {
                     ThisArg::DirectThis, 
                     vec![]
                 ),
-                MemberFunction::new(OptionalIdentifier::Ident(
-                    String::from("toLower")), 
+                MemberFunction::new(
+                    String::from("toLower"), 
                     vec![], 
                     CortexType::char(false),
                     Body::Native(Box::new(move |env, _heap| {

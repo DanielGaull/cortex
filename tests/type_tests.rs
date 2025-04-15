@@ -62,7 +62,7 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
         ],
         vec![
             MemberFunction::new(
-                OptionalIdentifier::Ident(String::from("get")), 
+                String::from("get"), 
                 vec![],
                 CortexType::reference(CortexType::simple("Time", false), true),
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.time")?))),
@@ -91,7 +91,7 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
         ],
         vec![
             MemberFunction::new(
-                OptionalIdentifier::Ident(String::from("get")), 
+                String::from("get"), 
                 vec![],
                 CortexType::basic(PathIdent::simple(String::from("T")), false, vec![]),
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.item")?))),
