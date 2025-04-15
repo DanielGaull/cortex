@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use super::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -177,7 +177,10 @@ impl CortexParser {
             },
             Rule::extension => {
                 Ok(TopLevel::Extension(Self::parse_extension_pair(pair)?))
-            }
+            },
+            Rule::contract => {
+                Ok(TopLevel::Contract(Self::parse_contract_pair(pair)?))
+            },
             _ => Err(ParseError::FailTopLevel(String::from(pair.as_str()))),
         }
     }
@@ -825,6 +828,36 @@ impl CortexParser {
             Extension { 
                 name: name,
                 functions: functions,
+                type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+            }
+        )
+    }
+    fn parse_contract_pair(pair: Pair<Rule>) -> Result<Contract, ParseError> {
+        let mut pairs = pair.into_inner().peekable();
+        let name = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let mut type_args = Vec::new();
+        let mut functions = Vec::new();
+        let mut sigs = Vec::new();
+        if matches!(pairs.peek().unwrap().as_rule(), Rule::typeArgList) {
+            let type_arg_pairs = pairs.next().unwrap().into_inner();
+            for ident in type_arg_pairs {
+                type_args.push(ident.as_str());
+            }
+        }
+
+        for p in pairs {
+            if matches!(p.as_rule(), Rule::memberFuncSig) {
+                sigs.push(Self::parse_member_function_signature(p)?);
+            } else if matches!(p.as_rule(), Rule::memberFunction) {
+                functions.push(Self::parse_member_function(p)?);
+            }
+        }
+        
+        Ok(
+            Contract { 
+                name,
+                functions,
+                function_signatures: sigs,
                 type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
             }
         )

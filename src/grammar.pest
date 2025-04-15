@@ -4,13 +4,14 @@ WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
 program = { SOI ~ topLevel* ~ EOI }
 
 // Top-level
-topLevel = { import | function | struct | bundle | extension | module }
+topLevel = { import | function | struct | bundle | extension | contract | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 struct = { "struct" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
+contract = { "contract" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ ((memberFuncSig ~ ";") | memberFunction)* ~ "}" }
 
 forward = { "forward" ~ "this" ~ "." ~ ident ~ forwardPrefix? ~ forwardRestriction? }
 forwardPrefix = { "prefix" ~ ident }

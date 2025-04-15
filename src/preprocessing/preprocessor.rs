@@ -118,7 +118,8 @@ impl CortexPreprocessor {
                     self.add_function(addr, f)?;
                 }
                 Ok(())
-            }
+            },
+            TopLevel::Contract(item) => todo!(),
         }
     }
 
@@ -361,6 +362,7 @@ impl CortexPreprocessor {
                 TopLevel::Extension(item) => {
                     module.add_extension(item)?;
                 },
+                TopLevel::Contract(item) => todo!(),
             }
         }
         Ok(module)
