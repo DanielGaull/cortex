@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, FunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -211,47 +211,25 @@ impl CortexPreprocessor {
                 } else {
                     let has_loop = self.search_struct_for_loops(&item)?;
                     if has_loop {
-                        Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))))
-                    } else {
-                        for func in item.functions {
-                            let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, &item.type_param_names));
-                            let mut param_list = vec![new_param];
-                            param_list.extend(func.signature.params);
-                            let mut type_param_names = func.signature.type_param_names;
-                            let intersecting_type_param = item.type_param_names.iter().find(|t| type_param_names.contains(t));
-                            if let Some(name) = intersecting_type_param {
-                                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
-                            }
-                            type_param_names.extend(item.type_param_names.clone());
-                            let new_func = PFunction::new(
-                                OptionalIdentifier::Ident(func.signature.name.clone()),
-                                param_list,
-                                func.signature.return_type,
-                                func.body,
-                                type_param_names,
-                            );
-                            let addr = FunctionAddress {
-                                own_module_path: PathIdent::continued(n.clone(), func.signature.name),
-                                target: Some(PathIdent::continued(n.clone(), item_name.clone())),
-                            };
-                            funcs_to_add.push((addr, new_func));
-                        }
-
-                        let mut seen_type_param_names = HashSet::new();
-                        for t in &item.type_param_names {
-                            if seen_type_param_names.contains(t) {
-                                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
-                            }
-                            seen_type_param_names.insert(t);
-                        }
-
-                        self.type_map.insert(full_path, TypeDefinition {
-                            fields: item.fields,
-                            is_heap_allocated: false,
-                            type_param_names: item.type_param_names,
-                        });
-                        Ok(())
+                        return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
                     }
+                    
+                    Self::handle_member_functions(item.functions, n, &item.type_param_names, item_name, funcs_to_add)?;
+
+                    let mut seen_type_param_names = HashSet::new();
+                    for t in &item.type_param_names {
+                        if seen_type_param_names.contains(t) {
+                            return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
+                        }
+                        seen_type_param_names.insert(t);
+                    }
+
+                    self.type_map.insert(full_path, TypeDefinition {
+                        fields: item.fields,
+                        is_heap_allocated: false,
+                        type_param_names: item.type_param_names,
+                    });
+                    Ok(())
                 }
             },
             OptionalIdentifier::Ignore => Ok(()),
@@ -261,32 +239,10 @@ impl CortexPreprocessor {
         match &item.name {
             OptionalIdentifier::Ident(item_name) => {
                 let full_path = PathIdent::continued(n.clone(), item_name.clone());
-                if let Ok(_) = self.lookup_type(&full_path) {
+                if self.has_type(&full_path) {
                     Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
                 } else {
-                    for func in item.functions {
-                        let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, &item.type_param_names));
-                        let mut param_list = vec![new_param];
-                        param_list.extend(func.signature.params);
-                        let mut type_param_names = func.signature.type_param_names;
-                        let intersecting_type_param = item.type_param_names.iter().find(|t| type_param_names.contains(t));
-                        if let Some(name) = intersecting_type_param {
-                            return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
-                        }
-                        type_param_names.extend(item.type_param_names.clone());
-                        let new_func = PFunction::new(
-                            OptionalIdentifier::Ident(func.signature.name.clone()),
-                            param_list,
-                            func.signature.return_type,
-                            func.body,
-                            type_param_names,
-                        );
-                        let addr = FunctionAddress {
-                            own_module_path: PathIdent::continued(n.clone(), func.signature.name),
-                            target: Some(PathIdent::continued(n.clone(), item_name.clone())),
-                        };
-                        funcs_to_add.push((addr, new_func));
-                    }
+                    Self::handle_member_functions(item.functions, n, &item.type_param_names, item_name, funcs_to_add)?;
 
                     let mut seen_type_param_names = HashSet::new();
                     for t in &item.type_param_names {
@@ -307,6 +263,33 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ignore => Ok(()),
         }
     }
+    fn handle_member_functions(functions: Vec<MemberFunction>, n: PathIdent, item_type_param_names: &Vec<String>, item_name: &String, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
+        for func in functions {
+            let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, item_type_param_names));
+            let mut param_list = vec![new_param];
+            param_list.extend(func.signature.params);
+            let mut type_param_names = func.signature.type_param_names;
+            let intersecting_type_param = item_type_param_names.iter().find(|t| type_param_names.contains(t));
+            if let Some(name) = intersecting_type_param {
+                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
+            }
+            type_param_names.extend(item_type_param_names.clone());
+            let new_func = PFunction::new(
+                OptionalIdentifier::Ident(func.signature.name.clone()),
+                param_list,
+                func.signature.return_type,
+                func.body,
+                type_param_names,
+            );
+            let addr = FunctionAddress {
+                own_module_path: PathIdent::continued(n.clone(), func.signature.name),
+                target: Some(PathIdent::continued(n.clone(), item_name.clone())),
+            };
+            funcs_to_add.push((addr, new_func));
+        }
+        Ok(())
+    }
+
     fn add_extension(&mut self, n: PathIdent, item: Extension, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         let item_name = item.name.get_back()?;
         let item_prefix = item.name.without_last();
