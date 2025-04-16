@@ -224,7 +224,7 @@ impl PExpression {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Parameter {
     pub(crate) name: String,
     pub(crate) typ: CortexType,

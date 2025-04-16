@@ -1,0 +1,32 @@
+module First {
+    struct Box<T> {
+        item: T,
+    }
+
+    fn id<T>(val: T): T {
+        val
+    }
+}
+
+module Second {
+    fn identity<T>(v: T): T {
+        v
+    }
+}
+
+fn test(value: number): number {
+    First::id(Second::identity(value))
+}
+
+fn test2(value: number): number {
+    let box: First::Box<number>? = First::Box<number> { item: value };
+    if box == none {
+        let one = First::id(value);
+        let two = Second::identity(one);
+        two
+    } else {
+        let three = First::id(value);
+        let four = Second::identity(three);
+        four
+    }
+}

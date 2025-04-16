@@ -55,6 +55,24 @@ fn test_module_pathing() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn test_multi_module_pathing() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    let path = Path::new("./tests/res/multi_module.txt");
+    let mut file = File::open(path).unwrap();
+    let mut content = String::new();
+    let _ = file.read_to_string(&mut content);
+    content = content.replace("\r\n", "\n");
+    let program = CortexParser::parse_program(&content)?;
+    for tl in program.into_iter() {
+        interpreter.run_top_level(tl)?;
+    }
+
+    assert_expression("test(5)", "5", &mut interpreter)?;
+    assert_expression("test2(5)", "5", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
 fn test_bundle() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     let path = Path::new("./tests/res/bundle_file.txt");
