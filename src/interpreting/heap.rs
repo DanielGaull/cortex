@@ -9,7 +9,7 @@ pub struct Heap {
 }
 
 impl Heap {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Heap {
             store: HashMap::new(),
             next_id: 0,
@@ -32,7 +32,7 @@ impl Heap {
         id
     }
 
-    pub fn gc(&mut self, roots: HashSet<usize>) {
+    pub(crate) fn gc(&mut self, roots: HashSet<usize>) {
         let reachables = self.find_reachables(roots);
 
         let sz_before = self.store.len();
@@ -46,7 +46,7 @@ impl Heap {
         }
     }
 
-    pub fn is_at_gc_threshold(&self) -> bool {
+    pub(crate) fn is_at_gc_threshold(&self) -> bool {
         self.store.len() > self.gc_threshold
     }
 

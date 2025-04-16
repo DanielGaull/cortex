@@ -33,6 +33,13 @@ impl RFunction {
             body,
         }
     }
+
+    pub fn num_params(&self) -> usize {
+        self.params.len()
+    }
+    pub fn get_param(&self, index: usize) -> Option<&String> {
+        self.params.get(index)
+    }
 }
 
 pub struct FunctionDict {

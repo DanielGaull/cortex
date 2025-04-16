@@ -65,6 +65,15 @@ impl Display for CortexValue {
     }
 }
 impl CortexValue {
+    pub fn new_composite(fields: Vec<(&str, CortexValue)>) -> Self {
+        CortexValue::Composite { 
+            field_values: fields
+                .into_iter()
+                .map(|(n, v)| (String::from(n), Rc::new(RefCell::new(v))))
+                .collect(),
+        }
+    }
+
     fn get_variant_name(&self) -> &'static str {
         match self {
             CortexValue::Number(_) => "number",
