@@ -140,20 +140,28 @@ impl PFunction {
     }
 }
 
-pub struct MemberFunction {
+pub struct MemberFunctionSignature {
     pub(crate) name: OptionalIdentifier,
     pub(crate) this_arg: ThisArg,
     pub(crate) params: Vec<Parameter>,
     pub(crate) return_type: CortexType,
-    pub(crate) body: Body,
     pub(crate) type_param_names: Vec<String>,
 }
-impl SimpleCodeGen for MemberFunction {
+impl MemberFunctionSignature {
+    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, this_arg: ThisArg, type_param_names: Vec<String>) -> Self {
+        MemberFunctionSignature {
+            name: name,
+            params: params,
+            return_type: return_type,
+            this_arg: this_arg,
+            type_param_names: type_param_names,
+        }
+    }
+}
+impl SimpleCodeGen for MemberFunctionSignature {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
-        let indent_prefix = &"    ".repeat(indent);
 
-        s.push_str(indent_prefix);
         s.push_str("fn ");
         s.push_str(&self.name.codegen(indent));
 
@@ -182,10 +190,23 @@ impl SimpleCodeGen for MemberFunction {
         }
         s.push_str("): ");
         s.push_str(&self.return_type.codegen(indent));
+        s
+    }
+}
+
+pub struct MemberFunction {
+    pub(crate) signature: MemberFunctionSignature,
+    pub(crate) body: Body,
+}
+impl SimpleCodeGen for MemberFunction {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        let indent_prefix = &"    ".repeat(indent);
+
+        s.push_str(indent_prefix);
+        s.push_str(&self.signature.codegen(indent));
         s.push_str(" {\n");
-
         s.push_str(&self.body.codegen(indent + 1));
-
         s.push_str(indent_prefix);
         s.push_str("}");
         s
@@ -194,12 +215,21 @@ impl SimpleCodeGen for MemberFunction {
 impl MemberFunction {
     pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, this_arg: ThisArg, type_param_names: Vec<String>) -> Self {
         MemberFunction {
-            name: name,
-            params: params,
-            return_type: return_type,
-            body: body,
-            this_arg: this_arg,
-            type_param_names: type_param_names,
+            signature: MemberFunctionSignature {
+                name,
+                this_arg,
+                params,
+                return_type,
+                type_param_names,
+            },
+            body,
+        }
+    }
+
+    pub fn new_with_sig(signature: MemberFunctionSignature, body: Body) -> Self {
+        MemberFunction {
+            signature,
+            body,
         }
     }
 }

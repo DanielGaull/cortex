@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use super::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -863,6 +863,16 @@ impl CortexParser {
     }
     fn parse_member_function(pair: Pair<Rule>) -> Result<MemberFunction, ParseError> {
         let mut pairs = pair.into_inner().peekable();
+
+        let signature = Self::parse_member_function_signature(pairs.next().unwrap())?;
+        let body = Self::parse_body(pairs.next().unwrap())?;
+        Ok(MemberFunction {
+            signature,
+            body: Body::Basic(body),
+        })
+    }
+    fn parse_member_function_signature(pair: Pair<Rule>) -> Result<MemberFunctionSignature, ParseError> {
+        let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
 
         let mut type_args = Vec::new();
@@ -880,17 +890,15 @@ impl CortexParser {
         
         let params = Self::parse_param_list(pairs.next().unwrap())?;
         
-        let return_type = if matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
+        let return_type = if matches!(pairs.peek(), Some(_)) && matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
             Self::parse_type_pair(pairs.next().unwrap())?
         } else {
             CortexType::void(false)
         };
-        let body = Self::parse_body(pairs.next().unwrap())?;
-        Ok(MemberFunction {
+        Ok(MemberFunctionSignature {
             name: name,
             params: params,
             return_type: return_type,
-            body: Body::Basic(body),
             this_arg: this_arg,
             type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
         })

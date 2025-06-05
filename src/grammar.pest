@@ -11,6 +11,7 @@ function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList
 struct = { "struct" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
+contract = { "contract" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberFunctionSignature ~ ";")* ~ "}" }
 
 // Statements
 statementNeedingSemicolon = _{ (throw | break | continue | tupleVarDec | varDec | indexVarAssign | tupleVarAssign | varAssign | expr) }
@@ -111,7 +112,8 @@ refThis = { "&this" }
 refMutThis = { "&mut this" }
 
 memberParamList = { ("," ~ param)* }
-memberFunction = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ memberParamList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
+memberFunctionSignature = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ memberParamList ~ ")" ~ (":" ~ typ)? }
+memberFunction = { memberFunctionSignature ~ "{" ~ body ~ "}" }
 memberFuncList = { memberFunction* }
 
 typeArgList = { (ident ~ ",")* ~ ident }

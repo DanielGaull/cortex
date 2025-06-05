@@ -266,12 +266,12 @@ impl CortexPreprocessor {
     }
     fn handle_member_functions(functions: Vec<MemberFunction>, n: PathIdent, item_type_param_names: &Vec<String>, item_name: &String, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         for func in functions {
-            match func.name {
+            match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.this_arg, item_name, item_type_param_names));
+                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, item_type_param_names));
                     let mut param_list = vec![new_param];
-                    param_list.extend(func.params);
-                    let mut type_param_names = func.type_param_names;
+                    param_list.extend(func.signature.params);
+                    let mut type_param_names = func.signature.type_param_names;
                     let intersecting_type_param = item_type_param_names.iter().find(|t| type_param_names.contains(t));
                     if let Some(name) = intersecting_type_param {
                         return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
@@ -280,7 +280,7 @@ impl CortexPreprocessor {
                     let new_func = PFunction::new(
                         OptionalIdentifier::Ident(func_name.clone()),
                         param_list,
-                        func.return_type,
+                        func.signature.return_type,
                         func.body,
                         type_param_names,
                     );
@@ -300,12 +300,12 @@ impl CortexPreprocessor {
         let item_name = item.name.get_back()?;
         let item_prefix = item.name.without_last();
         for func in item.functions {
-            match func.name {
+            match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.this_arg, item_name, &item.type_param_names).with_prefix(&item_prefix));
+                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, &item.type_param_names).with_prefix(&item_prefix));
                     let mut param_list = vec![new_param];
-                    param_list.extend(func.params);
-                    let mut type_param_names = func.type_param_names;
+                    param_list.extend(func.signature.params);
+                    let mut type_param_names = func.signature.type_param_names;
                     let intersecting_type_param = item.type_param_names.iter().find(|t| type_param_names.contains(t));
                     if let Some(name) = intersecting_type_param {
                         return Err(Box::new(ModuleError::DuplicateTypeArgumentName(name.clone())));
@@ -314,7 +314,7 @@ impl CortexPreprocessor {
                     let new_func = PFunction::new(
                         OptionalIdentifier::Ident(func_name.clone()),
                         param_list,
-                        func.return_type,
+                        func.signature.return_type,
                         func.body,
                         type_param_names,
                     );
