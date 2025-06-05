@@ -54,6 +54,7 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
         ],
         vec![],
         vec![],
+        None,
     ))?;
     module.add_bundle(Bundle::new(
         "Box",
@@ -71,6 +72,7 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
             )
         ],
         vec![],
+        None,
     ))?;
     interpreter.register_module(&PathIdent::simple(String::from("Time")), module)?;
     run_test("Time::Time{m:5,s:5}", "&mut Time::Time", &mut interpreter)?;
@@ -100,6 +102,7 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
             )
         ],
         vec!["T"],
+        None,
     ))?;
     module.add_function(PFunction::new(
         OptionalIdentifier::Ident(String::from("generic")),

@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::CortexType}, codegen::r#trait::SimpleCodeGen};
+use super::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry}}, codegen::r#trait::SimpleCodeGen};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -777,18 +777,25 @@ impl CortexParser {
     fn parse_bundle_pair(pair: Pair<Rule>) -> Result<Bundle, ParseError> {
         let mut pairs = pair.into_inner();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let mut follows_clause = None;
         let mut type_args = Vec::new();
-        let next = pairs.next().unwrap();
+        let mut next = pairs.next().unwrap();
         let field_params;
         if matches!(next.as_rule(), Rule::typeArgList) {
             let type_arg_pairs = next.into_inner();
             for ident in type_arg_pairs {
                 type_args.push(ident.as_str());
             }
-            field_params = Self::parse_param_list(pairs.next().unwrap())?;
-        } else {
-            field_params = Self::parse_param_list(next)?;
+            next = pairs.next().unwrap();
         }
+
+        if matches!(next.as_rule(), Rule::followsClause) {
+            let clause = Self::parse_follows_clause(next)?;
+            follows_clause = Some(clause);
+            next = pairs.next().unwrap();
+        }
+
+        field_params = Self::parse_param_list(next)?;
         let functions = Self::parse_member_func_list(pairs.next().unwrap())?;
 
         let mut fields = HashMap::new();
@@ -805,6 +812,7 @@ impl CortexParser {
                 fields: fields,
                 functions: functions,
                 type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+                follows_clause,
             }
         )
     }
@@ -865,6 +873,36 @@ impl CortexParser {
                 name: name,
                 function_sigs: functions,
                 type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+            }
+        )
+    }
+
+    fn parse_follows_clause(pair: Pair<Rule>) -> Result<FollowsClause, ParseError> {
+        let pairs = pair.into_inner();
+        let mut paths = Vec::new();
+        for p in pairs {
+            paths.push(Self::parse_follows_entry(p)?);
+        }
+        Ok(
+            FollowsClause {
+                contracts: paths,
+            }
+        )
+    }
+    fn parse_follows_entry(pair: Pair<Rule>) -> Result<FollowsEntry, ParseError> {
+        let mut pairs = pair.into_inner().peekable();
+        let name = Self::parse_path_ident(pairs.next().unwrap())?;
+        let mut type_params = Vec::new();
+        if let Some(next) = pairs.next() {
+            let type_arg_pairs = next.into_inner();
+            for ident in type_arg_pairs {
+                type_params.push(String::from(ident.as_str()));
+            }
+        }
+        Ok(
+            FollowsEntry {
+                name,
+                type_param_names: type_params,
             }
         )
     }

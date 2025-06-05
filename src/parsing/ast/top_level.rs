@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
 
-use super::{expression::{PExpression, OptionalIdentifier, Parameter, PathIdent}, statement::PStatement, r#type::CortexType};
+use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, statement::PStatement, r#type::{CortexType, FollowsClause}};
 
 pub enum TopLevel {
     Import {
@@ -354,6 +354,7 @@ pub struct Bundle {
     pub(crate) fields: HashMap<String, CortexType>,
     pub(crate) functions: Vec<MemberFunction>,
     pub(crate) type_param_names: Vec<String>,
+    pub(crate) follows_clause: Option<FollowsClause>,
 }
 impl SimpleCodeGen for Bundle {
     fn codegen(&self, indent: usize) -> String {
@@ -368,6 +369,11 @@ impl SimpleCodeGen for Bundle {
             s.push_str("<");
             s.push_str(&self.type_param_names.join(","));
             s.push_str(">");
+        }
+
+        if let Some(clause) = &self.follows_clause {
+            s.push_str(" ");
+            s.push_str(&clause.codegen(indent));
         }
 
         s.push_str(" {\n");
@@ -393,7 +399,7 @@ impl SimpleCodeGen for Bundle {
     }
 }
 impl Bundle {
-    pub fn new(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<MemberFunction>, type_arg_names: Vec<&str>) -> Self {
+    pub fn new(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<MemberFunction>, type_arg_names: Vec<&str>, follows_clause: Option<FollowsClause>) -> Self {
         let mut map = HashMap::new();
         for f in fields {
             map.insert(String::from(f.0), f.1);
@@ -403,6 +409,7 @@ impl Bundle {
             fields: map,
             functions: funcs,
             type_param_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
+            follows_clause,
         }
     }
 }

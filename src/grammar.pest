@@ -9,7 +9,7 @@ module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 struct = { "struct" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
-bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
+bundle = { "bundle" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ followsClause? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
 contract = { "contract" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberFunctionSignature ~ ";")* ~ "}" }
 
@@ -106,6 +106,9 @@ param = { ident ~ ":" ~ typ }
 paramList = { (param ~ ",")* ~ param? }
 exprList = { (expr ~ ",")* ~ expr? }
 body = { statement* ~ expr? }
+
+followsClause = { "follows" ~ (followsEntry ~ ",")* ~ followsEntry }
+followsEntry = { pathIdent ~ ("<" ~ typeArgList ~ ">")? }
 
 directThis = { "this" }
 refThis = { "&this" }

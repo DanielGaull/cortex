@@ -215,10 +215,10 @@ fn bundle_tests() -> Result<(), Box<dyn Error>> {
     let test_bundle = Bundle::new("Time", vec![
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
-    ], vec![], vec![]);
+    ], vec![], vec![], None);
     let date_bundle = Bundle::new("Date", vec![
         ("t", CortexType::reference(CortexType::basic(PathIdent::new(vec!["Time"]), false, vec![]), true)),
-    ], vec![], vec![]);
+    ], vec![], vec![], None);
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_bundle(test_bundle)?;

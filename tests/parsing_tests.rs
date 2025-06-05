@@ -164,6 +164,16 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     run_top_level_test("bundle Box<T> {\n    fn doAThing<U>(&this): void {\n    }\n}\n")?;
     run_top_level_test("extend string {\n}\n")?;
     run_top_level_test("extend string {\n    fn len(&this): number {\n        5\n    }\n}\n")?;
+
     run_top_level_test("contract Iterator<T> {\n    fn next(&mut this): T;\n    fn hasNext(&this): bool;\n}\n")?;
+    run_top_level_test("bundle Box<T> follows Iterator<T> {\n}\n")?;
+    run_top_level_test("bundle Box follows C1, C2 {\n}\n")?;
+    run_top_level_test("bundle Box follows C1 {\n}\n")?;
+    run_top_level_test("bundle Box<T> {\n}\n")?;
+    run_top_level_test("bundle Box {\n}\n")?;
+    run_top_level_test("bundle Box<T> follows Iterator<T>, Iterable<T> {\n}\n")?;
+    run_top_level_test("bundle Box<T,R> follows Iterator<T>, Iterable<R> {\n}\n")?;
+    run_top_level_test("bundle Box<T,R> follows Iterator<R, T>, Iterable<R, R> {\n}\n")?;
+    
     Ok(())
 }
