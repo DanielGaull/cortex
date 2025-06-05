@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, os::raw::c_double, rc::Rc};
+use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
 use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
