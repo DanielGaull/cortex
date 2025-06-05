@@ -162,5 +162,8 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     run_top_level_test("struct Box<T> {\n    item: T,\n}\n")?;
     run_top_level_test("bundle Box<T> {\n    item: T,\n}\n")?;
     run_top_level_test("bundle Box<T> {\n    fn doAThing<U>(&this): void {\n    }\n}\n")?;
+    run_top_level_test("extend string {\n}\n")?;
+    run_top_level_test("extend string {\n    fn len(&this): number {\n        5\n    }\n}\n")?;
+    run_top_level_test("contract Iterator<T> {\n    fn next(&mut this): T;\n    fn hasNext(&this): bool;\n}\n")?;
     Ok(())
 }

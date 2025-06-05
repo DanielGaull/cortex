@@ -17,6 +17,7 @@ pub enum TopLevel {
     Struct(Struct),
     Bundle(Bundle),
     Extension(Extension),
+    Contract(Contract),
 }
 impl SimpleCodeGen for TopLevel {
     fn codegen(&self, indent: usize) -> String {
@@ -49,6 +50,7 @@ impl SimpleCodeGen for TopLevel {
             Self::Struct(struc) => struc.codegen(indent),
             Self::Bundle(bundle) => bundle.codegen(indent),
             Self::Extension(extension) => extension.codegen(indent),
+            Self::Contract(contract) => contract.codegen(indent),
         }
     }
 }
@@ -430,6 +432,41 @@ impl SimpleCodeGen for Extension {
         for func in &self.functions {
             s.push_str(func.codegen(indent + 1).as_str());
             s.push_str("\n");
+        }
+
+        s.push_str(&indent_prefix);
+        s.push_str("}\n");
+        s
+    }
+}
+
+pub struct Contract {
+    pub(crate) name: OptionalIdentifier,
+    pub(crate) type_param_names: Vec<String>,
+    pub(crate) function_sigs: Vec<MemberFunctionSignature>,
+}
+impl SimpleCodeGen for Contract {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        let indent_prefix = "    ".repeat(indent);
+
+        s.push_str(&indent_prefix);
+        s.push_str("contract ");
+        s.push_str(&self.name.codegen(indent));
+
+        if self.type_param_names.len() > 0 {
+            s.push_str("<");
+            s.push_str(&self.type_param_names.join(","));
+            s.push_str(">");
+        }
+
+        s.push_str(" {\n");
+
+        for sig in &self.function_sigs {
+            s.push_str(&indent_prefix);
+            s.push_str("    ");
+            s.push_str(sig.codegen(indent + 1).as_str());
+            s.push_str(";\n");
         }
 
         s.push_str(&indent_prefix);
