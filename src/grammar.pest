@@ -64,11 +64,12 @@ unOp = _{ negate | invert }
 unOpAtom = { unOp ~ expr }
 
 // Literals/Primitives
+identChar = _{ (ASCII_ALPHANUMERIC | "_") }
 int = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ }
 number = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ ~ ("." ~ (ASCII_DIGIT)+)? }
-boolean = { "true" | "false" }
-none = { "none" }
-void = { "void" }
+boolean = { ("true" | "false") ~ !identChar }
+none = { "none" ~ !identChar }
+void = { "void" ~ !identChar }
 listLiteral = { "[" ~ exprList ~ "]" }
 tuple = { "(" ~ expr ~ "," ~ expr? ~ ("," ~ expr)* ~ ")" }
 

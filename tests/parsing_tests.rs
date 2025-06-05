@@ -123,6 +123,7 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("(x, y) = (5, 3);")?;
     run_statement_test("((x, y), z) = ((5, 3), 7);")?;
     run_statement_test("((x, y), z, ((w,),)) = ((5, 3), 7, ((6,),));")?;
+    run_statement_test("trueList.add(item);")?; // If ident starts with true/false/void/none
     Ok(())
 }
 

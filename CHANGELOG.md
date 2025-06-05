@@ -1,3 +1,6 @@
+# 1.0.0alpha3 and 1.0.0alpha4
+* Critical bug fixes and minor API enhancements
+
 # 1.0.0alpha2
 * Update to Rust 2024 edition
 * Extensions:

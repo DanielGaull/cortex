@@ -458,7 +458,7 @@ impl CortexParser {
                 Ok(PExpression::Number(value))
             },
             Rule::boolean => {
-                let value: bool = pair.as_str().parse().unwrap();
+                let value: bool = pair.as_str().trim().parse().unwrap();
                 Ok(PExpression::Boolean(value))
             },
             Rule::string => {
