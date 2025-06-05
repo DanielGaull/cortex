@@ -1,6 +1,6 @@
-use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
+use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, os::raw::c_double, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -16,6 +16,7 @@ pub struct CortexPreprocessor {
     type_map: HashMap<PathIdent, TypeDefinition>,
     loop_depth: u32,
     temp_num: usize,
+    contract_map: HashMap<PathIdent, Contract>,
 }
 
 impl CortexPreprocessor {
@@ -29,6 +30,7 @@ impl CortexPreprocessor {
             type_map: HashMap::new(),
             loop_depth: 0,
             temp_num: 0,
+            contract_map: HashMap::new(),
         };
 
         macro_rules! add_core_type {
@@ -120,7 +122,8 @@ impl CortexPreprocessor {
                 Ok(())
             },
             TopLevel::Contract(contract) => {
-                todo!()
+                self.add_contract(PathIdent::empty(), contract)?;
+                Ok(())
             },
         }
     }
@@ -151,6 +154,7 @@ impl CortexPreprocessor {
         let structs = module.take_structs()?;
         let bundles = module.take_bundles()?;
         let extensions = module.take_extensions()?;
+        let contracts = module.take_contracts()?;
 
         let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
 
@@ -164,6 +168,10 @@ impl CortexPreprocessor {
 
         for item in extensions {
             self.add_extension(path.clone(), item, &mut functions)?;
+        }
+
+        for item in contracts {
+            self.add_contract(path.clone(), item)?;
         }
 
         for (addr, f) in &functions {
@@ -200,6 +208,16 @@ impl CortexPreprocessor {
         match name {
             OptionalIdentifier::Ident(_) => {
                 self.function_dict.add_function(addr, processed);
+            },
+            OptionalIdentifier::Ignore => {},
+        }
+        Ok(())
+    }
+    fn add_contract(&mut self, n: PathIdent, item: Contract) -> Result<(), CortexError> {
+        let name = item.name.clone();
+        match name {
+            OptionalIdentifier::Ident(name) => {
+                self.contract_map.insert(PathIdent::continued(n, name), item);
             },
             OptionalIdentifier::Ignore => {},
         }
@@ -376,7 +394,7 @@ impl CortexPreprocessor {
                     module.add_extension(item)?;
                 },
                 TopLevel::Contract(item) => {
-                    todo!()
+                    module.add_contract(item)?;
                 },
             }
         }

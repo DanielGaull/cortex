@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Extension, PFunction, Struct}, r#type::CortexType};
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Contract, Extension, PFunction, Struct}, r#type::CortexType};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -35,6 +35,7 @@ pub struct Module {
     structs: HashMap<String, Struct>,
     bundles: HashMap<String, Bundle>,
     extensions: Vec<Extension>,
+    contracts: HashMap<String, Contract>,
 }
 
 impl Module {
@@ -48,6 +49,7 @@ impl Module {
             structs: HashMap::new(),
             bundles: HashMap::new(),
             extensions: Vec::new(),
+            contracts: HashMap::new(),
         }
     }
 
@@ -200,5 +202,31 @@ impl Module {
 
         self.extensions.push(item);
         Ok(())
+    }
+
+    pub fn take_contracts(&mut self) -> Result<Vec<Contract>, ModuleError> {
+        let res = std::mem::take(&mut self.contracts).into_values().collect();
+        Ok(res)
+    }
+    pub fn add_contract(&mut self, item: Contract) -> Result<(), ModuleError> {
+        match &item.name {
+            OptionalIdentifier::Ident(name) => {
+                if self.contracts.contains_key(name) {
+                    Err(ModuleError::TypeAlreadyExists(name.clone()))
+                } else {
+                    let mut seen_type_param_names = HashSet::new();
+                    for t in &item.type_param_names {
+                        if seen_type_param_names.contains(t) {
+                            return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
+                        }
+                        seen_type_param_names.insert(t);
+                    }
+
+                    self.contracts.insert(name.clone(), item);
+                    Ok(())
+                }
+            },
+            OptionalIdentifier::Ignore => Ok(()),
+        }
     }
 }
