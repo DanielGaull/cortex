@@ -174,6 +174,8 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     run_top_level_test("bundle Box<T> follows Iterator<T>, Iterable<T> {\n}\n")?;
     run_top_level_test("bundle Box<T,R> follows Iterator<T>, Iterable<R> {\n}\n")?;
     run_top_level_test("bundle Box<T,R> follows Iterator<R, T>, Iterable<R, R> {\n}\n")?;
+    run_top_level_test("bundle NumList follows Iterator<number> {\n}\n")?;
+    run_top_level_test("bundle DTupleList<T> follows Iterator<(T, T)> {\n}\n")?;
     
     Ok(())
 }

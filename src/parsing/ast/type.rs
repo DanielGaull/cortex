@@ -430,14 +430,14 @@ pub fn forwarded_type_args(names: &Vec<String>) -> Vec<CortexType> {
 
 pub struct FollowsEntry {
     pub(crate) name: PathIdent,
-    pub(crate) type_param_names: Vec<String>,
+    pub(crate) type_args: Vec<CortexType>,
 }
 impl SimpleCodeGen for FollowsEntry {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
         s.push_str(&self.name.codegen(indent));
-        if self.type_param_names.len() > 0 {
-            s.push_str(&format!("<{}>", self.type_param_names.join(", ")));
+        if self.type_args.len() > 0 {
+            s.push_str(&format!("<{}>", self.type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
         }
         s
     }

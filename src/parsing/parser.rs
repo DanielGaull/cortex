@@ -892,17 +892,14 @@ impl CortexParser {
     fn parse_follows_entry(pair: Pair<Rule>) -> Result<FollowsEntry, ParseError> {
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_path_ident(pairs.next().unwrap())?;
-        let mut type_params = Vec::new();
+        let mut type_args = Vec::new();
         if let Some(next) = pairs.next() {
-            let type_arg_pairs = next.into_inner();
-            for ident in type_arg_pairs {
-                type_params.push(String::from(ident.as_str()));
-            }
+            type_args = Self::parse_type_list(next)?;
         }
         Ok(
             FollowsEntry {
                 name,
-                type_param_names: type_params,
+                type_args,
             }
         )
     }

@@ -66,4 +66,10 @@ pub enum PreprocessingError {
     TypeDoesNotExist(String),
     #[error("Function \"{0}\" was not found")]
     FunctionDoesNotExist(String),
+    #[error("Contract \"{0}\" does not exist")]
+    ContractDoesNotExist(String),
+    #[error("Ambiguous function name \"{0}\" from multiple contracts")]
+    AmbiguousFunctionFromMultipleContracts(String),
+    #[error("Not all contract functions implemented: missing function(s) {0}")]
+    ContractFunctionsMissing(String),
 }

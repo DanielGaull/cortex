@@ -224,7 +224,7 @@ impl PExpression {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Parameter {
     pub(crate) name: String,
     pub(crate) typ: CortexType,
@@ -297,7 +297,7 @@ impl IdentExpression {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum OptionalIdentifier {
     Ident(String), // A true identifier
     Ignore, // The ignore token, "~"

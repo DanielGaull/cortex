@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, FollowsEntry, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -251,6 +251,9 @@ impl CortexPreprocessor {
         if self.has_type(&full_path) {
             Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
         } else {
+            if let Some(clause) = item.follows_clause {
+                self.check_contract_follows(&item.functions, &clause.contracts)?;
+            }
             Self::handle_member_functions(item.functions, n, &item.type_param_names, &item.name, funcs_to_add)?;
 
             let mut seen_type_param_names = HashSet::new();
@@ -268,6 +271,46 @@ impl CortexPreprocessor {
             });
             Ok(())
         }
+    }
+    fn check_contract_follows(&self, functions: &Vec<MemberFunction>, contracts: &Vec<FollowsEntry>) -> Result<(), CortexError> {
+        let mut methods_to_contain = Vec::new();
+        let mut method_names = HashSet::new();
+
+        for entry in contracts {
+            let contract = self.contract_map.get(&entry.name);
+            if let Some(contract) = contract {
+                let type_bindings = TypeEnvironment::create_bindings(&contract.type_param_names, &entry.type_args);
+                for func in &contract.function_sigs {
+                    if let OptionalIdentifier::Ident(name) = &func.name {
+                        if method_names.contains(name) {
+                            return Err(Box::new(PreprocessingError::AmbiguousFunctionFromMultipleContracts(name.clone())));
+                        }
+                        method_names.insert(name);
+                    }
+                    methods_to_contain.push(func.clone().fill_all(&type_bindings));
+                }
+            } else {
+                return Err(Box::new(PreprocessingError::ContractDoesNotExist(entry.name.codegen(0))));
+            }
+        }
+
+        for func in functions {
+            methods_to_contain.retain(|m| m != &func.signature);
+        }
+
+        if methods_to_contain.len() > 0 {
+            let joint = methods_to_contain
+                .iter()
+                .filter_map(|m| match &m.name {
+                    OptionalIdentifier::Ident(n) => Some(n.clone()),
+                    OptionalIdentifier::Ignore => None,
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(Box::new(PreprocessingError::ContractFunctionsMissing(joint)));
+        }
+        
+        Ok(())
     }
     fn handle_member_functions(functions: Vec<MemberFunction>, n: PathIdent, item_type_param_names: &Vec<String>, item_name: &String, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         for func in functions {

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen};
+use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, preprocessing::type_env::TypeEnvironment};
 
 use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, statement::PStatement, r#type::{CortexType, FollowsClause}};
 
@@ -55,7 +55,7 @@ impl SimpleCodeGen for TopLevel {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum ThisArg {
     RefThis,
     RefMutThis,
@@ -142,6 +142,7 @@ impl PFunction {
     }
 }
 
+#[derive(Clone, PartialEq)]
 pub struct MemberFunctionSignature {
     pub(crate) name: OptionalIdentifier,
     pub(crate) this_arg: ThisArg,
@@ -158,6 +159,22 @@ impl MemberFunctionSignature {
             this_arg: this_arg,
             type_param_names: type_param_names,
         }
+    }
+
+    pub fn fill_all(self, bindings: &HashMap<String, CortexType>) -> Self {
+        Self::new(
+            self.name,
+            self.params
+                .into_iter()
+                .map(|p| Parameter {
+                    name: p.name,
+                    typ: TypeEnvironment::fill(p.typ, bindings)
+                })
+                .collect(),
+            TypeEnvironment::fill(self.return_type, bindings),
+            self.this_arg,
+            self.type_param_names,
+        )
     }
 }
 impl SimpleCodeGen for MemberFunctionSignature {
