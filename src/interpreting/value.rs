@@ -2,6 +2,8 @@ use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use thiserror::Error;
 
+use crate::joint::vtable::VTable;
+
 #[derive(Error, Debug, PartialEq)]
 pub enum ValueError {
     #[error("Field {0} does not exist on struct {1}")]
@@ -16,7 +18,7 @@ pub enum ValueError {
     CannotModifyNonMutableReference,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum CortexValue {
     Number(f64),
     Boolean(bool),
@@ -29,6 +31,23 @@ pub enum CortexValue {
     },
     Reference(usize),
     List(Vec<CortexValue>),
+    Fat(Box<CortexValue>, VTable),
+}
+
+impl PartialEq for CortexValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Number(l0), Self::Number(r0)) => l0 == r0,
+            (Self::Boolean(l0), Self::Boolean(r0)) => l0 == r0,
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            (Self::Char(l0), Self::Char(r0)) => l0 == r0,
+            (Self::Composite { field_values: l_field_values }, Self::Composite { field_values: r_field_values }) => l_field_values == r_field_values,
+            (Self::Reference(l0), Self::Reference(r0)) => l0 == r0,
+            (Self::List(l0), Self::List(r0)) => l0 == r0,
+            (Self::Fat(l0, _), Self::Fat(r0, _)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 impl Display for CortexValue {
@@ -40,27 +59,28 @@ impl Display for CortexValue {
             CortexValue::Void => write!(f, "void"),
             CortexValue::None => write!(f, "none"),
             CortexValue::Composite { field_values } => {
-                let mut s = String::new();
-                for (name, val) in field_values {
-                    s.push_str(name);
-                    s.push_str(":");
-                    s.push_str(&format!("{}", val.borrow()));
-                    s.push_str(";");
-                }
-                write!(f, "{{ {} }}", s)
-            },
+                        let mut s = String::new();
+                        for (name, val) in field_values {
+                            s.push_str(name);
+                            s.push_str(":");
+                            s.push_str(&format!("{}", val.borrow()));
+                            s.push_str(";");
+                        }
+                        write!(f, "{{ {} }}", s)
+                    },
             CortexValue::Reference(addr) => write!(f, "&0x{:x}", addr),
             CortexValue::List(list) => {
-                let _ = write!(f, "[");
-                for (i, item) in list.iter().enumerate() {
-                    let _ = write!(f, "{}", item);
-                    if i + 1 < list.len() {
-                        let _ = write!(f, ", ");
-                    }
-                }
-                write!(f, "]")
-            },
+                        let _ = write!(f, "[");
+                        for (i, item) in list.iter().enumerate() {
+                            let _ = write!(f, "{}", item);
+                            if i + 1 < list.len() {
+                                let _ = write!(f, ", ");
+                            }
+                        }
+                        write!(f, "]")
+                    },
             CortexValue::Char(v) => write!(f, "\'{}\'", *v as char),
+            CortexValue::Fat(cortex_value, _) => write!(f, "{}", cortex_value),
         }
     }
 }
@@ -74,6 +94,8 @@ impl CortexValue {
         }
     }
 
+    // Should always return the underlying type. So for example with Fat pointers that wrap a value,
+    // we should return the value underneath
     fn get_variant_name(&self) -> &'static str {
         match self {
             CortexValue::Number(_) => "number",
@@ -85,6 +107,7 @@ impl CortexValue {
             CortexValue::Reference(_) => "pointer",
             CortexValue::List(_) => "list",
             CortexValue::Char(_) => "char",
+            CortexValue::Fat(cortex_value, _) => cortex_value.get_variant_name(),
         }
     }
 
