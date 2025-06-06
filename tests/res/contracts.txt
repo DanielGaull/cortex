@@ -1,0 +1,18 @@
+contract Iterator<T> {
+    fn next(&mut this): T;
+    fn hasNext(&this): bool;
+}
+
+bundle ListWrapper<R> follows Iterator<R> {
+    items: &mut list<R>,
+    index: number,
+
+    fn next(&mut this): R {
+        let result = this.items[this.index];
+        this.index += 1;
+        result
+    }
+    fn hasNext(&this): bool {
+        this.index < this.items.len()
+    }
+}

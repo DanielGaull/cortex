@@ -12,10 +12,10 @@ pub enum PreprocessingError {
     CannotDetermineListLiteralType(String, String),
     #[error("Value not found: {0} (module constants are currently not supported)")]
     ValueNotFound(String),
-    #[error("Invalid unary operator values: only the type(s) {0} are allowed")]
-    InvalidOperatorUnary(&'static str),
-    #[error("Invalid binary operator values: only the type(s) {0} and {1} are allowed")]
-    InvalidOperator(&'static str, &'static str),
+    #[error("Invalid unary operator values: only the type(s) {0} are allowed for unary operator {1}, but expression of type {2} was found")]
+    InvalidOperatorUnary(&'static str, &'static str, String),
+    #[error("Invalid binary operator values: only the type(s) {0} and {1} are allowed for binary operator {2}, but expressions of type {3} and {4} were found")]
+    InvalidOperator(&'static str, &'static str, &'static str, String, String),
     #[error("Cannot assign multiple times to struct field {0} in construction")]
     MultipleFieldAssignment(String),
     #[error("Fields not assigned on struct {0}: {1}")]

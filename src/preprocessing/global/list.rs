@@ -74,9 +74,8 @@ impl CortexPreprocessor {
                 ),
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("len")), 
-                    vec![
-                    ], 
-                    CortexType::number(true),
+                    vec![], 
+                    CortexType::number(false),
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {

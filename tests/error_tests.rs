@@ -28,7 +28,7 @@ fn test_variable_errors() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_operator_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("5 - \"foo\";", PreprocessingError::InvalidOperator("number", "number"), &mut interpreter)?;
+    assert_err("5 - \"foo\";", PreprocessingError::InvalidOperator("number", "number", "-", String::from("number"), String::from("string")), &mut interpreter)?;
     assert_err("5.2 * \"foo\";", InterpreterError::ExpectedInteger(5.2f64), &mut interpreter)?;
     Ok(())
 }

@@ -702,14 +702,14 @@ impl CortexPreprocessor {
                         if typ == CortexType::number(false) {
                             Ok((RExpression::UnaryOperation { op: UnaryOperator::Negate, exp: Box::new(exp) }, CortexType::number(false)))
                         } else {
-                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("number")))
+                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("number", "-", typ.codegen(0))))
                         }
                     },
                     UnaryOperator::Invert => {
                         if typ == CortexType::boolean(false) {
                             Ok((RExpression::UnaryOperation { op: UnaryOperator::Invert, exp: Box::new(exp) }, CortexType::boolean(false)))
                         } else {
-                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("bool")))
+                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("bool", "!", typ.codegen(0))))
                         }
                     },
                 }
@@ -1155,14 +1155,14 @@ impl CortexPreprocessor {
                 } else if first == string && second == string {
                     Ok(string)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("number, string", "number, string")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("number, string", "number, string", "+", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::Subtract => {
                 if first == number && second == number {
                     Ok(number)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "-", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::Multiply => {
@@ -1173,35 +1173,35 @@ impl CortexPreprocessor {
                 } else if first == string && second == number {
                     Ok(string)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("number", "string")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "string", "*", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::Divide => {
                 if first == number && second == number {
                     Ok(number)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "/", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::Remainder => {
                 if first == number && second == number {
                     Ok(number)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "%", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::LogicAnd => {
                 if first == boolean && second == boolean {
                     Ok(boolean)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("boolean", "boolean")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("boolean", "boolean", "&&", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::LogicOr => {
                 if first == boolean && second == boolean {
                     Ok(boolean)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("boolean", "boolean")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("boolean", "boolean", "||", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::IsEqual => {
@@ -1214,28 +1214,28 @@ impl CortexPreprocessor {
                 if first == number && second == number {
                     Ok(boolean)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "<", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::IsGreaterThan => {
                 if first == number && second == number {
                     Ok(boolean)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number", ">", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::IsLessThanOrEqualTo => {
                 if first == number && second == number {
                     Ok(boolean)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "<=", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::IsGreaterThanOrEqualTo => {
                 if first == number && second == number {
                     Ok(boolean)
                 } else {
-                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number")))
+                    Err(Box::new(PreprocessingError::InvalidOperator("number", "number", ">=", first.codegen(0), second.codegen(0))))
                 }
             },
         }
