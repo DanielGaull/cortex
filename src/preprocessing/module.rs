@@ -140,24 +140,19 @@ impl Module {
         Ok(res)
     }
     pub fn add_struct(&mut self, item: Struct) -> Result<(), ModuleError> {
-        match &item.name {
-            OptionalIdentifier::Ident(name) => {
-                if self.structs.contains_key(name) {
-                    Err(ModuleError::TypeAlreadyExists(name.clone()))
-                } else {
-                    let mut seen_type_param_names = HashSet::new();
-                    for t in &item.type_param_names {
-                        if seen_type_param_names.contains(t) {
-                            return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
-                        }
-                        seen_type_param_names.insert(t);
-                    }
-
-                    self.structs.insert(name.clone(), item);
-                    Ok(())
+        if self.structs.contains_key(&item.name) {
+            Err(ModuleError::TypeAlreadyExists(item.name.clone()))
+        } else {
+            let mut seen_type_param_names = HashSet::new();
+            for t in &item.type_param_names {
+                if seen_type_param_names.contains(t) {
+                    return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
                 }
-            },
-            OptionalIdentifier::Ignore => Ok(()),
+                seen_type_param_names.insert(t);
+            }
+
+            self.structs.insert(item.name.clone(), item);
+            Ok(())
         }
     }
 
@@ -166,24 +161,19 @@ impl Module {
         Ok(res)
     }
     pub fn add_bundle(&mut self, item: Bundle) -> Result<(), ModuleError> {
-        match &item.name {
-            OptionalIdentifier::Ident(name) => {
-                if self.bundles.contains_key(name) {
-                    Err(ModuleError::TypeAlreadyExists(name.clone()))
-                } else {
-                    let mut seen_type_param_names = HashSet::new();
-                    for t in &item.type_param_names {
-                        if seen_type_param_names.contains(t) {
-                            return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
-                        }
-                        seen_type_param_names.insert(t);
-                    }
-
-                    self.bundles.insert(name.clone(), item);
-                    Ok(())
+        if self.bundles.contains_key(&item.name) {
+            Err(ModuleError::TypeAlreadyExists(item.name.clone()))
+        } else {
+            let mut seen_type_param_names = HashSet::new();
+            for t in &item.type_param_names {
+                if seen_type_param_names.contains(t) {
+                    return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
                 }
-            },
-            OptionalIdentifier::Ignore => Ok(()),
+                seen_type_param_names.insert(t);
+            }
+
+            self.bundles.insert(item.name.clone(), item);
+            Ok(())
         }
     }
 
@@ -209,24 +199,19 @@ impl Module {
         Ok(res)
     }
     pub fn add_contract(&mut self, item: Contract) -> Result<(), ModuleError> {
-        match &item.name {
-            OptionalIdentifier::Ident(name) => {
-                if self.contracts.contains_key(name) {
-                    Err(ModuleError::TypeAlreadyExists(name.clone()))
-                } else {
-                    let mut seen_type_param_names = HashSet::new();
-                    for t in &item.type_param_names {
-                        if seen_type_param_names.contains(t) {
-                            return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
-                        }
-                        seen_type_param_names.insert(t);
-                    }
-
-                    self.contracts.insert(name.clone(), item);
-                    Ok(())
+        if self.contracts.contains_key(&item.name) {
+            Err(ModuleError::TypeAlreadyExists(item.name.clone()))
+        } else {
+            let mut seen_type_param_names = HashSet::new();
+            for t in &item.type_param_names {
+                if seen_type_param_names.contains(t) {
+                    return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
                 }
-            },
-            OptionalIdentifier::Ignore => Ok(()),
+                seen_type_param_names.insert(t);
+            }
+
+            self.contracts.insert(item.name.clone(), item);
+            Ok(())
         }
     }
 }

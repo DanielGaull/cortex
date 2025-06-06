@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry}}, codegen::r#trait::SimpleCodeGen};
+use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry}};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -742,7 +742,7 @@ impl CortexParser {
 
     fn parse_struct_pair(pair: Pair<Rule>) -> Result<Struct, ParseError> {
         let mut pairs = pair.into_inner();
-        let name = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let name = pairs.next().unwrap().as_str();
         let mut type_args = Vec::new();
         let next = pairs.next().unwrap();
         let field_params;
@@ -760,14 +760,14 @@ impl CortexParser {
         let mut fields = HashMap::new();
         for p in field_params {
             if fields.contains_key(&p.name) {
-                return Err(ParseError::CompositeContainsDuplicateFields(name.codegen(0), p.name.clone()));
+                return Err(ParseError::CompositeContainsDuplicateFields(String::from(name), p.name.clone()));
             }
             fields.insert(p.name, p.typ);
         }
         
         Ok(
             Struct { 
-                name: name,
+                name: String::from(name),
                 fields: fields,
                 functions: functions,
                 type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
@@ -776,7 +776,7 @@ impl CortexParser {
     }
     fn parse_bundle_pair(pair: Pair<Rule>) -> Result<Bundle, ParseError> {
         let mut pairs = pair.into_inner();
-        let name = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let name = pairs.next().unwrap().as_str();
         let mut follows_clause = None;
         let mut type_args = Vec::new();
         let mut next = pairs.next().unwrap();
@@ -801,14 +801,14 @@ impl CortexParser {
         let mut fields = HashMap::new();
         for p in field_params {
             if fields.contains_key(&p.name) {
-                return Err(ParseError::CompositeContainsDuplicateFields(name.codegen(0), p.name.clone()));
+                return Err(ParseError::CompositeContainsDuplicateFields(String::from(name), p.name.clone()));
             }
             fields.insert(p.name, p.typ);
         }
         
         Ok(
             Bundle { 
-                name: name,
+                name: String::from(name),
                 fields: fields,
                 functions: functions,
                 type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
@@ -842,7 +842,7 @@ impl CortexParser {
     }
     fn parse_contract_pair(pair: Pair<Rule>) -> Result<Contract, ParseError> {
         let mut pairs = pair.into_inner();
-        let name = Self::parse_opt_ident(pairs.next().unwrap())?;
+        let name = pairs.next().unwrap().as_str();
         let mut type_args = Vec::new();
         let next = pairs.next();
         let functions;
@@ -870,7 +870,7 @@ impl CortexParser {
         
         Ok(
             Contract { 
-                name: name,
+                name: String::from(name),
                 function_sigs: functions,
                 type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
             }

@@ -289,7 +289,7 @@ impl Body {
 }
 
 pub struct Struct {
-    pub(crate) name: OptionalIdentifier,
+    pub(crate) name: String,
     pub(crate) fields: HashMap<String, CortexType>,
     pub(crate) functions: Vec<MemberFunction>,
     pub(crate) type_param_names: Vec<String>,
@@ -301,7 +301,7 @@ impl SimpleCodeGen for Struct {
 
         s.push_str(&indent_prefix);
         s.push_str("struct ");
-        s.push_str(&self.name.codegen(indent));
+        s.push_str(&self.name);
 
         if self.type_param_names.len() > 0 {
             s.push_str("<");
@@ -341,7 +341,7 @@ impl Struct {
             map.insert(String::from(f.0), f.1);
         }
         Struct {
-            name: OptionalIdentifier::Ident(String::from(name)),
+            name: String::from(name),
             fields: map,
             functions: funcs,
             type_param_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
@@ -350,7 +350,7 @@ impl Struct {
 }
 
 pub struct Bundle {
-    pub(crate) name: OptionalIdentifier,
+    pub(crate) name: String,
     pub(crate) fields: HashMap<String, CortexType>,
     pub(crate) functions: Vec<MemberFunction>,
     pub(crate) type_param_names: Vec<String>,
@@ -363,7 +363,7 @@ impl SimpleCodeGen for Bundle {
 
         s.push_str(&indent_prefix);
         s.push_str("bundle ");
-        s.push_str(&self.name.codegen(indent));
+        s.push_str(&self.name);
 
         if self.type_param_names.len() > 0 {
             s.push_str("<");
@@ -405,7 +405,7 @@ impl Bundle {
             map.insert(String::from(f.0), f.1);
         }
         Bundle {
-            name: OptionalIdentifier::Ident(String::from(name)),
+            name: String::from(name),
             fields: map,
             functions: funcs,
             type_param_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
@@ -448,7 +448,7 @@ impl SimpleCodeGen for Extension {
 }
 
 pub struct Contract {
-    pub(crate) name: OptionalIdentifier,
+    pub(crate) name: String,
     pub(crate) type_param_names: Vec<String>,
     pub(crate) function_sigs: Vec<MemberFunctionSignature>,
 }
@@ -459,7 +459,7 @@ impl SimpleCodeGen for Contract {
 
         s.push_str(&indent_prefix);
         s.push_str("contract ");
-        s.push_str(&self.name.codegen(indent));
+        s.push_str(&self.name);
 
         if self.type_param_names.len() > 0 {
             s.push_str("<");

@@ -214,75 +214,59 @@ impl CortexPreprocessor {
         Ok(())
     }
     fn add_contract(&mut self, n: PathIdent, item: Contract) -> Result<(), CortexError> {
-        let name = item.name.clone();
-        match name {
-            OptionalIdentifier::Ident(name) => {
-                self.contract_map.insert(PathIdent::continued(n, name), item);
-            },
-            OptionalIdentifier::Ignore => {},
-        }
+        self.contract_map.insert(PathIdent::continued(n, item.name.clone()), item);
         Ok(())
     }
     
     fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
-        match &item.name {
-            OptionalIdentifier::Ident(item_name) => {
-                let full_path = PathIdent::continued(n.clone(), item_name.clone());
-                if self.has_type(&full_path) {
-                    Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
-                } else {
-                    let has_loop = self.search_struct_for_loops(&item)?;
-                    if has_loop {
-                        return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
-                    }
-                    
-                    Self::handle_member_functions(item.functions, n, &item.type_param_names, item_name, funcs_to_add)?;
+        let full_path = PathIdent::continued(n.clone(), item.name.clone());
+        if self.has_type(&full_path) {
+            Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
+        } else {
+            let has_loop = self.search_struct_for_loops(&item)?;
+            if has_loop {
+                return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
+            }
+            
+            Self::handle_member_functions(item.functions, n, &item.type_param_names, &item.name, funcs_to_add)?;
 
-                    let mut seen_type_param_names = HashSet::new();
-                    for t in &item.type_param_names {
-                        if seen_type_param_names.contains(t) {
-                            return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
-                        }
-                        seen_type_param_names.insert(t);
-                    }
-
-                    self.type_map.insert(full_path, TypeDefinition {
-                        fields: item.fields,
-                        is_heap_allocated: false,
-                        type_param_names: item.type_param_names,
-                    });
-                    Ok(())
+            let mut seen_type_param_names = HashSet::new();
+            for t in &item.type_param_names {
+                if seen_type_param_names.contains(t) {
+                    return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
                 }
-            },
-            OptionalIdentifier::Ignore => Ok(()),
+                seen_type_param_names.insert(t);
+            }
+
+            self.type_map.insert(full_path, TypeDefinition {
+                fields: item.fields,
+                is_heap_allocated: false,
+                type_param_names: item.type_param_names,
+            });
+            Ok(())
         }
     }
     fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
-        match &item.name {
-            OptionalIdentifier::Ident(item_name) => {
-                let full_path = PathIdent::continued(n.clone(), item_name.clone());
-                if self.has_type(&full_path) {
-                    Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
-                } else {
-                    Self::handle_member_functions(item.functions, n, &item.type_param_names, item_name, funcs_to_add)?;
+        let full_path = PathIdent::continued(n.clone(), item.name.clone());
+        if self.has_type(&full_path) {
+            Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
+        } else {
+            Self::handle_member_functions(item.functions, n, &item.type_param_names, &item.name, funcs_to_add)?;
 
-                    let mut seen_type_param_names = HashSet::new();
-                    for t in &item.type_param_names {
-                        if seen_type_param_names.contains(t) {
-                            return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
-                        }
-                        seen_type_param_names.insert(t);
-                    }
-
-                    self.type_map.insert(full_path, TypeDefinition {
-                        fields: item.fields,
-                        is_heap_allocated: true,
-                        type_param_names: item.type_param_names,
-                    });
-                    Ok(())
+            let mut seen_type_param_names = HashSet::new();
+            for t in &item.type_param_names {
+                if seen_type_param_names.contains(t) {
+                    return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
                 }
-            },
-            OptionalIdentifier::Ignore => Ok(()),
+                seen_type_param_names.insert(t);
+            }
+
+            self.type_map.insert(full_path, TypeDefinition {
+                fields: item.fields,
+                is_heap_allocated: true,
+                type_param_names: item.type_param_names,
+            });
+            Ok(())
         }
     }
     fn handle_member_functions(functions: Vec<MemberFunction>, n: PathIdent, item_type_param_names: &Vec<String>, item_name: &String, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
@@ -1315,38 +1299,33 @@ impl CortexPreprocessor {
     }
 
     fn search_struct_for_loops(&self, s: &Struct) -> Result<bool, CortexError> {
-        match &s.name {
-            OptionalIdentifier::Ident(name) => {
-                let stype = CortexType::basic(PathIdent::simple(name.clone()), false, forwarded_type_args(&s.type_param_names));
-                let mut q = VecDeque::new();
-                for field in &s.fields {
-                    q.push_back(field.1.clone());
-                }
-                // Only need to search for references to this struct, everything else should be fine
-                while !q.is_empty() {
-                    let typ = q.pop_front().unwrap();
-                    if typ == stype {
-                        return Ok(true);
-                    }
-                    if !typ.is_core() {
-                        // Enqueue all fields of this type
-                        let typ_name = typ.name()?;
-
-                        // It's ok if the struct doesn't exist yet
-                        // If it has loops, then they will be caught when we visit this function upon registering it
-                        // Unfortunately, the order in which structs are added is not deterministic
-                        if self.has_type(typ_name) {
-                            let struc = self.lookup_type(typ_name)?;
-                            for field in &struc.fields {
-                                q.push_back(field.1.clone());
-                            }
-                        }
-                    }
-                }
-                Ok(false)
-            },
-            OptionalIdentifier::Ignore => Ok(false),
+        let stype = CortexType::basic(PathIdent::simple(s.name.clone()), false, forwarded_type_args(&s.type_param_names));
+        let mut q = VecDeque::new();
+        for field in &s.fields {
+            q.push_back(field.1.clone());
         }
+        // Only need to search for references to this struct, everything else should be fine
+        while !q.is_empty() {
+            let typ = q.pop_front().unwrap();
+            if typ == stype {
+                return Ok(true);
+            }
+            if !typ.is_core() {
+                // Enqueue all fields of this type
+                let typ_name = typ.name()?;
+
+                // It's ok if the struct doesn't exist yet
+                // If it has loops, then they will be caught when we visit this function upon registering it
+                // Unfortunately, the order in which structs are added is not deterministic
+                if self.has_type(typ_name) {
+                    let struc = self.lookup_type(typ_name)?;
+                    for field in &struc.fields {
+                        q.push_back(field.1.clone());
+                    }
+                }
+            }
+        }
+        Ok(false)
     }
 
     fn get_variable_type(&self, path: &PathIdent) -> Result<CortexType, CortexError> {
