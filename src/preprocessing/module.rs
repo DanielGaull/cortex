@@ -17,6 +17,8 @@ pub enum ModuleError {
     FunctionAlreadyExists(String),
     #[error("Type \"{0}\" already exists")]
     TypeAlreadyExists(String),
+    #[error("Contract \"{0}\" already exists")]
+    ContractAlreadyExists(String),
 
     #[error("Duplicate type argument name: {0}")]
     DuplicateTypeArgumentName(String),
@@ -200,7 +202,7 @@ impl Module {
     }
     pub fn add_contract(&mut self, item: Contract) -> Result<(), ModuleError> {
         if self.contracts.contains_key(&item.name) {
-            Err(ModuleError::TypeAlreadyExists(item.name.clone()))
+            Err(ModuleError::ContractAlreadyExists(item.name.clone()))
         } else {
             let mut seen_type_param_names = HashSet::new();
             for t in &item.type_param_names {

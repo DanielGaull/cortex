@@ -214,8 +214,13 @@ impl CortexPreprocessor {
         Ok(())
     }
     fn add_contract(&mut self, n: PathIdent, item: Contract) -> Result<(), CortexError> {
-        self.contract_map.insert(PathIdent::continued(n, item.name.clone()), item);
-        Ok(())
+        let full_path = PathIdent::continued(n, item.name.clone());
+        if self.contract_map.contains_key(&full_path) {
+            Err(Box::new(ModuleError::ContractAlreadyExists(full_path.codegen(0))))
+        } else {
+            self.contract_map.insert(full_path, item);
+            Ok(())
+        }
     }
     
     fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
@@ -275,8 +280,13 @@ impl CortexPreprocessor {
     fn check_contract_follows(&self, functions: &Vec<MemberFunction>, contracts: &Vec<FollowsEntry>) -> Result<(), CortexError> {
         let mut methods_to_contain = Vec::new();
         let mut method_names = HashSet::new();
+        let mut contract_paths = HashSet::new();
 
         for entry in contracts {
+            if contract_paths.contains(&entry.name) {
+                return Err(Box::new(PreprocessingError::DuplicateInFollowsClause(entry.name.codegen(0))));
+            }
+            contract_paths.insert(entry.name.clone());
             let contract = self.contract_map.get(&entry.name);
             if let Some(contract) = contract {
                 let type_bindings = TypeEnvironment::create_bindings(&contract.type_param_names, &entry.type_args);

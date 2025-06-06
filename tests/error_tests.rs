@@ -62,6 +62,11 @@ fn test_contract_errors() -> Result<(), Box<dyn Error>> {
             5
         }
     }", PreprocessingError::AmbiguousFunctionFromMultipleContracts(String::from("next")), &mut interpreter)?;
+    assert_err_toplevel("bundle NumList follows NetworkRequester, NetworkRequester {
+        fn next(&this): number {
+            5
+        }
+    }", PreprocessingError::DuplicateInFollowsClause(String::from("NetworkRequester")), &mut interpreter)?;
 
     Ok(())
 }
@@ -152,6 +157,9 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     assert_err_toplevel("struct b{}", ModuleError::TypeAlreadyExists(String::from("b")), &mut interpreter)?;
 
     assert_err_equal(CortexParser::parse_top_level("struct A{a:number, a:number}").map_err(|e| Box::new(e) as Box<dyn Error>), ParseError::CompositeContainsDuplicateFields(String::from("A"), String::from("a")))?;
+
+    interpreter.run_top_level(CortexParser::parse_top_level("contract c{}")?)?;
+    assert_err_toplevel("contract c{}", ModuleError::ContractAlreadyExists(String::from("c")), &mut interpreter)?;
 
     Ok(())
 }

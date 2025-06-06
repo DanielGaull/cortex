@@ -72,4 +72,6 @@ pub enum PreprocessingError {
     AmbiguousFunctionFromMultipleContracts(String),
     #[error("Not all contract functions implemented: missing function(s) {0}")]
     ContractFunctionsMissing(String),
+    #[error("Duplicate in follows clause (contract {0} appears multiple times)")]
+    DuplicateInFollowsClause(String),
 }
