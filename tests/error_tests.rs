@@ -45,6 +45,28 @@ fn test_function_errors() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn test_contract_errors() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = setup_interpreter()?;
+
+    interpreter.run_top_level(CortexParser::parse_top_level("contract Iterator<T> {
+        fn next(&mut this): T;
+    }")?)?;
+    interpreter.run_top_level(CortexParser::parse_top_level("contract NetworkRequester {
+        fn next(&this): string;
+    }")?)?;
+
+    assert_err_toplevel("bundle NumList follows Iterator<number> {}", PreprocessingError::ContractFunctionsMissing(String::from("next")), &mut interpreter)?;
+    assert_err_toplevel("bundle NumList follows NumIterator {}", PreprocessingError::ContractDoesNotExist(String::from("NumIterator")), &mut interpreter)?;
+    assert_err_toplevel("bundle NumList follows Iterator<number>, NetworkRequester {
+        fn next(&mut this): number {
+            5
+        }
+    }", PreprocessingError::AmbiguousFunctionFromMultipleContracts(String::from("next")), &mut interpreter)?;
+
+    Ok(())
+}
+
+#[test]
 fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     assert_err("simple::Time { z: 5 };", PreprocessingError::FieldDoesNotExist(String::from("z"), String::from("simple::Time")), &mut interpreter)?;

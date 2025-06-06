@@ -281,8 +281,8 @@ impl CortexPreprocessor {
             if let Some(contract) = contract {
                 let type_bindings = TypeEnvironment::create_bindings(&contract.type_param_names, &entry.type_args);
                 for func in &contract.function_sigs {
-                    if let OptionalIdentifier::Ident(name) = &func.name {
-                        if method_names.contains(name) {
+                    if let OptionalIdentifier::Ident(name) = func.name.clone() {
+                        if method_names.contains(&name) {
                             return Err(Box::new(PreprocessingError::AmbiguousFunctionFromMultipleContracts(name.clone())));
                         }
                         method_names.insert(name);

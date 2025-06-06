@@ -116,8 +116,8 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
         interpreter.run_top_level(tl)?;
     }
 
-    // assert_expression("test(5)", "5", &mut interpreter)?;
-    // assert_expression("test2(5)", "5", &mut interpreter)?;
+    // Making it this far without throwing errors indicates that the preprocessor found no issues
+    
     Ok(())
 }
 

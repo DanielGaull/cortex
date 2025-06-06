@@ -859,6 +859,8 @@ impl CortexParser {
                 functions = sigs;
             } else {
                 let mut sigs = Vec::new();
+                sigs.push(Self::parse_member_function_signature(next)?);
+                
                 while let Some(p) = pairs.next() {
                     sigs.push(Self::parse_member_function_signature(p)?);
                 }
