@@ -447,6 +447,6 @@ pub struct FollowsClause {
 }
 impl SimpleCodeGen for FollowsClause {
     fn codegen(&self, indent: usize) -> String {
-        format!("follows {}", self.contracts.iter().map(|c| c.codegen(indent)).collect::<Vec<_>>().join(", "))
+        format!("follows {}", self.contracts.iter().map(|c| c.codegen(indent)).collect::<Vec<_>>().join(" + "))
     }
 }

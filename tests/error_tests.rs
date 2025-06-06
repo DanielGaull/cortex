@@ -57,12 +57,12 @@ fn test_contract_errors() -> Result<(), Box<dyn Error>> {
 
     assert_err_toplevel("bundle NumList follows Iterator<number> {}", PreprocessingError::ContractFunctionsMissing(String::from("next")), &mut interpreter)?;
     assert_err_toplevel("bundle NumList follows NumIterator {}", PreprocessingError::ContractDoesNotExist(String::from("NumIterator")), &mut interpreter)?;
-    assert_err_toplevel("bundle NumList follows Iterator<number>, NetworkRequester {
+    assert_err_toplevel("bundle NumList follows Iterator<number> + NetworkRequester {
         fn next(&mut this): number {
             5
         }
     }", PreprocessingError::AmbiguousFunctionFromMultipleContracts(String::from("next")), &mut interpreter)?;
-    assert_err_toplevel("bundle NumList follows NetworkRequester, NetworkRequester {
+    assert_err_toplevel("bundle NumList follows NetworkRequester + NetworkRequester {
         fn next(&this): number {
             5
         }

@@ -107,7 +107,7 @@ paramList = { (param ~ ",")* ~ param? }
 exprList = { (expr ~ ",")* ~ expr? }
 body = { statement* ~ expr? }
 
-followsClause = { "follows" ~ (followsEntry ~ ",")* ~ followsEntry }
+followsClause = { "follows" ~ (followsEntry ~ "+")* ~ followsEntry }
 followsEntry = { pathIdent ~ ("<" ~ typeList ~ ">")? }
 
 directThis = { "this" }
