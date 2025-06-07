@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use thiserror::Error;
 
-use crate::parsing::codegen::r#trait::SimpleCodeGen;
+use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::module::TypeDefinition};
 
 use super::expression::PathIdent;
 
@@ -330,7 +332,7 @@ impl CortexType {
         }
     }
 
-    pub fn combine_with(self, other: CortexType) -> Option<CortexType> {
+    pub fn combine_with(self, other: CortexType, type_defs: &HashMap<PathIdent, TypeDefinition>) -> Option<CortexType> {
         let is_first_none_type = self == CortexType::none();
         let is_second_none_type = other == CortexType::none();
         if is_first_none_type {
@@ -345,7 +347,7 @@ impl CortexType {
                     if !are_type_args_equal(&b1.type_args, &b2.type_args) {
                         // When there's only 1 type argument, we can try to combine it (ex. a list<number?> with a list<number>)
                         if b1.type_args.len() == 1 && b2.type_args.len() == 1 {
-                            if let Some(inner) = b1.type_args.get(0).unwrap().clone().combine_with(b2.type_args.get(0).unwrap().clone()) {
+                            if let Some(inner) = b1.type_args.get(0).unwrap().clone().combine_with(b2.type_args.get(0).unwrap().clone(), type_defs) {
                                 Some(Self::basic(b1.name.clone(), b1.optional || b2.optional, vec![inner]))
                             } else {
                                 None
@@ -361,7 +363,7 @@ impl CortexType {
                 }
             },
             (CortexType::RefType(r1), CortexType::RefType(r2)) => {
-                if let Some(res) = r1.contained.clone().combine_with(*r2.contained.clone()) {
+                if let Some(res) = r1.contained.clone().combine_with(*r2.contained.clone(), type_defs) {
                     Some(Self::reference(res, r1.mutable || r2.mutable))
                 } else {
                     None
@@ -374,7 +376,7 @@ impl CortexType {
                 if t1.types.len() == t2.types.len() {
                     let mut types = Vec::new();
                     for (t1, t2) in t1.types.into_iter().zip(t2.types) {
-                        let new = t1.combine_with(t2);
+                        let new = t1.combine_with(t2, type_defs);
                         if let Some(t) = new {
                             types.push(t);
                         } else {
@@ -390,7 +392,7 @@ impl CortexType {
         }
     }
 
-    pub fn is_subtype_of(&self, other: &CortexType) -> bool {
+    pub fn is_subtype_of(&self, other: &CortexType, type_defs: &HashMap<PathIdent, TypeDefinition>) -> bool {
         if other.optional() && self == &CortexType::none() {
             return true;
         }
@@ -402,7 +404,7 @@ impl CortexType {
                         false
                     } else if !are_type_args_equal(&b1.type_args, &b2.type_args) {
                         if b1.type_args.len() == 1 && b2.type_args.len() == 1 {
-                            b1.type_args.get(0).unwrap().is_subtype_of(b2.type_args.get(0).unwrap())
+                            b1.type_args.get(0).unwrap().is_subtype_of(b2.type_args.get(0).unwrap(), type_defs)
                         } else {
                             false
                         }
@@ -414,7 +416,7 @@ impl CortexType {
                 }
             },
             (CortexType::RefType(r1), CortexType::RefType(r2)) => {
-                if r1.contained.is_subtype_of(&*r2.contained) {
+                if r1.contained.is_subtype_of(&*r2.contained, type_defs) {
                     if !r1.mutable && r2.mutable {
                         false
                     } else {
@@ -441,7 +443,7 @@ impl CortexType {
             (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
                 if t1.types.len() == t2.types.len() {
                     for (t1, t2) in t1.types.iter().zip(&t2.types) {
-                        if !t1.is_subtype_of(t2) {
+                        if !t1.is_subtype_of(t2, type_defs) {
                             return false;
                         }
                     }

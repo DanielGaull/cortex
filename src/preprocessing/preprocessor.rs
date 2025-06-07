@@ -35,7 +35,7 @@ impl CortexPreprocessor {
 
         macro_rules! add_core_type {
             ($name:literal) => {
-                this.type_map.insert(PathIdent::simple(String::from($name)), TypeDefinition { fields: HashMap::new(), type_param_names: Vec::new(), is_heap_allocated: false });
+                this.type_map.insert(PathIdent::simple(String::from($name)), TypeDefinition { fields: HashMap::new(), type_param_names: Vec::new(), is_heap_allocated: false, followed_contracts: vec![] });
             }
         }
 
@@ -247,6 +247,7 @@ impl CortexPreprocessor {
                 fields: item.fields,
                 is_heap_allocated: false,
                 type_param_names: item.type_param_names,
+                followed_contracts: vec![],
             });
             Ok(())
         }
@@ -256,7 +257,7 @@ impl CortexPreprocessor {
         if self.has_type(&full_path) {
             Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
         } else {
-            if let Some(clause) = item.follows_clause {
+            if let Some(clause) = &item.follows_clause {
                 self.check_contract_follows(&item.functions, &clause.contracts)?;
             }
             Self::handle_member_functions(item.functions, n, &item.type_param_names, &item.name, funcs_to_add)?;
@@ -273,6 +274,9 @@ impl CortexPreprocessor {
                 fields: item.fields,
                 is_heap_allocated: true,
                 type_param_names: item.type_param_names,
+                followed_contracts: item.follows_clause
+                    .map(|f| f.contracts.clone())
+                    .unwrap_or(vec![]),
             });
             Ok(())
         }
@@ -455,7 +459,7 @@ impl CortexPreprocessor {
             Body::Basic(body) => {
                 let (new_body, body_type) = self.check_body(body)?;
                 let return_type = self.clean_type(function.return_type.clone().with_prefix_if_not_core(&self.current_context));
-                if !body_type.is_subtype_of(&return_type) {
+                if !body_type.is_subtype_of(&return_type, &self.type_map) {
                     return Err(Box::new(PreprocessingError::ReturnTypeMismatch(return_type.codegen(0), body_type.codegen(0))));
                 }
                 final_fn_body = RBody::Interpreted(new_body);
@@ -493,7 +497,7 @@ impl CortexPreprocessor {
             },
             PStatement::WhileLoop(condition_body) => {
                 let (cond, cond_type) = self.check_exp(condition_body.condition)?;
-                if !cond_type.is_subtype_of(&CortexType::boolean(false)) {
+                if !cond_type.is_subtype_of(&CortexType::boolean(false), &self.type_map) {
                     return Err(
                         Box::new(
                             PreprocessingError::MismatchedType(
@@ -508,7 +512,7 @@ impl CortexPreprocessor {
 
                 self.loop_depth += 1;
                 let (body, body_type) = self.check_body_and_handle_env(condition_body.body)?;
-                if !body_type.is_subtype_of(&CortexType::void(false)) {
+                if !body_type.is_subtype_of(&CortexType::void(false), &self.type_map) {
                     return Err(
                         Box::new(
                             PreprocessingError::LoopCannotHaveReturnValue
@@ -542,7 +546,7 @@ impl CortexPreprocessor {
                 let (assigned_exp, assigned_type) = self.check_exp(initial_value)?;
                 let type_of_var = if let Some(mut declared_type) = typ {
                     declared_type = self.clean_type(declared_type.with_prefix_if_not_core(&self.current_context));
-                    if !assigned_type.is_subtype_of(&declared_type) {
+                    if !assigned_type.is_subtype_of(&declared_type, &self.type_map) {
                         return Err(
                             Box::new(
                                 PreprocessingError::MismatchedType(
@@ -601,7 +605,7 @@ impl CortexPreprocessor {
         if name.is_simple() {
             let var_name = &name.base;
             let var_type = &self.current_env.as_ref().unwrap().get(var_name)?.clone();
-            if !assigned_type.is_subtype_of(var_type) {
+            if !assigned_type.is_subtype_of(var_type, &self.type_map) {
                 return Err(
                     Box::new(
                         PreprocessingError::MismatchedType(
@@ -636,7 +640,7 @@ impl CortexPreprocessor {
 
             let name_expr = name.clone().to_member_access_expr();
             let (_, var_type) = self.check_exp(name_expr)?;
-            if !assigned_type.is_subtype_of(&var_type) {
+            if !assigned_type.is_subtype_of(&var_type, &self.type_map) {
                 return Err(
                     Box::new(
                         PreprocessingError::MismatchedType(
@@ -736,7 +740,7 @@ impl CortexPreprocessor {
                     let item_type_str = item_type.codegen(0);
                     let typ_str = contained_type.codegen(0);
                     contained_type = contained_type
-                        .combine_with(item_type)
+                        .combine_with(item_type, &self.type_map)
                         .ok_or(PreprocessingError::CannotDetermineListLiteralType(typ_str, item_type_str))?;
                     new_items.push(item_exp);
                 }
@@ -982,7 +986,7 @@ impl CortexPreprocessor {
         for (i, arg_type) in arg_types.into_iter().enumerate() {
             let arg_type = self.clean_type(arg_type);
             let param_type = self.clean_type(param_types.get(i).unwrap().clone());
-            if !arg_type.is_subtype_of(&param_type) {
+            if !arg_type.is_subtype_of(&param_type, &self.type_map) {
                 return Err(
                     Box::new(
                         PreprocessingError::MismatchedType(
@@ -1035,7 +1039,7 @@ impl CortexPreprocessor {
                     .with_prefix_if_not_core(&self.current_context)
                     .with_prefix_if_not_core(&name.without_last());
                 let (exp, assigned_type) = self.check_exp(fvalue)?;
-                if !assigned_type.is_subtype_of(&field_type) {
+                if !assigned_type.is_subtype_of(&field_type, &self.type_map) {
                     return Err(
                         Box::new(
                             PreprocessingError::MismatchedType(
@@ -1090,7 +1094,7 @@ impl CortexPreprocessor {
         let mut condition_bodies = Vec::<RConditionBody>::new();
         for c in conds {
             let (cond, cond_typ) = self.check_exp(c.condition)?;
-            if !cond_typ.is_subtype_of(&CortexType::boolean(false)) {
+            if !cond_typ.is_subtype_of(&CortexType::boolean(false), &self.type_map) {
                 return Err(
                     Box::new(
                         PreprocessingError::MismatchedType(
@@ -1105,7 +1109,7 @@ impl CortexPreprocessor {
             let (body, typ) = self.check_body_and_handle_env(c.body)?;
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
-            let next = the_type.combine_with(typ);
+            let next = the_type.combine_with(typ, &self.type_map);
             if let Some(t) = next {
                 the_type = t;
                 condition_bodies.push(RConditionBody::new(cond, body));
@@ -1119,7 +1123,7 @@ impl CortexPreprocessor {
             final_body = Some(Box::new(body));
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
-            let next = the_type.combine_with(typ);
+            let next = the_type.combine_with(typ, &self.type_map);
             if let Some(t) = next {
                 the_type = t;
             } else {
@@ -1304,7 +1308,7 @@ impl CortexPreprocessor {
                         return Err(Box::new(PreprocessingError::CannotHaveTypeArgsOnGeneric(param_type.codegen(0))));
                     }
                     if let Some(existing_binding) = bindings.get(name) {
-                        let combined = bound_type.combine_with(existing_binding.clone());
+                        let combined = bound_type.combine_with(existing_binding.clone(), &self.type_map);
                         if let Some(result) = combined {
                             bindings.insert(name.clone(), result);
                             correct = true;

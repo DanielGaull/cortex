@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Contract, Extension, PFunction, Struct}, r#type::CortexType};
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Contract, Extension, PFunction, Struct}, r#type::{CortexType, FollowsEntry}};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -28,6 +28,7 @@ pub struct TypeDefinition {
     pub(crate) fields: HashMap<String, CortexType>,
     pub(crate) type_param_names: Vec<String>,
     pub(crate) is_heap_allocated: bool,
+    pub(crate) followed_contracts: Vec<FollowsEntry>,
 }
 
 
