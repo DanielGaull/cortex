@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::env::EnvError, parsing::ast::r#type::{BasicType, CortexType, RefType, TupleType}};
+use crate::{interpreting::env::EnvError, parsing::ast::r#type::{BasicType, CortexType, FollowsClause, FollowsEntry, FollowsType, RefType, TupleType}};
 
 pub struct TypeEnvironment {
     bindings: HashMap<String, CortexType>,
@@ -76,7 +76,18 @@ impl TypeEnvironment {
                     types: new_types,
                     optional: t.optional,
                 })
-            }
+            },
+            CortexType::FollowsType(f) => {
+                CortexType::FollowsType(FollowsType {
+                    clause: FollowsClause {
+                        contracts: f.clause.contracts.into_iter().map(|c| FollowsEntry {
+                            name: c.name,
+                            type_args: c.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect()
+                        }).collect(),
+                    },
+                    optional: f.optional,
+                })
+            },
         }
     }
 

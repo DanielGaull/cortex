@@ -51,7 +51,7 @@ impl SimpleCodeGen for DeclarationName {
 #[derive(Clone)]
 pub enum PStatement {
     Expression(PExpression),
-    Throw(PExpression),
+    Throw(Option<PExpression>),
     VariableDeclaration {
         name: DeclarationName,
         is_const: bool,
@@ -77,8 +77,11 @@ impl SimpleCodeGen for PStatement {
                 s.push_str(&expr.codegen(indent));
             },
             Self::Throw(expr) => {
-                s.push_str("throw ");
-                s.push_str(&expr.codegen(indent));
+                s.push_str("throw");
+                if let Some(ex) = expr {
+                    s.push_str(" ");
+                    s.push_str(&ex.codegen(indent));
+                }
             },
             Self::VariableDeclaration { name, is_const, typ, initial_value } => {
                 if *is_const {

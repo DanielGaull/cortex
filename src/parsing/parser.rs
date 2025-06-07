@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry}};
+use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType}};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -194,7 +194,11 @@ impl CortexParser {
                 Ok(PStatement::Expression(expression))
             },
             Rule::throw => {
-                let expression = Self::parse_expr_pair(pair.into_inner().next().unwrap())?;
+                let mut pairs = pair.into_inner();
+                let mut expression = None;
+                if let Some(pair) = pairs.next() {
+                    expression = Some(Self::parse_expr_pair(pair)?);
+                }
                 Ok(PStatement::Throw(expression))
             },
             Rule::varDec => {
@@ -727,6 +731,14 @@ impl CortexParser {
                     types.push(Self::parse_type_pair(p)?);
                 }
                 Ok(CortexType::tuple(types, optional))
+            },
+            Rule::followsType => {
+                let mut pairs = main.into_inner();
+                let clause = Self::parse_follows_clause(pairs.next().unwrap())?;
+                Ok(CortexType::FollowsType(FollowsType {
+                    clause,
+                    optional,
+                }))
             },
             _ => Err(ParseError::FailType(String::from(pair_str)))
         }

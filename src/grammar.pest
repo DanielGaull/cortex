@@ -17,7 +17,7 @@ contract = { "contract" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberFunc
 statementNeedingSemicolon = _{ (throw | break | continue | tupleVarDec | varDec | indexVarAssign | tupleVarAssign | varAssign | expr) }
 statement = { (statementNeedingSemicolon ~ ";") | while }
 
-throw = { "throw" ~ expr }
+throw = { "throw" ~ expr? }
 break = { "break" }
 continue = { "continue" }
 
@@ -90,16 +90,19 @@ strchar = {
 
 optIdentifier = { ident | ignoredIdentifier }
 ignoredIdentifier = { "~" }
-ident = ${ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
+keyword = _{ "let" | "const" | "follows" | "bundle" | "struct" | "contract" | "extend" | "module" | "fn" | 
+    "throw" | "break" | "continue" | "return" | "while" | "if" | "elif" | "else" | "for" | "true" | "false" }
+ident = ${ !(keyword ~ !identChar) ~ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
 pathIdent = { (ident ~ "::")* ~ ident }
 identExpr = { ident ~ ("." ~ ident)* }
 tupleAssign = { "(" ~ assignName ~ "," ~ (assignName ~ ("," ~ assignName)*)? ~ ")" }
 assignName = { tupleAssign | identExpr | ignoredIdentifier }
 
-typ = { ((basicType | tupleType) ~ "?"?) | refType }
+typ = { ((basicType | tupleType | followsType) ~ "?"?) | refType }
 refType = { ("&mut" | "&") ~ typ }
 basicType = { pathIdent ~ ("<" ~ typeList ~ ">")? }
 tupleType = { "(" ~ typ ~ "," ~ typ? ~ ("," ~ typ)* ~ ")" }
+followsType = { followsClause }
 
 // Useful utilities
 param = { ident ~ ":" ~ typ }

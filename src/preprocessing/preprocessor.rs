@@ -478,8 +478,12 @@ impl CortexPreprocessor {
                 Ok(vec![RStatement::Expression(exp)])
             },
             PStatement::Throw(expression) => {
-                let (exp, _) = self.check_exp(expression)?;
-                Ok(vec![RStatement::Throw(exp)])
+                if let Some(ex) = expression {
+                    let (exp, _) = self.check_exp(ex)?;
+                    Ok(vec![RStatement::Throw(Some(exp))])
+                } else {
+                    Ok(vec![RStatement::Throw(None)])
+                }
             },
             PStatement::VariableDeclaration { name, is_const, typ, initial_value } => {
                 Ok(self.check_declaration_recursive(name, typ, is_const, initial_value, &st_str)?)
@@ -764,6 +768,7 @@ impl CortexPreprocessor {
                         }
                         Ok(self.check_tuple_member_access(atom_exp, t, member)?)
                     },
+                    CortexType::FollowsType(_) => Err(Box::new(PreprocessingError::CannotAccessMemberOfFollowsType)),
                 }
             },
             PExpression::MemberCall { callee, member, mut args, type_args } => {
@@ -851,7 +856,8 @@ impl CortexPreprocessor {
         let is_mutable;
         match &atom_type {
             CortexType::BasicType(_) | 
-            CortexType::TupleType(_) => {
+            CortexType::TupleType(_) |
+            CortexType::FollowsType(_) => {
                 is_mutable = true;
             },
             CortexType::RefType(r) => {

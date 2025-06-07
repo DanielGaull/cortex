@@ -79,8 +79,12 @@ impl CortexInterpreter {
                 Ok(())
             },
             RStatement::Throw(expr) => {
-                let val = self.evaluate_expression(expr)?;
-                Err(Box::new(InterpreterError::ProgramThrow(val)))
+                if let Some(ex) = expr {
+                    let val = self.evaluate_expression(ex)?;
+                    Err(Box::new(InterpreterError::ProgramThrow(val)))
+                } else {
+                    Err(Box::new(InterpreterError::ProgramThrow(CortexValue::Void)))
+                }
             },
             RStatement::VariableDeclaration { 
                 name, is_const, initial_value 

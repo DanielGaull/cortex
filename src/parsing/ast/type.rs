@@ -21,6 +21,8 @@ pub enum TypeError {
     UnknownTypeNotValid,
     #[error("Tuple type: not valid in this context")]
     TupleTypeNotValid,
+    #[error("Follows clause type: not valid in this context")]
+    FollowsTypeNotValid,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -42,6 +44,12 @@ pub struct TupleType {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct FollowsType {
+    pub(crate) clause: FollowsClause,
+    pub(crate) optional: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum CortexType {
     // Represents a simple named type that may or may not have type arguments
     BasicType(BasicType),
@@ -50,7 +58,9 @@ pub enum CortexType {
     // Represents a type that is currently unknown, but will be resolved at some point
     Unknown(bool),
     // Represents a tuple type
-    TupleType(TupleType)
+    TupleType(TupleType),
+    // Represents a "follows" type
+    FollowsType(FollowsType),
 }
 
 impl SimpleCodeGen for CortexType {
@@ -79,7 +89,14 @@ impl SimpleCodeGen for CortexType {
             },
             CortexType::Unknown(optional) => format!("{{unknown{}}}", if *optional {"?"} else {""}),
             CortexType::TupleType(t) => {
-                format!("({}){}", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "), if t.optional {"?"} else {""})
+                if t.types.len() == 1 {
+                    format!("({},){}", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "), if t.optional {"?"} else {""})
+                } else {
+                    format!("({}){}", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "), if t.optional {"?"} else {""})
+                }
+            },
+            CortexType::FollowsType(t) => {
+                format!("{}{}", t.clause.codegen(0), if t.optional {"?"} else {""})
             },
         }
     }
@@ -154,7 +171,18 @@ impl CortexType {
             CortexType::Unknown(b) => CortexType::Unknown(*b),
             CortexType::TupleType(t) => {
                 CortexType::TupleType(TupleType { types: t.types.iter().map(|t| t.with_prefix(path).clone()).collect(), optional: t.optional })
-            }
+            },
+            CortexType::FollowsType(f) => {
+                CortexType::FollowsType(FollowsType {
+                    clause: FollowsClause {
+                        contracts: f.clause.contracts.iter().map(|c| FollowsEntry {
+                            name: PathIdent::concat(path, &c.name),
+                            type_args: c.type_args.iter().map(|t| t.with_prefix(path)).collect(),
+                        }).collect(),
+                    },
+                    optional: f.optional,
+                })
+            },
         }
     }
     pub fn with_prefix_if_not_core(self, prefix: &PathIdent) -> Self {
@@ -179,7 +207,18 @@ impl CortexType {
             CortexType::Unknown(b) => CortexType::Unknown(b),
             CortexType::TupleType(t) => {
                 CortexType::TupleType(TupleType { types: t.types.iter().map(|t| t.clone().subtract_if_possible(prefix)).collect(), optional: t.optional })
-            }
+            },
+            CortexType::FollowsType(f) => {
+                CortexType::FollowsType(FollowsType {
+                    clause: FollowsClause {
+                        contracts: f.clause.contracts.into_iter().map(|c| FollowsEntry {
+                            name: c.name.subtract_if_possible(prefix),
+                            type_args: c.type_args.into_iter().map(|t| t.subtract_if_possible(prefix)).collect(),
+                        }).collect()
+                    },
+                    optional: f.optional,
+                })
+            },
         }
     }
     // Forwards immutability if mutable is false. If mutable is true, returns self
@@ -205,7 +244,7 @@ impl CortexType {
             CortexType::RefType(r) => {
                 r.contained.prefix()
             },
-            CortexType::Unknown(_) | CortexType::TupleType(_) => PathIdent::empty(),
+            CortexType::Unknown(_) | CortexType::TupleType(_) | CortexType::FollowsType(_) => PathIdent::empty(),
         }
     }
     pub fn optional(&self) -> bool {
@@ -218,6 +257,7 @@ impl CortexType {
             },
             CortexType::Unknown(optional) => *optional,
             CortexType::TupleType(t) => t.optional,
+            CortexType::FollowsType(t) => t.optional,
         }
     }
 
@@ -232,6 +272,7 @@ impl CortexType {
             },
             CortexType::Unknown(_) => true,
             CortexType::TupleType(_) => false,
+            CortexType::FollowsType(_) => false,
         }
     }
     pub fn is_non_composite(&self) -> bool {
@@ -245,6 +286,7 @@ impl CortexType {
             },
             CortexType::Unknown(_) => true,
             CortexType::TupleType(_) => true,
+            CortexType::FollowsType(_) => true,
         }
     }
 
@@ -264,6 +306,10 @@ impl CortexType {
             },
             CortexType::Unknown(_) => CortexType::Unknown(value),
             CortexType::TupleType(t) => CortexType::TupleType(TupleType { types: t.types, optional: value }),
+            CortexType::FollowsType(t) => CortexType::FollowsType(FollowsType {
+                clause: t.clause,
+                optional: value,
+            })
         }
     }
     pub fn to_optional_if_true(self, value: bool) -> Self {
@@ -280,6 +326,7 @@ impl CortexType {
             CortexType::RefType(r) => r.contained.name(),
             CortexType::Unknown(_) => Err(TypeError::UnknownTypeNotValid),
             CortexType::TupleType(_) => Err(TypeError::TupleTypeNotValid),
+            CortexType::FollowsType(_) => Err(TypeError::FollowsTypeNotValid),
         }
     }
 
@@ -428,6 +475,7 @@ pub fn forwarded_type_args(names: &Vec<String>) -> Vec<CortexType> {
     type_args
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct FollowsEntry {
     pub(crate) name: PathIdent,
     pub(crate) type_args: Vec<CortexType>,
@@ -442,6 +490,7 @@ impl SimpleCodeGen for FollowsEntry {
         s
     }
 }
+#[derive(Clone, Debug, PartialEq)]
 pub struct FollowsClause {
     pub(crate) contracts: Vec<FollowsEntry>,
 }

@@ -74,4 +74,6 @@ pub enum PreprocessingError {
     ContractFunctionsMissing(String),
     #[error("Duplicate in follows clause (contract {0} appears multiple times)")]
     DuplicateInFollowsClause(String),
+    #[error("Cannot access member of value of type 'follows'")]
+    CannotAccessMemberOfFollowsType,
 }

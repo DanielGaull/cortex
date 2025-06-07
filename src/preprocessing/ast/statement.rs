@@ -2,7 +2,7 @@ use super::{expression::{RExpression, RIdentExpression}, function::RInterpretedB
 
 pub enum RStatement {
     Expression(RExpression),
-    Throw(RExpression),
+    Throw(Option<RExpression>),
     VariableDeclaration {
         name: String,
         is_const: bool,

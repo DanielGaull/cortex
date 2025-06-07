@@ -82,6 +82,7 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("myNum.increment(3)")?;
     run_expression_test("myNum.ref.ref().ref.increment(3)")?;
     run_expression_test_expected("item[5]", "item.__indexGet(5)")?;
+    run_expression_test("trueList")?;
     Ok(())
 }
 
@@ -102,6 +103,13 @@ fn test_types() -> Result<(), Box<dyn Error>> {
     run_type_test("Box<number>")?;
     run_type_test("&Box<number>")?;
     run_type_test("&mut Box<number>")?;
+    run_type_test("(number, number)")?;
+    run_type_test("(number,)")?;
+    run_type_test("(&mut Box<number>, &list<string>)")?;
+    run_type_test("follows X")?;
+    run_type_test("follows X + Y")?;
+    run_type_test("follows X<number> + Y<string>")?;
+    run_type_test("follows X<T> + Y<R> + Z<A, B>")?;
     Ok(())
 }
 
@@ -123,6 +131,7 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("(x, y) = (5, 3);")?;
     run_statement_test("((x, y), z) = ((5, 3), 7);")?;
     run_statement_test("((x, y), z, ((w,),)) = ((5, 3), 7, ((6,),));")?;
+    run_statement_test("trueList;")?;
     run_statement_test("trueList.add(item);")?; // If ident starts with true/false/void/none
     Ok(())
 }
