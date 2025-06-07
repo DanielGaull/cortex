@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
@@ -27,31 +27,31 @@ pub enum TypeError {
     FollowsTypeNotValid,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BasicType {
     pub(crate) optional: bool,
     pub(crate) name: PathIdent,
     pub(crate) type_args: Vec<CortexType>,
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RefType {
     pub(crate) contained: Box<CortexType>,
     pub(crate) mutable: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TupleType {
     pub(crate) types: Vec<CortexType>,
     pub(crate) optional: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FollowsType {
     pub(crate) clause: FollowsClause,
     pub(crate) optional: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CortexType {
     // Represents a simple named type that may or may not have type arguments
     BasicType(BasicType),
@@ -388,6 +388,54 @@ impl CortexType {
                     None
                 }
             },
+            (CortexType::FollowsType(t1), CortexType::FollowsType(t2)) => {
+                let mut common_contracts = HashSet::new();
+                for c1 in &t1.clause.contracts {
+                    for c2 in &t2.clause.contracts {
+                        if c1 == c2 {
+                            common_contracts.insert(c1.clone());
+                        }
+                    }
+                }
+                if common_contracts.is_empty() {
+                    None
+                } else {
+                    Some(CortexType::FollowsType(FollowsType {
+                        clause: FollowsClause {
+                            contracts: common_contracts.into_iter().collect(),
+                        },
+                        optional: t1.optional || t2.optional,
+                    }))
+                }
+            },
+            (CortexType::FollowsType(f), CortexType::RefType(r)) => {
+                if let CortexType::BasicType(b) = *r.contained {
+                    if let Some(type_def) = type_defs.get(&b.name) {
+                        let mut common_contracts = HashSet::new();
+                        for c1 in &f.clause.contracts {
+                            for c2 in &type_def.followed_contracts {
+                                if c1 == c2 {
+                                    common_contracts.insert(c1.clone());
+                                }
+                            }
+                        }
+                        if common_contracts.is_empty() {
+                            None
+                        } else {
+                            Some(CortexType::FollowsType(FollowsType {
+                                clause: FollowsClause {
+                                    contracts: common_contracts.into_iter().collect(),
+                                },
+                                optional: f.optional || b.optional,
+                            }))
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            },
             _ => None
         }
     }
@@ -452,6 +500,37 @@ impl CortexType {
                     false
                 }
             },
+            (CortexType::FollowsType(t1), CortexType::FollowsType(t2)) => {
+                if t1.optional && !t2.optional {
+                    return false;
+                }
+
+                // have to be no contracts in t2 that aren't in t1
+                for c in &t2.clause.contracts {
+                    if !t1.clause.contracts.contains(c) {
+                        return false;
+                    }
+                }
+                true
+            },
+            (CortexType::RefType(r), CortexType::FollowsType(f)) => {
+                if let CortexType::BasicType(b) = &*r.contained {
+                    if let Some(type_def) = type_defs.get(&b.name) {
+                        // have to be no contracts in f that aren't in b
+                        for c in &f.clause.contracts {
+                            if !type_def.followed_contracts.contains(c) {
+                                return false;
+                            }
+                        }
+
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
             _ => false,
         }
     }
@@ -477,7 +556,7 @@ pub fn forwarded_type_args(names: &Vec<String>) -> Vec<CortexType> {
     type_args
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FollowsEntry {
     pub(crate) name: PathIdent,
     pub(crate) type_args: Vec<CortexType>,
@@ -492,7 +571,16 @@ impl SimpleCodeGen for FollowsEntry {
         s
     }
 }
-#[derive(Clone, Debug, PartialEq)]
+impl FollowsEntry {
+    pub fn new(name: PathIdent, type_args: Vec<CortexType>) -> Self {
+        FollowsEntry {
+            name,
+            type_args,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FollowsClause {
     pub(crate) contracts: Vec<FollowsEntry>,
 }

@@ -30,7 +30,16 @@ pub struct TypeDefinition {
     pub(crate) is_heap_allocated: bool,
     pub(crate) followed_contracts: Vec<FollowsEntry>,
 }
-
+impl TypeDefinition {
+    pub fn new(fields: HashMap<String, CortexType>, type_param_names: Vec<String>, is_heap_allocated: bool, followed_contracts: Vec<FollowsEntry>) -> Self {
+        TypeDefinition {
+            fields,
+            type_param_names,
+            is_heap_allocated,
+            followed_contracts,
+        }
+    }
+}
 
 pub struct Module {
     children: HashMap<String, Module>,

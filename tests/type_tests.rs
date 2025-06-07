@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error};
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, Bundle, MemberFunction, PFunction}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::{Module, TypeDefinition}};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, Bundle, MemberFunction, PFunction}, r#type::{CortexType, FollowsEntry}}, parser::CortexParser}, preprocessing::module::{Module, TypeDefinition}};
 
 fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
@@ -33,13 +33,29 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn subtype_tests() -> Result<(), Box<dyn Error>> {
-    let type_map = HashMap::new();
+    let mut type_map = HashMap::new();
+    type_map.insert(PathIdent::new(vec!["TestType"]), TypeDefinition::new(
+        HashMap::new(), Vec::new(), false, vec![
+            FollowsEntry::new(PathIdent::new(vec!["Iterable"]), vec![])
+        ]
+    ));
+    type_map.insert(PathIdent::new(vec!["OtherTestType"]), TypeDefinition::new(
+        HashMap::new(), Vec::new(), false, vec![
+            FollowsEntry::new(PathIdent::new(vec!["Iterable"]), vec![]),
+            FollowsEntry::new(PathIdent::new(vec!["X"]), vec![])
+        ]
+    ));
+
     assert_subtype("none?", "number?", &type_map)?;
     assert_subtype("&mut number", "&number", &type_map)?;
     assert_not_subtype("&number", "&mut number", &type_map)?;
     assert_subtype("list<number>", "list<number?>", &type_map)?;
     assert_subtype("(&mut number, none?)", "(&number, bool?)", &type_map)?;
     assert_not_subtype("(number, number)", "(number, number, number)", &type_map)?;
+    assert_subtype("follows X + Y + Z", "follows X", &type_map)?;
+    assert_subtype("&TestType", "follows Iterable", &type_map)?;
+    assert_not_subtype("&TestType", "follows Iterable + X", &type_map)?;
+    assert_subtype("&OtherTestType", "follows Iterable", &type_map)?;
     Ok(())
 }
 
@@ -146,12 +162,12 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
 fn assert_subtype(first: &str, second: &str, type_map: &HashMap<PathIdent, TypeDefinition>) -> Result<(), Box<dyn Error>> {
     let t1 = CortexParser::parse_type(first)?;
     let t2 = CortexParser::parse_type(second)?;
-    assert!(t1.is_subtype_of(&t2, type_map));
+    assert!(t1.is_subtype_of(&t2, type_map), "'{}' is not a subtype of '{}'", first, second);
     Ok(())
 }
 fn assert_not_subtype(first: &str, second: &str, type_map: &HashMap<PathIdent, TypeDefinition>) -> Result<(), Box<dyn Error>> {
     let t1 = CortexParser::parse_type(first)?;
     let t2 = CortexParser::parse_type(second)?;
-    assert!(!t1.is_subtype_of(&t2, type_map));
+    assert!(!t1.is_subtype_of(&t2, type_map), "'{}' is mistakenly a subtype of '{}'", first, second);
     Ok(())
 }
