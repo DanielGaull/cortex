@@ -409,28 +409,27 @@ impl CortexType {
                 }
             },
             (CortexType::FollowsType(f), CortexType::RefType(r)) => {
-                if let CortexType::BasicType(b) = *r.contained {
-                    if let Some(type_def) = type_defs.get(&b.name) {
-                        let mut common_contracts = HashSet::new();
-                        for c1 in &f.clause.contracts {
-                            for c2 in &type_def.followed_contracts {
-                                if c1 == c2 {
-                                    common_contracts.insert(c1.clone());
-                                }
+                CortexType::FollowsType(f).combine_with(*r.contained, type_defs)
+            },
+            (CortexType::FollowsType(f), CortexType::BasicType(b)) => {
+                if let Some(type_def) = type_defs.get(&b.name) {
+                    let mut common_contracts = HashSet::new();
+                    for c1 in &f.clause.contracts {
+                        for c2 in &type_def.followed_contracts {
+                            if c1 == c2 {
+                                common_contracts.insert(c1.clone());
                             }
                         }
-                        if common_contracts.is_empty() {
-                            None
-                        } else {
-                            Some(CortexType::FollowsType(FollowsType {
-                                clause: FollowsClause {
-                                    contracts: common_contracts.into_iter().collect(),
-                                },
-                                optional: f.optional || b.optional,
-                            }))
-                        }
-                    } else {
+                    }
+                    if common_contracts.is_empty() {
                         None
+                    } else {
+                        Some(CortexType::FollowsType(FollowsType {
+                            clause: FollowsClause {
+                                contracts: common_contracts.into_iter().collect(),
+                            },
+                            optional: f.optional || b.optional,
+                        }))
                     }
                 } else {
                     None
@@ -513,24 +512,22 @@ impl CortexType {
                 }
                 true
             },
-            (CortexType::RefType(r), CortexType::FollowsType(f)) => {
-                if let CortexType::BasicType(b) = &*r.contained {
-                    if let Some(type_def) = type_defs.get(&b.name) {
-                        // have to be no contracts in f that aren't in b
-                        for c in &f.clause.contracts {
-                            if !type_def.followed_contracts.contains(c) {
-                                return false;
-                            }
+            (CortexType::RefType(r), CortexType::FollowsType(_)) => {
+                r.contained.is_subtype_of(other, type_defs)
+            },
+            (CortexType::BasicType(b), CortexType::FollowsType(f)) => {
+                if let Some(type_def) = type_defs.get(&b.name) {
+                    // have to be no contracts in f that aren't in b
+                    for c in &f.clause.contracts {
+                        if !type_def.followed_contracts.contains(c) {
+                            return false;
                         }
-
-                        true
-                    } else {
-                        false
                     }
+                    true
                 } else {
                     false
                 }
-            }
+            },
             _ => false,
         }
     }

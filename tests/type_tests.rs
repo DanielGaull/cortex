@@ -52,10 +52,14 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
     assert_subtype("list<number>", "list<number?>", &type_map)?;
     assert_subtype("(&mut number, none?)", "(&number, bool?)", &type_map)?;
     assert_not_subtype("(number, number)", "(number, number, number)", &type_map)?;
+
     assert_subtype("follows X + Y + Z", "follows X", &type_map)?;
     assert_subtype("&TestType", "follows Iterable", &type_map)?;
     assert_not_subtype("&TestType", "follows Iterable + X", &type_map)?;
     assert_subtype("&OtherTestType", "follows Iterable", &type_map)?;
+    assert_subtype("TestType", "follows Iterable", &type_map)?;
+    assert_not_subtype("TestType", "follows Iterable + X", &type_map)?;
+    assert_subtype("OtherTestType", "follows Iterable", &type_map)?;
     Ok(())
 }
 
