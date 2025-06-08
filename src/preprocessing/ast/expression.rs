@@ -1,4 +1,4 @@
-use crate::parsing::ast::expression::{BinaryOperator, IdentExpression, UnaryOperator};
+use crate::{joint::vtable::VTable, parsing::ast::expression::{BinaryOperator, IdentExpression, UnaryOperator}};
 
 use super::{function::RInterpretedBody, statement::RConditionBody};
 
@@ -33,6 +33,7 @@ pub enum RExpression {
         right: Box<RExpression>,
     },
     Tuple(Vec<RExpression>),
+    MakeFat(Box<RExpression>, VTable),
 }
 
 pub struct RIdentExpression {

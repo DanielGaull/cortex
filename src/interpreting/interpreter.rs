@@ -365,6 +365,12 @@ impl CortexInterpreter {
                     field_values,
                 })
             },
+            RExpression::MakeFat(exp, vtable) => {
+                let val = self.evaluate_expression(&*exp)?;
+                Ok(
+                    CortexValue::Fat(Box::new(val), vtable.clone())
+                )
+            },
         }
     }
 
