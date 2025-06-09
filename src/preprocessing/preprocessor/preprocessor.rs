@@ -291,20 +291,16 @@ impl CortexPreprocessor {
                 return Err(Box::new(PreprocessingError::DuplicateInFollowsClause(entry.name.codegen(0))));
             }
             contract_paths.insert(entry.name.clone());
-            let contract = self.contract_map.get(&entry.name);
-            if let Some(contract) = contract {
-                let type_bindings = TypeEnvironment::create_bindings(&contract.type_param_names, &entry.type_args);
-                for func in &contract.function_sigs {
-                    if let OptionalIdentifier::Ident(name) = func.name.clone() {
-                        if method_names.contains(&name) {
-                            return Err(Box::new(PreprocessingError::AmbiguousFunctionFromMultipleContracts(name.clone())));
-                        }
-                        method_names.insert(name);
+            let contract = self.lookup_contract(&entry.name)?;
+            let type_bindings = TypeEnvironment::create_bindings(&contract.type_param_names, &entry.type_args);
+            for func in &contract.function_sigs {
+                if let OptionalIdentifier::Ident(name) = func.name.clone() {
+                    if method_names.contains(&name) {
+                        return Err(Box::new(PreprocessingError::AmbiguousFunctionFromMultipleContracts(name.clone())));
                     }
-                    methods_to_contain.push(func.clone().fill_all(&type_bindings));
+                    method_names.insert(name);
                 }
-            } else {
-                return Err(Box::new(PreprocessingError::ContractDoesNotExist(entry.name.codegen(0))));
+                methods_to_contain.push(func.clone().fill_all(&type_bindings));
             }
         }
 
@@ -1214,6 +1210,15 @@ impl CortexPreprocessor {
     fn has_type(&self, path: &PathIdent) -> bool {
         let full_path = PathIdent::concat(&self.current_context, &path);
         self.type_map.contains_key(&full_path)
+    }
+
+    pub(super) fn lookup_contract(&self, path: &PathIdent) -> Result<&Contract, CortexError> {
+        let full_path = PathIdent::concat(&self.current_context, &path);
+        if let Some(c) = self.contract_map.get(&full_path) {
+            Ok(c)
+        } else {
+            Err(Box::new(PreprocessingError::ContractDoesNotExist(full_path.codegen(0))))
+        }
     }
 
     fn next_temp(&mut self) -> String {

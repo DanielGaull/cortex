@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, PathIdent}, top_level::FunctionSignature, r#type::{forwarded_type_args, CortexType, FollowsType}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress}, error::PreprocessingError, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::FunctionSignature, r#type::{forwarded_type_args, CortexType, FollowsType}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress}, error::PreprocessingError, type_env::TypeEnvironment}};
 
 use super::preprocessor::{CheckResult, CortexPreprocessor};
 
@@ -13,22 +13,51 @@ impl CortexPreprocessor {
     pub(super) fn check_fat_member_call(&mut self, atom_type: FollowsType, callee: Box<PExpression>, member: String, mut args: Vec<PExpression>, type_args: Option<Vec<CortexType>>, st_str: String) -> CheckResult<RExpression> {
         let mut function_sig = None;
         let mut contract_to_use = None;
+        let mut full_prefix = None;
         for entry in &atom_type.clause.contracts {
-            if let Some(contract) = self.contract_map.get(&entry.name) {
-                for sig in &contract.function_sigs {
-                    if sig.name == OptionalIdentifier::Ident(member.clone()) {
-                        function_sig = Some(sig);
-                        contract_to_use = Some(contract);
-                        break;
-                    }
+            let contract = self.lookup_contract(&entry.name)?;
+            for sig in &contract.function_sigs {
+                if sig.name == OptionalIdentifier::Ident(member.clone()) {
+                    function_sig = Some(sig);
+                    contract_to_use = Some(contract);
+                    full_prefix = Some(PathIdent::concat(&self.current_context, &entry.name).without_last());
+                    break;
                 }
             }
         }
         if let None = function_sig {
             return Err(Box::new(PreprocessingError::FunctionDoesNotExist(member)));
         }
+        let mut function_sig = function_sig.unwrap().clone();
+        let contract_to_use = contract_to_use.unwrap();
+        let full_prefix = full_prefix.unwrap();
 
-        todo!()
+        let index = contract_to_use.function_sigs
+            .iter()
+            .position(|a| a.name == function_sig.name);
+
+        if let None = index {
+            return Err(Box::new(PreprocessingError::FunctionDoesNotExist(member)));
+        }
+        let index = index.unwrap();
+
+        let (callee_processed, this_type) = self.check_exp(*callee.clone())?;
+        args.insert(0, *callee.clone());
+        
+        function_sig.params.insert(0, Parameter::named("this", this_type));
+        let pure_sig = FunctionSignature {
+            params: function_sig.params,
+            return_type: function_sig.return_type,
+            type_param_names: function_sig.type_param_names,
+        };
+
+        let call = self.check_call_base(pure_sig, String::from("##temp##"), args, type_args, full_prefix, &st_str)?;
+
+        Ok((RExpression::FatCall {
+            callee: Box::new(callee_processed),
+            index_in_vtable: index,
+            args: call.args,
+        }, call.return_type))
     }
     pub(super) fn check_direct_member_call(&mut self, atom_type: CortexType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<CortexType>>, st_str: String) -> CheckResult<RExpression> {
         let caller_type = atom_type.name()?;
