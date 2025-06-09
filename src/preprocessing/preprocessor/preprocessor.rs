@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, FunctionSignature, PFunction}, r#type::{CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, FunctionSignature, PFunction}, r#type::{CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen}};
 
 use super::super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -62,6 +62,36 @@ impl CortexPreprocessor {
     pub(crate) fn determine_type(&mut self, expr: PExpression) -> Result<CortexType, CortexError> {
         let (_, typ) = self.check_exp(expr)?;
         Ok(typ)
+    }
+
+    // When a value is assigned to a certain type, sometimes transformations are needed
+    // (ex vtables); this is the function that takes care of that
+    pub(super) fn assign_to(&mut self, base: RExpression, base_type: CortexType, typ: CortexType) -> Result<RExpression, CortexError> {
+        if let CortexType::FollowsType(follows) = typ {
+            let prefix = base_type.prefix();
+            let mut func_addresses = Vec::new();
+            for entry in follows.clause.contracts {
+                let contract = self.lookup_contract(&entry.name)?;
+                for sig in &contract.function_sigs {
+                    if let OptionalIdentifier::Ident(fname) = &sig.name {
+                        let addr = self.get_member_function_address(&base_type, fname)?;
+                        let extended_prefix = PathIdent::concat(&self.current_context, &prefix);
+                        let full_path = FunctionAddress::concat(&extended_prefix, &addr);
+                        func_addresses.push(full_path);
+                    }
+                }
+            }
+
+            let mut vtable = VTable::new(vec![]);
+            for addr in func_addresses {
+                let id = self.function_dict.add_call(addr)?;
+                vtable.add(id);
+            }
+
+            Ok(RExpression::MakeFat(Box::new(base), vtable))
+        } else {
+            Ok(base)
+        }
     }
 
     pub fn preprocess(&mut self, body: BasicBody) -> Result<Program, CortexError> {

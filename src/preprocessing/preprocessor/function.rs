@@ -61,11 +61,8 @@ impl CortexPreprocessor {
     }
     pub(super) fn check_direct_member_call(&mut self, atom_type: CortexType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<CortexType>>, st_str: String) -> CheckResult<RExpression> {
         let caller_type = atom_type.name()?;
-        let caller_type_prefix = caller_type.without_last();
-        let non_extension_func_addr = FunctionAddress::member_func(
-            PathIdent::continued(caller_type_prefix.clone().subtract(&self.current_context)?, member.clone()), 
-            caller_type.clone().subtract(&self.current_context)?);
-        
+        let actual_func_addr = self.get_member_function_address(&atom_type, &member)?;
+
         args.insert(0, *callee);
         let true_type_args;
         if let Some(mut type_args) = type_args {
@@ -85,6 +82,22 @@ impl CortexPreprocessor {
             true_type_args = None;
         }
 
+        let call_exp = PExpression::Call {
+            name: actual_func_addr, 
+            args,
+            type_args: true_type_args,
+        };
+        let result = self.check_exp(call_exp)?;
+        Ok(result)
+    }
+
+    pub(super) fn get_member_function_address(&self, callee_type: &CortexType, member: &String) -> Result<FunctionAddress, CortexError> {
+        let caller_type = callee_type.name()?;
+        let caller_type_prefix = caller_type.without_last();
+        let non_extension_func_addr = FunctionAddress::member_func(
+            PathIdent::continued(caller_type_prefix.clone().subtract(&self.current_context)?, member.clone()), 
+            caller_type.clone().subtract(&self.current_context)?);
+
         let actual_func_addr;
         if self.has_function(&non_extension_func_addr) {
             actual_func_addr = non_extension_func_addr;
@@ -97,13 +110,7 @@ impl CortexPreprocessor {
             }
         }
 
-        let call_exp = PExpression::Call {
-            name: actual_func_addr, 
-            args,
-            type_args: true_type_args,
-        };
-        let result = self.check_exp(call_exp)?;
-        Ok(result)
+        Ok(actual_func_addr)
     }
 
     pub(super) fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<PExpression>, type_args: Option<Vec<CortexType>>, prefix: PathIdent, st_str: &String) -> CheckResult<RExpression> {
