@@ -34,6 +34,11 @@ pub enum RExpression {
     },
     Tuple(Vec<RExpression>),
     MakeFat(Box<RExpression>, VTable),
+    FatCall {
+        callee: Box<RExpression>,
+        index_in_vtable: usize,
+        args: Vec<RExpression>,
+    },
 }
 
 pub struct RIdentExpression {

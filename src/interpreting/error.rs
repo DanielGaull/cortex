@@ -22,4 +22,8 @@ pub enum InterpreterError {
     MismatchedTypeNoPreprocess,
     #[error("Invalid {0} found: please run preprocessing on code before executing it")]
     InvalidObject(&'static str),
+    #[error("Expected a fat pointer value but received {0}")]
+    ExpectedFatPointer(String),
+    #[error("Function not found (dynamic dispatch)")]
+    FunctionNotFoundDynamicDispatch,
 }

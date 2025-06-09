@@ -96,7 +96,7 @@ impl CortexValue {
 
     // Should always return the underlying type. So for example with Fat pointers that wrap a value,
     // we should return the value underneath
-    fn get_variant_name(&self) -> &'static str {
+    pub(crate) fn get_variant_name(&self) -> &'static str {
         match self {
             CortexValue::Number(_) => "number",
             CortexValue::Boolean(_) => "bool",

@@ -1,3 +1,8 @@
+// Here's how vtables are contructed:
+// If a type is `follows X`, then the methods of X are added in order to the vtable
+// If a type is `follows X + Y`, then the methods of Y will appear after the methods of X 
+// (and so on for adding more entries to the follows clause)
+
 #[derive(Debug, Clone)]
 pub struct VTable {
     functions: Vec<usize>,

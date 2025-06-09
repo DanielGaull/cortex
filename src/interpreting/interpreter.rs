@@ -371,6 +371,28 @@ impl CortexInterpreter {
                     CortexValue::Fat(Box::new(val), vtable.clone())
                 )
             },
+            RExpression::FatCall { callee, index_in_vtable, args } => {
+                let val = self.evaluate_expression(&*callee)?;
+                if let CortexValue::Fat(val, vtable) = val {
+                    let index = vtable.get(*index_in_vtable);
+                    if let Some(index) = index {
+                        let func = self.lookup_function(index)?.clone();
+                        let mut true_args = Vec::new();
+                        true_args.push(*val);
+                        for arg in args {
+                            let arg_val = self.evaluate_expression(arg)?;
+                            true_args.push(arg_val);
+                        }
+
+                        let func_result = self.call_function(&func, true_args);
+                        Ok(func_result?)
+                    } else {
+                        Err(Box::new(InterpreterError::FunctionNotFoundDynamicDispatch))
+                    }
+                } else {
+                    Err(Box::new(InterpreterError::ExpectedFatPointer(String::from(val.get_variant_name()))))
+                }
+            },
         }
     }
 
