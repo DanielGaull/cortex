@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{parsing::ast::{top_level::Struct, r#type::CortexType}, preprocessing::{module::Module, preprocessor::CortexPreprocessor}};
+use crate::{parsing::ast::{top_level::Struct, r#type::CortexType}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}};
 
 
 impl CortexPreprocessor {
