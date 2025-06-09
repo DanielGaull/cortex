@@ -1202,14 +1202,6 @@ impl CortexPreprocessor {
         let full_path: FunctionAddress = FunctionAddress::concat(&self.current_context, &path);
         self.function_signature_map.contains_key(&full_path)
     }
-    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<&FunctionSignature, CortexError> {
-        let full_path: FunctionAddress = FunctionAddress::concat(&self.current_context, &path);
-        if let Some(sig) = self.function_signature_map.get(&full_path) {
-            Ok(sig)
-        } else {
-            Err(Box::new(PreprocessingError::FunctionDoesNotExist(full_path.codegen(0))))
-        }
-    }
 
     pub(super) fn lookup_type(&self, path: &PathIdent) -> Result<&TypeDefinition, CortexError> {
         let full_path = PathIdent::concat(&self.current_context, &path);

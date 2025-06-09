@@ -4,6 +4,11 @@ use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{Optio
 
 use super::preprocessor::{CheckResult, CortexPreprocessor};
 
+struct ProcessedCall {
+    args: Vec<RExpression>,
+    return_type: CortexType,
+}
+
 impl CortexPreprocessor {
     pub(super) fn check_fat_member_call(&mut self, atom_type: FollowsType, callee: Box<PExpression>, member: String, mut args: Vec<PExpression>, type_args: Option<Vec<CortexType>>, st_str: String) -> CheckResult<RExpression> {
         let mut function_sig = None;
@@ -73,6 +78,15 @@ impl CortexPreprocessor {
     }
 
     pub(super) fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<PExpression>, type_args: Option<Vec<CortexType>>, prefix: PathIdent, st_str: &String) -> CheckResult<RExpression> {
+        let sig = self.lookup_signature(&FunctionAddress::concat(&prefix, &addr))?.clone();
+        let extended_prefix = PathIdent::concat(&self.current_context, &prefix);
+        let full_path = FunctionAddress::concat(&extended_prefix, &addr);
+        let call = self.check_call_base(sig, full_path.codegen(0), arg_exps, type_args, prefix, st_str)?;
+        let func_id = self.function_dict.add_call(full_path)?;
+        Ok((RExpression::Call(func_id, call.args), call.return_type))
+    }
+
+    fn check_call_base(&mut self, sig: FunctionSignature, name: String, arg_exps: Vec<PExpression>, type_args: Option<Vec<CortexType>>, prefix: PathIdent, st_str: &String) -> Result<ProcessedCall, CortexError> {
         let provided_arg_count = arg_exps.len();
         let mut processed_args = Vec::new();
         let mut arg_types = Vec::new();
@@ -83,12 +97,11 @@ impl CortexPreprocessor {
         }
         
         let extended_prefix = PathIdent::concat(&self.current_context, &prefix);
-        let sig = self.lookup_signature(&FunctionAddress::concat(&prefix, &addr))?.clone();
 
-        let full_path = FunctionAddress::concat(&extended_prefix, &addr);
+        // let full_path = FunctionAddress::concat(&extended_prefix, &addr);
         if provided_arg_count != sig.params.len() {
             return Err(Box::new(
-                PreprocessingError::MismatchedArgumentCount(full_path.codegen(0), sig.params.len(), provided_arg_count)
+                PreprocessingError::MismatchedArgumentCount(name, sig.params.len(), provided_arg_count)
             ));
         }
 
@@ -107,7 +120,7 @@ impl CortexPreprocessor {
         if let Some(type_args) = type_args {
             bindings = sig.type_param_names.iter().cloned().zip(type_args).collect();
         } else {
-            bindings = self.infer_type_args(&sig, &arg_types, &full_path, st_str)?;
+            bindings = self.infer_type_args(&sig, &arg_types, name, st_str)?;
         }
         let parent_type_env = self.current_type_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         let mut new_type_env = TypeEnvironment::new(*parent_type_env);
@@ -138,9 +151,11 @@ impl CortexPreprocessor {
 
         self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
 
-        let func_id = self.function_dict.add_call(full_path)?;
-
-        Ok((RExpression::Call(func_id, processed_args), return_type))
+        // let func_id = self.function_dict.add_call(full_path)?;
+        Ok(ProcessedCall {
+            args: processed_args,
+            return_type,
+        })
     }
 
     // Used to get bindings for a type (give param names and the concrete type)
@@ -159,14 +174,14 @@ impl CortexPreprocessor {
         }
         Ok(bindings)
     }
-    fn infer_type_args(&self, sig: &FunctionSignature, args: &Vec<CortexType>, name: &FunctionAddress, st_str: &String) -> Result<HashMap<String, CortexType>, CortexError> {
+    fn infer_type_args(&self, sig: &FunctionSignature, args: &Vec<CortexType>, name: String, st_str: &String) -> Result<HashMap<String, CortexType>, CortexError> {
         let mut bindings = HashMap::<String, CortexType>::new();
         for (arg, param) in args.iter().zip(&sig.params) {
             self.infer_arg(&param.typ, &arg, &sig.type_param_names, &mut bindings, param.name(), st_str)?;
         }
 
         if bindings.len() != sig.type_param_names.len() {
-            Err(Box::new(PreprocessingError::CouldNotInferTypeBinding(name.codegen(0))))
+            Err(Box::new(PreprocessingError::CouldNotInferTypeBinding(name)))
         } else {
             Ok(bindings)
         }
@@ -235,6 +250,15 @@ impl CortexPreprocessor {
             Ok(())
         } else {
             Err(Box::new(PreprocessingError::MismatchedType(param_type.codegen(0), arg_type.codegen(0), param_name.clone(), st_str.clone())))
+        }
+    }
+
+    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<&FunctionSignature, CortexError> {
+        let full_path: FunctionAddress = FunctionAddress::concat(&self.current_context, &path);
+        if let Some(sig) = self.function_signature_map.get(&full_path) {
+            Ok(sig)
+        } else {
+            Err(Box::new(PreprocessingError::FunctionDoesNotExist(full_path.codegen(0))))
         }
     }
 }
