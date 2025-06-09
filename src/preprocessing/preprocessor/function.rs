@@ -165,6 +165,7 @@ impl CortexPreprocessor {
         }
         self.current_type_env = Some(Box::new(new_type_env));
 
+        let mut final_args = Vec::new();
         for (i, arg_type) in arg_types.into_iter().enumerate() {
             let arg_type = self.clean_type(arg_type);
             let param_type = self.clean_type(param_types.get(i).unwrap().clone());
@@ -180,6 +181,10 @@ impl CortexPreprocessor {
                     )
                 );
             }
+
+            let arg = processed_args.remove(0);
+            let arg = self.assign_to(arg, arg_type, param_type)?;
+            final_args.push(arg);
         }
 
         return_type = self.clean_type(return_type)
@@ -187,9 +192,8 @@ impl CortexPreprocessor {
 
         self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
 
-        // let func_id = self.function_dict.add_call(full_path)?;
         Ok(ProcessedCall {
-            args: processed_args,
+            args: final_args,
             return_type,
         })
     }

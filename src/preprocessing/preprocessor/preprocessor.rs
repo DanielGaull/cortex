@@ -217,12 +217,13 @@ impl CortexPreprocessor {
                     }
                     declared_type.clone()
                 } else {
-                    assigned_type
+                    assigned_type.clone()
                 };
 
-                self.current_env.as_mut().unwrap().add(ident.clone(), type_of_var, is_const)?;
+                self.current_env.as_mut().unwrap().add(ident.clone(), type_of_var.clone(), is_const)?;
 
-                Ok(vec![RStatement::VariableDeclaration { name: ident, is_const: is_const, initial_value: assigned_exp }])
+                let initial_value = self.assign_to(assigned_exp, assigned_type, type_of_var)?;
+                Ok(vec![RStatement::VariableDeclaration { name: ident, is_const: is_const, initial_value, }])
             },
             OptionalIdentifier::Ignore => {
                 let (exp, _) = self.check_exp(initial_value)?;
@@ -259,9 +260,11 @@ impl CortexPreprocessor {
 
     fn check_assignment(&mut self, name: IdentExpression, value: PExpression, st_str: &String) -> Result<Vec<RStatement>, CortexError> {
         let (assigned_exp, assigned_type) = self.check_exp(value)?;
+        let type_of_var;
         if name.is_simple() {
             let var_name = &name.base;
             let var_type = &self.current_env.as_ref().unwrap().get(var_name)?.clone();
+            type_of_var = var_type.clone();
             if !assigned_type.is_subtype_of(var_type, &self.type_map) {
                 return Err(
                     Box::new(
@@ -297,6 +300,7 @@ impl CortexPreprocessor {
 
             let name_expr = name.clone().to_member_access_expr();
             let (_, var_type) = self.check_exp(name_expr)?;
+            type_of_var = var_type.clone();
             if !assigned_type.is_subtype_of(&var_type, &self.type_map) {
                 return Err(
                     Box::new(
@@ -311,6 +315,7 @@ impl CortexPreprocessor {
             }
         }
 
+        let assigned_exp = self.assign_to(assigned_exp, assigned_type, type_of_var)?;
         Ok(vec![RStatement::Assignment { name: name.into(), value: assigned_exp }])
     }
     fn check_assignment_recursive(&mut self, name: AssignmentName, value: PExpression, st_str: &String) -> Result<Vec<RStatement>, CortexError> {
@@ -565,6 +570,8 @@ impl CortexPreprocessor {
                         )
                     );
                 }
+
+                let exp = self.assign_to(exp, assigned_type, field_type)?;
 
                 new_assignments.push((fname.clone(), exp));
 
