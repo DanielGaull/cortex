@@ -60,6 +60,7 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
     assert_subtype("TestType", "follows Iterable", &type_map)?;
     assert_not_subtype("TestType", "follows Iterable + X", &type_map)?;
     assert_subtype("OtherTestType", "follows Iterable", &type_map)?;
+    assert_not_subtype("Box<TestType>", "Box<follows Iterable>", &type_map)?;
     Ok(())
 }
 
