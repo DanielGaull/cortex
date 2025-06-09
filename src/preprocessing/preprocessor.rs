@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, error::Error, rc::Rc};
 
-use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, FollowsEntry, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, FollowsEntry, FollowsType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen};
 
 use super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -775,53 +775,14 @@ impl CortexPreprocessor {
                     CortexType::FollowsType(_) => Err(Box::new(PreprocessingError::CannotAccessMemberOfFollowsType)),
                 }
             },
-            PExpression::MemberCall { callee, member, mut args, type_args } => {
+            PExpression::MemberCall { callee, member, args, type_args } => {
                 let (_, atom_type) = self.check_exp(*callee.clone())?;
                 
-                let caller_type = atom_type.name()?;
-                let caller_type_prefix = caller_type.without_last();
-                let non_extension_func_addr = FunctionAddress::member_func(
-                    PathIdent::continued(caller_type_prefix.clone().subtract(&self.current_context)?, member.clone()), 
-                    caller_type.clone().subtract(&self.current_context)?);
-                
-                args.insert(0, *callee);
-                let true_type_args;
-                if let Some(mut type_args) = type_args {
-                    let typedef = self.lookup_type(caller_type)?;
-                    let mut bindings = HashMap::new();
-                    self.infer_arg(&CortexType::reference(
-                        CortexType::basic(caller_type.clone(), false, forwarded_type_args(&typedef.type_param_names)),
-                        true,
-                    ), &atom_type, &typedef.type_param_names, &mut bindings, &String::from("this"), &st_str)?;
-                    let mut beginning_type_args = Vec::new();
-                    for a in &typedef.type_param_names {
-                        beginning_type_args.push(bindings.remove(a).unwrap());
-                    }
-                    type_args.extend(beginning_type_args);
-                    true_type_args = Some(type_args);
+                if let CortexType::FollowsType(f) = atom_type {
+                    Ok(self.check_fat_member_call(f, callee, member, args, type_args, st_str)?)
                 } else {
-                    true_type_args = None;
+                    Ok(self.check_direct_member_call(atom_type, args, callee, member, type_args, st_str)?)
                 }
-
-                let actual_func_addr;
-                if self.has_function(&non_extension_func_addr) {
-                    actual_func_addr = non_extension_func_addr;
-                } else {
-                    let attempted_extension_path = self.search_for_extension(&caller_type, &member)?;
-                    if let Some(extension_func_path) = attempted_extension_path {
-                        actual_func_addr = extension_func_path.clone();
-                    } else {
-                        return Err(Box::new(PreprocessingError::FunctionDoesNotExist(non_extension_func_addr.codegen(0))));
-                    }
-                }
-
-                let call_exp = PExpression::Call {
-                    name: actual_func_addr, 
-                    args,
-                    type_args: true_type_args,
-                };
-                let result = self.check_exp(call_exp)?;
-                Ok(result)
             },
             PExpression::BinaryOperation { left, op, right } => {
                 let (left_exp, left_type) = self.check_exp(*left)?;
@@ -856,6 +817,74 @@ impl CortexPreprocessor {
             },
         }
     }
+
+    fn check_fat_member_call(&mut self, atom_type: FollowsType, callee: Box<PExpression>, member: String, mut args: Vec<PExpression>, type_args: Option<Vec<CortexType>>, st_str: String) -> CheckResult<RExpression> {
+        let mut function_sig = None;
+        let mut contract_to_use = None;
+        for entry in &atom_type.clause.contracts {
+            if let Some(contract) = self.contract_map.get(&entry.name) {
+                for sig in &contract.function_sigs {
+                    if sig.name == OptionalIdentifier::Ident(member.clone()) {
+                        function_sig = Some(sig);
+                        contract_to_use = Some(contract);
+                        break;
+                    }
+                }
+            }
+        }
+        if let None = function_sig {
+            return Err(Box::new(PreprocessingError::FunctionDoesNotExist(member)));
+        }
+
+        todo!()
+    }
+    fn check_direct_member_call(&mut self, atom_type: CortexType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<CortexType>>, st_str: String) -> CheckResult<RExpression> {
+        let caller_type = atom_type.name()?;
+        let caller_type_prefix = caller_type.without_last();
+        let non_extension_func_addr = FunctionAddress::member_func(
+            PathIdent::continued(caller_type_prefix.clone().subtract(&self.current_context)?, member.clone()), 
+            caller_type.clone().subtract(&self.current_context)?);
+        
+        args.insert(0, *callee);
+        let true_type_args;
+        if let Some(mut type_args) = type_args {
+            let typedef = self.lookup_type(caller_type)?;
+            let mut bindings = HashMap::new();
+            self.infer_arg(&CortexType::reference(
+                CortexType::basic(caller_type.clone(), false, forwarded_type_args(&typedef.type_param_names)),
+                true,
+            ), &atom_type, &typedef.type_param_names, &mut bindings, &String::from("this"), &st_str)?;
+            let mut beginning_type_args = Vec::new();
+            for a in &typedef.type_param_names {
+                beginning_type_args.push(bindings.remove(a).unwrap());
+            }
+            type_args.extend(beginning_type_args);
+            true_type_args = Some(type_args);
+        } else {
+            true_type_args = None;
+        }
+
+        let actual_func_addr;
+        if self.has_function(&non_extension_func_addr) {
+            actual_func_addr = non_extension_func_addr;
+        } else {
+            let attempted_extension_path = self.search_for_extension(&caller_type, &member)?;
+            if let Some(extension_func_path) = attempted_extension_path {
+                actual_func_addr = extension_func_path.clone();
+            } else {
+                return Err(Box::new(PreprocessingError::FunctionDoesNotExist(non_extension_func_addr.codegen(0))));
+            }
+        }
+
+        let call_exp = PExpression::Call {
+            name: actual_func_addr, 
+            args,
+            type_args: true_type_args,
+        };
+        let result = self.check_exp(call_exp)?;
+        Ok(result)
+    }
+
     fn check_composite_member_access(&mut self, atom_exp: RExpression, atom_type: CortexType, member: String) -> CheckResult<RExpression> {
         let is_mutable;
         match &atom_type {
