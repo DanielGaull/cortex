@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error, rc::Rc};
 
-use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, FunctionSignature, PFunction}, r#type::{CortexType, TupleType, TypeError}}, codegen::r#trait::SimpleCodeGen}};
+use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, FunctionSignature, PFunction}, r#type::{CortexType, TupleType}}, codegen::r#trait::SimpleCodeGen}};
 
 use super::super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -60,7 +60,7 @@ impl CortexPreprocessor {
     }
 
     pub(crate) fn determine_type(&mut self, expr: PExpression) -> Result<CortexType, CortexError> {
-        let (_, typ, _) = self.check_exp(expr)?;
+        let (_, typ, _) = self.check_exp(expr, None)?;
         Ok(typ)
     }
 
@@ -95,7 +95,7 @@ impl CortexPreprocessor {
     }
 
     pub fn preprocess(&mut self, body: BasicBody) -> Result<Program, CortexError> {
-        let (body, _) = self.check_body(body)?;
+        let (body, _) = self.check_body(body, None)?;
         Ok(Program { code: body })
     }
 
@@ -114,7 +114,7 @@ impl CortexPreprocessor {
         let final_fn_body;
         match function.body {
             Body::Basic(body) => {
-                let (new_body, body_type) = self.check_body(body)?;
+                let (new_body, body_type) = self.check_body(body, Some(function.return_type.clone()))?;
                 let return_type = self.clean_type(function.return_type.clone().with_prefix_if_not_core(&self.current_context));
                 if !body_type.is_subtype_of(&return_type, &self.type_map) {
                     return Err(Box::new(PreprocessingError::ReturnTypeMismatch(return_type.codegen(0), body_type.codegen(0))));
@@ -135,13 +135,13 @@ impl CortexPreprocessor {
         let st_str = statement.codegen(0);
         match statement {
             PStatement::Expression(expression) => {
-                let (exp, _, mut statements) = self.check_exp(expression)?;
+                let (exp, _, mut statements) = self.check_exp(expression, None)?;
                 statements.push(RStatement::Expression(exp));
                 Ok(statements)
             },
             PStatement::Throw(expression) => {
                 if let Some(ex) = expression {
-                    let (exp, _, mut statements) = self.check_exp(ex)?;
+                    let (exp, _, mut statements) = self.check_exp(ex, None)?;
                     statements.push(RStatement::Throw(Some(exp)));
                     Ok(statements)
                 } else {
@@ -155,7 +155,7 @@ impl CortexPreprocessor {
                 Ok(self.check_assignment_recursive(name, value, &st_str)?)
             },
             PStatement::WhileLoop(condition_body) => {
-                let (cond, cond_type, mut cond_statements) = self.check_exp(condition_body.condition)?;
+                let (cond, cond_type, mut cond_statements) = self.check_exp(condition_body.condition, Some(CortexType::boolean(false)))?;
                 if !cond_type.is_subtype_of(&CortexType::boolean(false), &self.type_map) {
                     return Err(
                         Box::new(
@@ -170,7 +170,7 @@ impl CortexPreprocessor {
                 }
 
                 self.loop_depth += 1;
-                let (body, body_type) = self.check_body_and_handle_env(condition_body.body)?;
+                let (body, body_type) = self.check_body_and_handle_env(condition_body.body, Some(CortexType::void(false)))?;
                 if !body_type.is_subtype_of(&CortexType::void(false), &self.type_map) {
                     return Err(
                         Box::new(
@@ -203,7 +203,7 @@ impl CortexPreprocessor {
     fn check_declaration(&mut self, name: OptionalIdentifier, typ: Option<CortexType>, is_const: bool, initial_value: PExpression, st_str: &String) -> Result<Vec<RStatement>, CortexError> {
         match name {
             OptionalIdentifier::Ident(ident) => {
-                let (assigned_exp, assigned_type, mut statements) = self.check_exp(initial_value)?;
+                let (assigned_exp, assigned_type, mut statements) = self.check_exp(initial_value, typ.clone())?;
                 let type_of_var = if let Some(mut declared_type) = typ {
                     declared_type = self.clean_type(declared_type.with_prefix_if_not_core(&self.current_context));
                     if !assigned_type.is_subtype_of(&declared_type, &self.type_map) {
@@ -231,7 +231,7 @@ impl CortexPreprocessor {
                 Ok(statements)
             },
             OptionalIdentifier::Ignore => {
-                let (exp, _, mut statements) = self.check_exp(initial_value)?;
+                let (exp, _, mut statements) = self.check_exp(initial_value, typ)?;
                 statements.push(RStatement::Expression(exp));
                 Ok(statements)
             },
@@ -265,12 +265,18 @@ impl CortexPreprocessor {
     }
 
     fn check_assignment(&mut self, name: IdentExpression, value: PExpression, st_str: &String) -> Result<Vec<RStatement>, CortexError> {
-        let (assigned_exp, assigned_type, mut statements) = self.check_exp(value)?;
         let type_of_var;
+        let assigned_exp;
+        let assigned_type;
+        let mut statements: Vec<RStatement>;
         if name.is_simple() {
             let var_name = &name.base;
             let var_type = &self.current_env.as_ref().unwrap().get(var_name)?.clone();
             type_of_var = var_type.clone();
+            let (aassigned_exp, aassigned_type, astatements) = self.check_exp(value, Some(type_of_var.clone()))?;
+            assigned_exp = aassigned_exp;
+            assigned_type = aassigned_type;
+            statements = astatements;
             if !assigned_type.is_subtype_of(var_type, &self.type_map) {
                 return Err(
                     Box::new(
@@ -293,7 +299,7 @@ impl CortexPreprocessor {
             }
         } else {
             let source_expr = name.clone().without_last()?.to_member_access_expr();
-            let (_, source_type, _) = self.check_exp(source_expr)?;
+            let (_, source_type, _) = self.check_exp(source_expr, None)?;
             if let CortexType::RefType(r) = source_type {
                 if !r.mutable {
                     return Err(
@@ -305,8 +311,12 @@ impl CortexPreprocessor {
             }
 
             let name_expr = name.clone().to_member_access_expr();
-            let (_, var_type, _) = self.check_exp(name_expr)?;
+            let (_, var_type, _) = self.check_exp(name_expr, None)?;
             type_of_var = var_type.clone();
+            let (aassigned_exp, aassigned_type, astatements) = self.check_exp(value, Some(type_of_var.clone()))?;
+            assigned_exp = aassigned_exp;
+            assigned_type = aassigned_type;
+            statements = astatements;
             if !assigned_type.is_subtype_of(&var_type, &self.type_map) {
                 return Err(
                     Box::new(
@@ -356,7 +366,7 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(super) fn check_exp(&mut self, exp: PExpression) -> CheckResult<RExpression> {
+    pub(super) fn check_exp(&mut self, exp: PExpression, expected_type: Option<CortexType>) -> CheckResult<RExpression> {
         let st_str = exp.codegen(0);
         match exp {
             PExpression::Number(v) => Ok((RExpression::Number(v), CortexType::number(false), vec![])),
@@ -384,7 +394,8 @@ impl CortexPreprocessor {
                 self.check_if_statement(*first, conds, last.map(|b| *b), &st_str)
             },
             PExpression::UnaryOperation { op, exp } => {
-                let (exp, typ, statements) = self.check_exp(*exp)?;
+                // NOTE: neither unary operation changes the type of the value
+                let (exp, typ, statements) = self.check_exp(*exp, expected_type)?;
                 match op {
                     UnaryOperator::Negate => {
                         if typ == CortexType::number(false) {
@@ -403,29 +414,53 @@ impl CortexPreprocessor {
                 }
             },
             PExpression::ListLiteral(items) => {
-                let mut contained_type = CortexType::Unknown(false);
+                let mut expected_internal = None;
+                if let Some(expected) = expected_type {
+                    if let CortexType::RefType(r) = expected {
+                        if let CortexType::BasicType(mut b) = *r.contained {
+                            if b.name.is_final() && b.name.get_back().unwrap() == "list" {
+                                expected_internal = Some(b.type_args.remove(0));
+                            }
+                        }
+                    }
+                }
+
+                let mut contained_type = None;
                 let mut new_items = Vec::new();
                 let mut statements = Vec::new();
                 for item in items {
-                    let (item_exp, item_type, exp_st) = self.check_exp(item)?;
+                    let (item_exp, item_type, exp_st) = self.check_exp(item, expected_internal.clone())?;
                     statements.extend(exp_st);
                     let item_type_str = item_type.codegen(0);
-                    let typ_str = contained_type.codegen(0);
-                    contained_type = contained_type
-                        .combine_with(item_type, &self.type_map)
-                        .ok_or(PreprocessingError::CannotDetermineListLiteralType(typ_str, item_type_str))?;
+                    if let None = contained_type {
+                        contained_type = Some(item_type.clone());
+                    } else if let Some(typ) = contained_type {
+                        let typ_str = typ.codegen(0);
+                        contained_type = Some(
+                            typ
+                                .combine_with(item_type, &self.type_map)
+                                .ok_or(PreprocessingError::CannotDetermineListLiteralType(typ_str, item_type_str))?
+                            );
+                    }
                     new_items.push(item_exp);
                 }
-                let true_type = CortexType::reference(CortexType::list(contained_type, false), true);
-                Ok((RExpression::ListLiteral(new_items), true_type, statements))
+                if let Some(contained) = contained_type {
+                    let true_type = CortexType::reference(CortexType::list(contained, false), true);
+                    Ok((RExpression::ListLiteral(new_items), true_type, statements))
+                } else if let Some(expected_internal) = expected_internal {
+                    let true_type = CortexType::reference(CortexType::list(expected_internal, false), true);
+                    Ok((RExpression::ListLiteral(new_items), true_type, statements))
+                } else {
+                    Err(Box::new(PreprocessingError::CannotDetermineType(st_str)))
+                }
             },
             PExpression::Bang(inner) => {
-                let (exp, typ, statements) = self.check_exp(*inner)?;
+                let (exp, typ, statements) = self.check_exp(*inner, expected_type.map(|t| t.to_optional()))?;
                 Ok((RExpression::Bang(Box::new(exp)), typ.to_non_optional(), statements))
             },
             PExpression::MemberAccess(inner, member) => {
                 let inner_as_string = inner.codegen(0);
-                let (atom_exp, atom_type, mut statements) = self.check_exp(*inner)?;
+                let (atom_exp, atom_type, mut statements) = self.check_exp(*inner, None)?;
                 match &atom_type {
                     CortexType::BasicType(_) |
                     CortexType::RefType(_) => {
@@ -439,7 +474,6 @@ impl CortexPreprocessor {
                         statements.extend(st);
                         Ok((ex, ty, statements))
                     },
-                    CortexType::Unknown(_) => Err(Box::new(TypeError::UnknownTypeNotValid)),
                     CortexType::TupleType(t) => {
                         if t.optional {
                             return Err(Box::new(PreprocessingError::CannotAccessMemberOfOptional(inner_as_string)));
@@ -452,21 +486,21 @@ impl CortexPreprocessor {
                 }
             },
             PExpression::MemberCall { callee, member, args, type_args } => {
-                let (_, atom_type, mut statements) = self.check_exp(*callee.clone())?;
+                let (_, atom_type, mut statements) = self.check_exp(*callee.clone(), None)?;
                 
                 if let CortexType::FollowsType(f) = atom_type {
                     let (ex, ty, st) = self.check_fat_member_call(f, callee, member, args, type_args, st_str)?;
                     statements.extend(st);
                     Ok((ex, ty, statements))
                 } else {
-                    let (ex, ty, st) = self.check_direct_member_call(atom_type, args, callee, member, type_args, st_str)?;
+                    let (ex, ty, st) = self.check_direct_member_call(atom_type, args, callee, member, type_args, st_str, expected_type)?;
                     statements.extend(st);
                     Ok((ex, ty, statements))
                 }
             },
             PExpression::BinaryOperation { left, op, right } => {
-                let (left_exp, left_type, st_left) = self.check_exp(*left)?;
-                let (right_exp, right_type, st_right) = self.check_exp(*right)?;
+                let (left_exp, left_type, st_left) = self.check_exp(*left, None)?;
+                let (right_exp, right_type, st_right) = self.check_exp(*right, None)?;
                 let op_type = self.check_operator(left_type, &op, right_type)?;
                 let mut statements = Vec::new();
                 statements.extend(st_left);
@@ -474,9 +508,10 @@ impl CortexPreprocessor {
                 Ok((RExpression::BinaryOperation { left: Box::new(left_exp), op: op, right: Box::new(right_exp) }, op_type, statements))
             },
             PExpression::Tuple(items) => {
+                // TODO: Derive tuple value types from the expected type if provided
                 let results = items
                     .into_iter()
-                    .map(|e| self.check_exp(e))
+                    .map(|e| self.check_exp(e, None))
                     .collect::<Result<Vec<_>, _>>()?;
                 let (exps, types, statements): (Vec<RExpression>, Vec<CortexType>, Vec<Vec<RStatement>>) = unzip3(results);
                 Ok((RExpression::Tuple(exps), CortexType::tuple(types, false), statements.into_iter().flatten().collect()))
@@ -511,9 +546,6 @@ impl CortexPreprocessor {
             },
             CortexType::RefType(r) => {
                 is_mutable = r.mutable;
-            },
-            CortexType::Unknown(_) => {
-                return Err(Box::new(PreprocessingError::UnknownTypeFound));
             },
         }
         let typedef = self.lookup_type(&atom_type.name()?.clone().subtract(&self.current_context)?)?;
@@ -579,7 +611,7 @@ impl CortexPreprocessor {
                 let field_type = TypeEnvironment::fill(typ, &bindings)
                     .with_prefix_if_not_core(&self.current_context)
                     .with_prefix_if_not_core(&name.without_last());
-                let (exp, assigned_type, st) = self.check_exp(fvalue)?;
+                let (exp, assigned_type, st) = self.check_exp(fvalue, Some(field_type.clone()))?;
                 statements.extend(st);
                 if !assigned_type.is_subtype_of(&field_type, &self.type_map) {
                     return Err(
@@ -621,7 +653,7 @@ impl CortexPreprocessor {
         }
     }
     fn check_if_statement(&mut self, first: PConditionBody, conds: Vec<PConditionBody>, last: Option<BasicBody>, st_str: &String) -> CheckResult<RExpression> {
-        let (cond_exp, cond_typ, mut pre_statements) = self.check_exp(first.condition)?;
+        let (cond_exp, cond_typ, mut pre_statements) = self.check_exp(first.condition, Some(CortexType::boolean(false)))?;
         if cond_typ != CortexType::boolean(false) {
             return Err(
                 Box::new(
@@ -634,11 +666,11 @@ impl CortexPreprocessor {
                 )
             );
         }
-        let (first_body, mut the_type) = self.check_body_and_handle_env(first.body)?;
+        let (first_body, mut the_type) = self.check_body_and_handle_env(first.body, None)?;
 
         let mut condition_bodies = Vec::<RConditionBody>::new();
         for c in conds {
-            let (cond, cond_typ, cond_st) = self.check_exp(c.condition)?;
+            let (cond, cond_typ, cond_st) = self.check_exp(c.condition, Some(CortexType::boolean(false)))?;
             pre_statements.extend(cond_st);
             if !cond_typ.is_subtype_of(&CortexType::boolean(false), &self.type_map) {
                 return Err(
@@ -652,7 +684,7 @@ impl CortexPreprocessor {
                     )
                 );
             }
-            let (body, typ) = self.check_body_and_handle_env(c.body)?;
+            let (body, typ) = self.check_body_and_handle_env(c.body, Some(the_type.clone()))?;
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
             let next = the_type.combine_with(typ, &self.type_map);
@@ -665,7 +697,7 @@ impl CortexPreprocessor {
         }
         let mut final_body = None;
         if let Some(fin) = last {
-            let (body, typ) = self.check_body_and_handle_env(fin)?;
+            let (body, typ) = self.check_body_and_handle_env(fin, Some(the_type.clone()))?;
             final_body = Some(Box::new(body));
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
@@ -686,24 +718,24 @@ impl CortexPreprocessor {
         }, the_type, pre_statements))
     }
 
-    fn check_body_and_handle_env(&mut self, body: BasicBody) -> Result<(RInterpretedBody, CortexType), CortexError> {
+    fn check_body_and_handle_env(&mut self, body: BasicBody, expected_return_value: Option<CortexType>) -> Result<(RInterpretedBody, CortexType), CortexError> {
         let parent_env = self.current_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         self.current_env = Some(Box::new(TypeCheckingEnvironment::new(*parent_env)));
 
-        let result = self.check_body(body);
+        let result = self.check_body(body, expected_return_value);
 
         self.current_env = Some(Box::new(self.current_env.take().unwrap().exit()?));
         result
     }
 
-    fn check_body(&mut self, body: BasicBody) -> Result<(RInterpretedBody, CortexType), CortexError> {
+    fn check_body(&mut self, body: BasicBody, expected_return_value: Option<CortexType>) -> Result<(RInterpretedBody, CortexType), CortexError> {
         let mut statements = Vec::new();
         for st in body.statements {
             let s = self.check_statement(st)?;
             statements.extend(s);
         }
         if let Some(exp) = body.result {
-            let (exp, typ, st) = self.check_exp(exp)?;
+            let (exp, typ, st) = self.check_exp(exp, expected_return_value)?;
             statements.extend(st);
             Ok((RInterpretedBody::new(statements, Some(exp)), typ))
         } else {

@@ -69,7 +69,6 @@ impl TypeEnvironment {
                 let new_contained = Self::fill(*r.contained, bindings);
                 CortexType::RefType(RefType { contained: Box::new(new_contained), mutable: r.mutable })
             },
-            CortexType::Unknown(b) => CortexType::Unknown(b),
             CortexType::TupleType(t) => {
                 let new_types = t.types.into_iter().map(|t| Self::fill(t, bindings)).collect();
                 CortexType::TupleType(TupleType {

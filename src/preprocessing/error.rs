@@ -76,4 +76,6 @@ pub enum PreprocessingError {
     DuplicateInFollowsClause(String),
     #[error("Cannot access member of value of type 'follows'")]
     CannotAccessMemberOfFollowsType,
+    #[error("Could not determine type, please provide type annotations: {0}")] 
+    CannotDetermineType(String),
 }

@@ -161,6 +161,8 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     interpreter.run_top_level(CortexParser::parse_top_level("contract c{}")?)?;
     assert_err_toplevel("contract c{}", ModuleError::ContractAlreadyExists(String::from("c")), &mut interpreter)?;
 
+    assert_err("let myList = [];", PreprocessingError::CannotDetermineType(String::from("[]")), &mut interpreter)?;
+
     Ok(())
 }
 

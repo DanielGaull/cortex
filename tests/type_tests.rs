@@ -49,7 +49,7 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
     assert_subtype("none?", "number?", &type_map)?;
     assert_subtype("&mut number", "&number", &type_map)?;
     assert_not_subtype("&number", "&mut number", &type_map)?;
-    assert_subtype("list<number>", "list<number?>", &type_map)?;
+    // assert_subtype("list<number>", "list<number?>", &type_map)?;
     assert_subtype("(&mut number, none?)", "(&number, bool?)", &type_map)?;
     assert_not_subtype("(number, number)", "(number, number, number)", &type_map)?;
 

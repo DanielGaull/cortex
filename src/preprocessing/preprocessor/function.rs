@@ -42,7 +42,7 @@ impl CortexPreprocessor {
         }
         let index = index.unwrap();
 
-        let (callee_processed, this_type, callee_st) = self.check_exp(*callee.clone())?;
+        let (callee_processed, this_type, callee_st) = self.check_exp(*callee.clone(), None)?;
         args.insert(0, *callee.clone());
         
         function_sig.params.insert(0, Parameter::named("this", this_type));
@@ -63,7 +63,7 @@ impl CortexPreprocessor {
             args: call.args,
         }, call.return_type, statements))
     }
-    pub(super) fn check_direct_member_call(&mut self, atom_type: CortexType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<CortexType>>, st_str: String) -> CheckResult<RExpression> {
+    pub(super) fn check_direct_member_call(&mut self, atom_type: CortexType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<CortexType>>, st_str: String, expected_type: Option<CortexType>) -> CheckResult<RExpression> {
         let caller_type = atom_type.name()?;
         let actual_func_addr = self.get_member_function_address(&atom_type, &member)?;
 
@@ -91,7 +91,7 @@ impl CortexPreprocessor {
             args,
             type_args: true_type_args,
         };
-        let result = self.check_exp(call_exp)?;
+        let result = self.check_exp(call_exp, expected_type)?;
         Ok(result)
     }
 
@@ -128,24 +128,23 @@ impl CortexPreprocessor {
 
     fn check_call_base(&mut self, sig: FunctionSignature, name: String, arg_exps: Vec<PExpression>, type_args: Option<Vec<CortexType>>, prefix: PathIdent, st_str: &String) -> Result<ProcessedCall, CortexError> {
         let provided_arg_count = arg_exps.len();
+        if provided_arg_count != sig.params.len() {
+            return Err(Box::new(
+                PreprocessingError::MismatchedArgumentCount(name, sig.params.len(), provided_arg_count)
+            ));
+        }
+
         let mut processed_args = Vec::new();
         let mut arg_types = Vec::new();
         let mut statements = Vec::new();
-        for a in arg_exps.into_iter() {
-            let (arg, typ, st) = self.check_exp(a)?;
+        for (i, a) in arg_exps.into_iter().enumerate() {
+            let (arg, typ, st) = self.check_exp(a, Some(sig.params.get(i).unwrap().param_type().clone()))?;
             statements.extend(st);
             arg_types.push(typ);
             processed_args.push(arg);
         }
         
         let extended_prefix = PathIdent::concat(&self.current_context, &prefix);
-
-        // let full_path = FunctionAddress::concat(&extended_prefix, &addr);
-        if provided_arg_count != sig.params.len() {
-            return Err(Box::new(
-                PreprocessingError::MismatchedArgumentCount(name, sig.params.len(), provided_arg_count)
-            ));
-        }
 
         let mut return_type = sig
             .return_type

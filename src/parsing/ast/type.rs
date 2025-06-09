@@ -19,8 +19,6 @@ macro_rules! non_composite_types {
 
 #[derive(Error, Debug, PartialEq)]
 pub enum TypeError {
-    #[error("Unknown type: not valid in this context")]
-    UnknownTypeNotValid,
     #[error("Tuple type: not valid in this context")]
     TupleTypeNotValid,
     #[error("Follows clause type: not valid in this context")]
@@ -57,8 +55,6 @@ pub enum CortexType {
     BasicType(BasicType),
     // Represents a reference to some other type
     RefType(RefType),
-    // Represents a type that is currently unknown, but will be resolved at some point
-    Unknown(bool),
     // Represents a tuple type
     TupleType(TupleType),
     // Represents a "follows" type
@@ -89,7 +85,6 @@ impl SimpleCodeGen for CortexType {
                 s.push_str(&r.contained.codegen(0));
                 s
             },
-            CortexType::Unknown(optional) => format!("{{unknown{}}}", if *optional {"?"} else {""}),
             CortexType::TupleType(t) => {
                 if t.types.len() == 1 {
                     format!("({},){}", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "), if t.optional {"?"} else {""})
@@ -170,7 +165,6 @@ impl CortexType {
                     mutable: r.mutable,
                 })
             },
-            CortexType::Unknown(b) => CortexType::Unknown(*b),
             CortexType::TupleType(t) => {
                 CortexType::TupleType(TupleType { types: t.types.iter().map(|t| t.with_prefix(path).clone()).collect(), optional: t.optional })
             },
@@ -206,7 +200,6 @@ impl CortexType {
             CortexType::RefType(r) => {
                 CortexType::RefType(RefType { contained: Box::new(r.contained.subtract_if_possible(prefix)), mutable: r.mutable })
             },
-            CortexType::Unknown(b) => CortexType::Unknown(b),
             CortexType::TupleType(t) => {
                 CortexType::TupleType(TupleType { types: t.types.iter().map(|t| t.clone().subtract_if_possible(prefix)).collect(), optional: t.optional })
             },
@@ -246,7 +239,7 @@ impl CortexType {
             CortexType::RefType(r) => {
                 r.contained.prefix()
             },
-            CortexType::Unknown(_) | CortexType::TupleType(_) | CortexType::FollowsType(_) => PathIdent::empty(),
+            CortexType::TupleType(_) | CortexType::FollowsType(_) => PathIdent::empty(),
         }
     }
     pub fn optional(&self) -> bool {
@@ -257,7 +250,6 @@ impl CortexType {
             CortexType::RefType(r) => {
                 r.contained.optional()
             },
-            CortexType::Unknown(optional) => *optional,
             CortexType::TupleType(t) => t.optional,
             CortexType::FollowsType(t) => t.optional,
         }
@@ -272,7 +264,6 @@ impl CortexType {
             CortexType::RefType(r) => {
                 r.contained.is_core()
             },
-            CortexType::Unknown(_) => true,
             CortexType::TupleType(_) => false,
             CortexType::FollowsType(_) => false,
         }
@@ -286,7 +277,6 @@ impl CortexType {
             CortexType::RefType(r) => {
                 r.contained.is_non_composite()
             },
-            CortexType::Unknown(_) => true,
             CortexType::TupleType(_) => true,
             CortexType::FollowsType(_) => true,
         }
@@ -306,7 +296,6 @@ impl CortexType {
             CortexType::RefType(r) => {
                 CortexType::RefType(RefType { contained: Box::new(r.contained.to_optional_value(value)), mutable: r.mutable })
             },
-            CortexType::Unknown(_) => CortexType::Unknown(value),
             CortexType::TupleType(t) => CortexType::TupleType(TupleType { types: t.types, optional: value }),
             CortexType::FollowsType(t) => CortexType::FollowsType(FollowsType {
                 clause: t.clause,
@@ -326,7 +315,6 @@ impl CortexType {
         match self {
             CortexType::BasicType(b) => Ok(&b.name),
             CortexType::RefType(r) => r.contained.name(),
-            CortexType::Unknown(_) => Err(TypeError::UnknownTypeNotValid),
             CortexType::TupleType(_) => Err(TypeError::TupleTypeNotValid),
             CortexType::FollowsType(_) => Err(TypeError::FollowsTypeNotValid),
         }
@@ -368,9 +356,6 @@ impl CortexType {
                 } else {
                     None
                 }
-            },
-            (CortexType::Unknown(optional), other) => {
-                Some(other.to_optional_if_true(optional))
             },
             (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
                 if t1.types.len() == t2.types.len() {
@@ -449,14 +434,8 @@ impl CortexType {
                 if b1.name == b2.name {
                     if b1.optional && !b2.optional {
                         false
-                    } else if !are_type_args_equal(&b1.type_args, &b2.type_args) {
-                        if b1.type_args.len() == 1 && b2.type_args.len() == 1 {
-                            b1.type_args.get(0).unwrap().is_subtype_of(b2.type_args.get(0).unwrap(), type_defs)
-                        } else {
-                            false
-                        }
                     } else {
-                        true
+                        are_type_args_equal(&b1.type_args, &b2.type_args)
                     }
                 } else {
                     false
@@ -471,20 +450,6 @@ impl CortexType {
                     }
                 } else {
                     false
-                }
-            },
-            (CortexType::Unknown(optional), other) => {
-                if *optional {
-                    other.optional()
-                } else {
-                    true
-                }
-            },
-            (other, CortexType::Unknown(optional)) => {
-                if *optional {
-                    other.optional()
-                } else {
-                    true
                 }
             },
             (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
