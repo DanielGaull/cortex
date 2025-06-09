@@ -1,5 +1,17 @@
+# 1.0.0alpha5
+* Contracts
+  - Contracts are Cortex's form of interfaces
+  - Use a `contract [name] {}` block to define a contract
+  - Can have types "follow" contracts: `bundle MyBundle follows X { ... }`
+  - New type to indicate a value that follows a particular contract:
+    > Ex. `let x: follows X = ...;`
+  - Contracts can define functions that types must implement in order to follow the contract
+    > Offers a guarantee that certain functions exist
+
 # 1.0.0alpha3 and 1.0.0alpha4
 * Critical bug fixes and minor API enhancements
+* Range core datatype
+* substring function
 
 # 1.0.0alpha2
 * Update to Rust 2024 edition
@@ -42,9 +54,12 @@
   - Ex. `genericFn<number>(5);` - previously, these were always inferred and manual syntax did not exist
 
 ## Future Plans:
-* Range core data type - used to implement substring
+* Contracts - Cortex's trait system, giving way to many more features
+* Features implemented via contracts:
+  - For loops and iterators
+  - Operator overloading
+  - Lambda functions
 * Function "forwarding" in composites
 * Break/continue/early-return
-* Contracts - Cortex's trait system, giving way to many more features
 * Implementing import
 * Plenty of other fixes and enhancements
