@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::FunctionSignature, r#type::{forwarded_type_args, CortexType, FollowsType}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress}, error::PreprocessingError, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::FunctionSignature, r#type::{forwarded_type_args, CortexType, FollowsType}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress, statement::RStatement}, error::PreprocessingError, type_env::TypeEnvironment}};
 
 use super::preprocessor::{CheckResult, CortexPreprocessor};
 
 struct ProcessedCall {
     args: Vec<RExpression>,
     return_type: CortexType,
+    statements: Vec<RStatement>,
 }
 
 impl CortexPreprocessor {
@@ -41,7 +42,7 @@ impl CortexPreprocessor {
         }
         let index = index.unwrap();
 
-        let (callee_processed, this_type) = self.check_exp(*callee.clone())?;
+        let (callee_processed, this_type, callee_st) = self.check_exp(*callee.clone())?;
         args.insert(0, *callee.clone());
         
         function_sig.params.insert(0, Parameter::named("this", this_type));
@@ -52,12 +53,15 @@ impl CortexPreprocessor {
         };
 
         let call = self.check_call_base(pure_sig, String::from("##temp##"), args, type_args, full_prefix, &st_str)?;
+        let mut statements = Vec::new();
+        statements.extend(callee_st);
+        statements.extend(call.statements);
 
         Ok((RExpression::FatCall {
             callee: Box::new(callee_processed),
             index_in_vtable: index,
             args: call.args,
-        }, call.return_type))
+        }, call.return_type, statements))
     }
     pub(super) fn check_direct_member_call(&mut self, atom_type: CortexType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<CortexType>>, st_str: String) -> CheckResult<RExpression> {
         let caller_type = atom_type.name()?;
@@ -119,15 +123,17 @@ impl CortexPreprocessor {
         let full_path = FunctionAddress::concat(&extended_prefix, &addr);
         let call = self.check_call_base(sig, full_path.codegen(0), arg_exps, type_args, prefix, st_str)?;
         let func_id = self.function_dict.add_call(full_path)?;
-        Ok((RExpression::Call(func_id, call.args), call.return_type))
+        Ok((RExpression::Call(func_id, call.args), call.return_type, call.statements))
     }
 
     fn check_call_base(&mut self, sig: FunctionSignature, name: String, arg_exps: Vec<PExpression>, type_args: Option<Vec<CortexType>>, prefix: PathIdent, st_str: &String) -> Result<ProcessedCall, CortexError> {
         let provided_arg_count = arg_exps.len();
         let mut processed_args = Vec::new();
         let mut arg_types = Vec::new();
+        let mut statements = Vec::new();
         for a in arg_exps.into_iter() {
-            let (arg, typ) = self.check_exp(a)?;
+            let (arg, typ, st) = self.check_exp(a)?;
+            statements.extend(st);
             arg_types.push(typ);
             processed_args.push(arg);
         }
@@ -183,8 +189,9 @@ impl CortexPreprocessor {
             }
 
             let arg = processed_args.remove(0);
-            let arg = self.assign_to(arg, arg_type, param_type)?;
+            let (arg, st) = self.assign_to(arg, arg_type, param_type)?;
             final_args.push(arg);
+            statements.extend(st);
         }
 
         return_type = self.clean_type(return_type)
@@ -195,6 +202,7 @@ impl CortexPreprocessor {
         Ok(ProcessedCall {
             args: final_args,
             return_type,
+            statements,
         })
     }
 
