@@ -35,12 +35,12 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
 fn subtype_tests() -> Result<(), Box<dyn Error>> {
     let mut type_map = HashMap::new();
     type_map.insert(PathIdent::new(vec!["TestType"]), TypeDefinition::new(
-        HashMap::new(), Vec::new(), false, vec![
+        HashMap::new(), Vec::new(), vec![
             FollowsEntry::new(PathIdent::new(vec!["Iterable"]), vec![])
         ]
     ));
     type_map.insert(PathIdent::new(vec!["OtherTestType"]), TypeDefinition::new(
-        HashMap::new(), Vec::new(), false, vec![
+        HashMap::new(), Vec::new(), vec![
             FollowsEntry::new(PathIdent::new(vec!["Iterable"]), vec![]),
             FollowsEntry::new(PathIdent::new(vec!["X"]), vec![])
         ]
@@ -97,8 +97,8 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
         None,
     ))?;
     interpreter.register_module(&PathIdent::simple(String::from("Time")), module)?;
-    run_test("Time::Time{m:5,s:5}", "&mut Time::Time", &mut interpreter)?;
-    interpreter.execute_statement(CortexParser::parse_statement("let box = Time::Box{ time: Time::Time{m:4,s:5} };")?)?;
+    run_test("heap Time::Time{m:5,s:5}", "&mut Time::Time", &mut interpreter)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let box = heap Time::Box{ time: heap Time::Time{m:4,s:5} };")?)?;
     run_test("box", "&mut Time::Box", &mut interpreter)?;
     run_test("box.get()", "&mut Time::Time", &mut interpreter)?;
     Ok(())
@@ -136,11 +136,11 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
         vec![String::from("T")],
     ))?;
     interpreter.register_module(&PathIdent::simple(String::from("box")), module)?;
-    interpreter.execute_statement(CortexParser::parse_statement("let box = box::Box<number>{ item: 5 };")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let box = heap box::Box<number>{ item: 5 };")?)?;
     run_test("box.item", "number", &mut interpreter)?;
     run_test("box.get()", "number", &mut interpreter)?;
 
-    interpreter.execute_statement(CortexParser::parse_statement("let box2: &box::Box<&mut box::Box<number>> = box::Box<&mut box::Box<number>>{ item: box::Box<number>{ item: 5 } };")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let box2: &box::Box<&mut box::Box<number>> = heap box::Box<&mut box::Box<number>>{ item: heap box::Box<number>{ item: 5 } };")?)?;
     run_test("box2.item", "&box::Box<number>", &mut interpreter)?;
 
     run_test("box::generic(5)", "number?", &mut interpreter)?;

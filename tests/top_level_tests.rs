@@ -31,7 +31,7 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
 
     assert_expression("main::main(1, 2)", "3", &mut interpreter)?;
     assert_expression_or("getPoint(3, 5)", "{ x:3;y:5; }", "{ y:5;x:3; }", &mut interpreter)?;
-    assert_expression("Point{x:3,y:5}.getX()", "3", &mut interpreter)?;
+    assert_expression("(heap Point {x:3,y:5}).getX()", "3", &mut interpreter)?;
 
     Ok(())
 }
@@ -88,14 +88,14 @@ fn test_bundle() -> Result<(), Box<dyn Error>> {
     run_statement("let box = getBox(5);", &mut interpreter)?;
     run_statement("incValue(box, 1);", &mut interpreter)?;
     run_statement("box.increment(3);", &mut interpreter)?;
-    run_statement("let doubleBox = BoxedBox {box:box};", &mut interpreter)?;
+    run_statement("let doubleBox = heap BoxedBox {box:box};", &mut interpreter)?;
     assert_type("doubleBox", "&mut BoxedBox", &mut interpreter)?;
     run_statement("let doubleBoxBox = doubleBox.getBox();", &mut interpreter)?;
     assert_type("doubleBoxBox", "&mut Box", &mut interpreter)?;
     run_statement("doubleBoxBox.increment(6);", &mut interpreter)?;
     assert_expression("box.value", "15", &mut interpreter)?;
 
-    run_statement("let access = Access { dummy: 0 };", &mut interpreter)?;
+    run_statement("let access = heap Access { dummy: 0 };", &mut interpreter)?;
     assert_expression("access[10]", "10", &mut interpreter)?;
     run_statement("access[5] = 20;", &mut interpreter)?;
     assert_expression("access.dummy", "25", &mut interpreter)?;

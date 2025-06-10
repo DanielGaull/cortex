@@ -18,7 +18,7 @@ module GeometryExtended {
 }
 
 fn main(): &GeometryExtended::Geometry::Point {
-    let point = GeometryExtended::Geometry::Point {
+    let point = heap GeometryExtended::Geometry::Point {
         x: 1,
         y: 1,
     };

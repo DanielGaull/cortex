@@ -1,11 +1,10 @@
 use std::collections::{HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Bundle, Contract, Extension, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, FollowsEntry}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::function_address::FunctionAddress, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Bundle, Contract, Extension, MemberFunction, PFunction, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, FollowsEntry}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::function_address::FunctionAddress, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
 impl CortexPreprocessor {
-    
     pub(super) fn lookup_type(&self, path: &PathIdent) -> Result<&TypeDefinition, CortexError> {
         let full_path = PathIdent::concat(&self.current_context, &path);
         if let Some(c) = self.type_map.get(&full_path) {
@@ -39,9 +38,6 @@ impl CortexPreprocessor {
                 },
                 TopLevel::Function(function) => {
                     module.add_function(function)?;
-                },
-                TopLevel::Struct(item) => {
-                    module.add_struct(item)?;
                 },
                 TopLevel::Bundle(item) => {
                     module.add_bundle(item)?;
@@ -80,17 +76,6 @@ impl CortexPreprocessor {
                     },
                     OptionalIdentifier::Ignore => Ok(()),
                 }
-            },
-            TopLevel::Struct(struc) => {
-                let mut funcs = Vec::new();
-                self.add_struct(PathIdent::empty(), struc, &mut funcs)?;
-                for (addr, f) in &funcs {
-                    self.add_signature(addr, &f)?;
-                }
-                for (addr, f) in funcs {
-                    self.add_function(addr, f)?;
-                }
-                Ok(())
             },
             TopLevel::Bundle(bundle) => {
                 let mut funcs = Vec::new();
@@ -144,16 +129,11 @@ impl CortexPreprocessor {
             })
             .filter_map(|x| x)
             .collect::<Vec<(FunctionAddress, PFunction)>>();
-        let structs = module.take_structs()?;
         let bundles = module.take_bundles()?;
         let extensions = module.take_extensions()?;
         let contracts = module.take_contracts()?;
 
         let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
-
-        for item in structs {
-            self.add_struct(path.clone(), item, &mut functions)?;
-        }
 
         for item in bundles {
             self.add_bundle(path.clone(), item, &mut functions)?;
@@ -216,7 +196,7 @@ impl CortexPreprocessor {
         }
     }
     
-    fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
+    fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         let full_path = PathIdent::continued(n.clone(), item.name.clone());
         if self.has_type(&full_path) {
             Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
@@ -225,31 +205,7 @@ impl CortexPreprocessor {
             if has_loop {
                 return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
             }
-            
-            Self::handle_member_functions(item.functions, n, &item.type_param_names, &item.name, funcs_to_add)?;
 
-            let mut seen_type_param_names = HashSet::new();
-            for t in &item.type_param_names {
-                if seen_type_param_names.contains(t) {
-                    return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.clone())));
-                }
-                seen_type_param_names.insert(t);
-            }
-
-            self.type_map.insert(full_path, TypeDefinition {
-                fields: item.fields,
-                is_heap_allocated: false,
-                type_param_names: item.type_param_names,
-                followed_contracts: vec![],
-            });
-            Ok(())
-        }
-    }
-    fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
-        let full_path = PathIdent::continued(n.clone(), item.name.clone());
-        if self.has_type(&full_path) {
-            Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
-        } else {
             if let Some(clause) = &item.follows_clause {
                 self.check_contract_follows(&item.functions, &clause.contracts)?;
             }
@@ -265,7 +221,6 @@ impl CortexPreprocessor {
 
             self.type_map.insert(full_path, TypeDefinition {
                 fields: item.fields,
-                is_heap_allocated: true,
                 type_param_names: item.type_param_names,
                 followed_contracts: item.follows_clause
                     .map(|f| f.contracts.clone())
@@ -397,7 +352,7 @@ impl CortexPreprocessor {
         }
     }
 
-    fn search_struct_for_loops(&self, s: &Struct) -> Result<bool, CortexError> {
+    fn search_struct_for_loops(&self, s: &Bundle) -> Result<bool, CortexError> {
         let stype = CortexType::basic(PathIdent::simple(s.name.clone()), false, forwarded_type_args(&s.type_param_names));
         let mut q = VecDeque::new();
         for field in &s.fields {
@@ -410,6 +365,10 @@ impl CortexPreprocessor {
                 return Ok(true);
             }
             if !typ.is_core() {
+                if !matches!(typ, CortexType::BasicType(_)) {
+                    continue;
+                }
+
                 // Enqueue all fields of this type
                 let typ_name = typ.name()?;
 

@@ -1,5 +1,5 @@
 module Geometry {
-    struct Point {
+    bundle Point {
         x: number,
         y: number,
     }
@@ -23,7 +23,7 @@ module Geometry {
         abs(p2.x - p1.x) + abs(p2.y - p1.y)
     }
 
-    struct Rectangle {
+    bundle Rectangle {
         c1: Point,
         c2: Point,
     }
@@ -73,7 +73,7 @@ module BGeometry {
     }
 
     fn getPoint(x: number, y: number): &mut Point {
-        let result: &mut Point = Point {
+        let result: &mut Point = heap Point {
             x: x,
             y: y,
         };
@@ -93,12 +93,12 @@ module BGeometry {
         c2: &mut Point,
     }
     fn rect(x1: number, y1: number, x2: number, y2: number): &mut Rectangle {
-        Rectangle {
-            c1: Point {
+        heap Rectangle {
+            c1: heap Point {
                 x: x1,
                 y: y1,
             },
-            c2: Point {
+            c2: heap Point {
                 x: x2,
                 y: y2,
             },
@@ -110,15 +110,15 @@ fn btestFn(x1: number, y1: number, x2: number, y2: number): number {
     let rect: &BGeometry::Rectangle = BGeometry::rect(x1, y1, x2, y2);
     let rectc1: &BGeometry::Point = rect.c1;
     let dist = rect.c1.taxiDist(rect.c2);
-    let rect2 = BGeometry::Rectangle {
-        c1: BGeometry::Point {
+    let rect2 = heap BGeometry::Rectangle {
+        c1: heap BGeometry::Point {
             x: 0, y: 0,
         },
-        c2: BGeometry::Point {
+        c2: heap BGeometry::Point {
             x: 0, y: 0
         },
     };
-    rect2.c1 = BGeometry::Point {
+    rect2.c1 = heap BGeometry::Point {
         x: 0, y: 0,
     };
     rect2.c1.x = 5;

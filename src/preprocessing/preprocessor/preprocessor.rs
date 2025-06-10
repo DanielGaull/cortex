@@ -35,7 +35,7 @@ impl CortexPreprocessor {
 
         macro_rules! add_core_type {
             ($name:literal) => {
-                this.type_map.insert(PathIdent::simple(String::from($name)), TypeDefinition { fields: HashMap::new(), type_param_names: Vec::new(), is_heap_allocated: false, followed_contracts: vec![] });
+                this.type_map.insert(PathIdent::simple(String::from($name)), TypeDefinition { fields: HashMap::new(), type_param_names: Vec::new(), followed_contracts: vec![] });
             }
         }
 
@@ -387,8 +387,8 @@ impl CortexPreprocessor {
                 );
                 result
             },
-            PExpression::Construction { name, type_args, assignments } => {
-                self.check_construction(name, type_args, assignments, &st_str)
+            PExpression::Construction { name, type_args, assignments, on_heap } => {
+                self.check_construction(name, type_args, assignments, on_heap, &st_str)
             },
             PExpression::IfStatement { first, conds, last } => {
                 self.check_if_statement(*first, conds, last.map(|b| *b), &st_str)
@@ -581,7 +581,7 @@ impl CortexPreprocessor {
         Ok((RExpression::MemberAccess(Box::new(atom_exp), format!("t{}", index)), member_type, vec![]))
     }
 
-    fn check_construction(&mut self, name: PathIdent, type_args: Vec<CortexType>, assignments: Vec<(String, PExpression)>, st_str: &String) -> CheckResult<RExpression> {
+    fn check_construction(&mut self, name: PathIdent, type_args: Vec<CortexType>, assignments: Vec<(String, PExpression)>, on_heap: bool, st_str: &String) -> CheckResult<RExpression> {
         let typedef = self.lookup_type(&name)?;
         let base_type = CortexType::basic(name.clone(), false, type_args.clone()).with_prefix_if_not_core(&self.current_context);
 
@@ -593,7 +593,6 @@ impl CortexPreprocessor {
             fields_to_assign.push(k.clone());
         }
 
-        let is_heap_allocated = typedef.is_heap_allocated;
         let fields = typedef.fields.clone();
 
         let bindings = TypeEnvironment::create_bindings(&typedef.type_param_names, &type_args);
@@ -643,7 +642,7 @@ impl CortexPreprocessor {
         }
 
         if fields_to_assign.is_empty() {
-            if is_heap_allocated {
+            if on_heap {
                 Ok((RExpression::Construction { assignments: new_assignments, is_heap_allocated: true }, CortexType::reference(base_type, true), statements))
             } else {
                 Ok((RExpression::Construction { assignments: new_assignments, is_heap_allocated: false }, base_type, statements))

@@ -23,7 +23,7 @@ bundle LinkedList<T> {
     }
 
     fn append(&mut this, elem: T) {
-        let newNode = ListNode<T> {
+        let newNode = heap ListNode<T> {
             value: elem,
             next: none,
         };
@@ -51,7 +51,7 @@ bundle LinkedList<T> {
 }
 
 fn newLL<T>(): &mut LinkedList<T> {
-    LinkedList<T> {
+    heap LinkedList<T> {
         head: none,
     }
 }

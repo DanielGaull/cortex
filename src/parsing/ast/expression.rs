@@ -40,6 +40,7 @@ pub enum PExpression {
         name: PathIdent,
         type_args: Vec<CortexType>,
         assignments: Vec<(String, PExpression)>,
+        on_heap: bool,
     },
     IfStatement {
         first: Box<PConditionBody>,
@@ -98,8 +99,11 @@ impl SimpleCodeGen for PExpression {
                 s.push_str(")");
                 s
             },
-            PExpression::Construction { name, type_args, assignments } => {
+            PExpression::Construction { name, type_args, assignments, on_heap } => {
                 let mut s = String::new();
+                if *on_heap {
+                    s.push_str("heap ");
+                }
                 s.push_str(&name.codegen(0));
                 if type_args.len() > 0 {
                     s.push_str("<");
@@ -203,7 +207,7 @@ impl PExpression {
         match self {
             PExpression::Number(_) | PExpression::Boolean(_) | PExpression::Void | PExpression::None | 
             PExpression::String(_) | PExpression::PathIdent(_) | PExpression::Call { name: _, args: _, type_args: _ } |
-            PExpression::Construction { name: _, type_args: _, assignments: _ } |
+            PExpression::Construction { name: _, type_args: _, assignments: _, on_heap: _ } |
             PExpression::IfStatement { first: _, conds: _, last: _ } | PExpression::MemberAccess(_, _) |
             PExpression::ListLiteral(_) | PExpression::MemberCall { callee: _, member: _, args: _, type_args: _ } |
             PExpression::Tuple(_) | PExpression::Char(_) 

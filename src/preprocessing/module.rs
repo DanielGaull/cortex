@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Contract, Extension, PFunction, Struct}, r#type::{CortexType, FollowsEntry}};
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Contract, Extension, PFunction}, r#type::{CortexType, FollowsEntry}};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -27,15 +27,13 @@ pub enum ModuleError {
 pub struct TypeDefinition {
     pub(crate) fields: HashMap<String, CortexType>,
     pub(crate) type_param_names: Vec<String>,
-    pub(crate) is_heap_allocated: bool,
     pub(crate) followed_contracts: Vec<FollowsEntry>,
 }
 impl TypeDefinition {
-    pub fn new(fields: HashMap<String, CortexType>, type_param_names: Vec<String>, is_heap_allocated: bool, followed_contracts: Vec<FollowsEntry>) -> Self {
+    pub fn new(fields: HashMap<String, CortexType>, type_param_names: Vec<String>, followed_contracts: Vec<FollowsEntry>) -> Self {
         TypeDefinition {
             fields,
             type_param_names,
-            is_heap_allocated,
             followed_contracts,
         }
     }
@@ -44,7 +42,6 @@ impl TypeDefinition {
 pub struct Module {
     children: HashMap<String, Module>,
     functions: HashMap<String, PFunction>,
-    structs: HashMap<String, Struct>,
     bundles: HashMap<String, Bundle>,
     extensions: Vec<Extension>,
     contracts: HashMap<String, Contract>,
@@ -58,7 +55,6 @@ impl Module {
         Module {
             children: children,
             functions: HashMap::new(),
-            structs: HashMap::new(),
             bundles: HashMap::new(),
             extensions: Vec::new(),
             contracts: HashMap::new(),
@@ -144,27 +140,6 @@ impl Module {
                 }
             },
             OptionalIdentifier::Ignore => Ok(()),
-        }
-    }
-
-    pub fn take_structs(&mut self) -> Result<Vec<Struct>, ModuleError> {
-        let res = std::mem::take(&mut self.structs).into_values().collect();
-        Ok(res)
-    }
-    pub fn add_struct(&mut self, item: Struct) -> Result<(), ModuleError> {
-        if self.structs.contains_key(&item.name) {
-            Err(ModuleError::TypeAlreadyExists(item.name.clone()))
-        } else {
-            let mut seen_type_param_names = HashSet::new();
-            for t in &item.type_param_names {
-                if seen_type_param_names.contains(t) {
-                    return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
-                }
-                seen_type_param_names.insert(t);
-            }
-
-            self.structs.insert(item.name.clone(), item);
-            Ok(())
         }
     }
 

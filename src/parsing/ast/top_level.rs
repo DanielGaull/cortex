@@ -14,7 +14,6 @@ pub enum TopLevel {
         contents: Vec<TopLevel>,
     },
     Function(PFunction),
-    Struct(Struct),
     Bundle(Bundle),
     Extension(Extension),
     Contract(Contract),
@@ -47,7 +46,6 @@ impl SimpleCodeGen for TopLevel {
                 s
             },
             Self::Function(func) => func.codegen(indent),
-            Self::Struct(struc) => struc.codegen(indent),
             Self::Bundle(bundle) => bundle.codegen(indent),
             Self::Extension(extension) => extension.codegen(indent),
             Self::Contract(contract) => contract.codegen(indent),
@@ -302,67 +300,6 @@ impl Body {
             statements: Vec::new(),
             result: None,
         })
-    }
-}
-
-pub struct Struct {
-    pub(crate) name: String,
-    pub(crate) fields: HashMap<String, CortexType>,
-    pub(crate) functions: Vec<MemberFunction>,
-    pub(crate) type_param_names: Vec<String>,
-}
-impl SimpleCodeGen for Struct {
-    fn codegen(&self, indent: usize) -> String {
-        let mut s = String::new();
-        let indent_prefix = "    ".repeat(indent);
-
-        s.push_str(&indent_prefix);
-        s.push_str("struct ");
-        s.push_str(&self.name);
-
-        if self.type_param_names.len() > 0 {
-            s.push_str("<");
-            s.push_str(&self.type_param_names.join(","));
-            s.push_str(">");
-        }
-
-        s.push_str(" {\n");
-
-        for (field, typ) in &self.fields {
-            s.push_str(&indent_prefix);
-            s.push_str("    ");
-            s.push_str(field);
-            s.push_str(": ");
-            s.push_str(&typ.codegen(indent));
-            s.push_str(",");
-            s.push_str("\n");
-        }
-
-        for func in &self.functions {
-            s.push_str(func.codegen(indent + 1).as_str());
-            s.push_str("\n");
-        }
-
-        s.push_str(&indent_prefix);
-        s.push_str("}\n");
-        s
-    }
-}
-impl Struct {
-    pub fn new(name: &str, fields: Vec<(&str, CortexType)>, type_arg_names: Vec<&str>) -> Self {
-        Self::new_with_functions(name, fields, vec![], type_arg_names)
-    }
-    pub fn new_with_functions(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<MemberFunction>, type_arg_names: Vec<&str>) -> Self {
-        let mut map = HashMap::new();
-        for f in fields {
-            map.insert(String::from(f.0), f.1);
-        }
-        Struct {
-            name: String::from(name),
-            fields: map,
-            functions: funcs,
-            type_param_names: type_arg_names.into_iter().map(|s| String::from(s)).collect(),
-        }
     }
 }
 

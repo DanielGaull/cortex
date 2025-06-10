@@ -4,11 +4,10 @@ WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
 program = { SOI ~ topLevel* ~ EOI }
 
 // Top-level
-topLevel = { import | function | struct | bundle | extension | contract | module }
+topLevel = { import | function | bundle | extension | contract | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
-struct = { "struct" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 bundle = { "bundle" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ followsClause? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
 contract = { "contract" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberFunctionSignature ~ ";")* ~ "}" }
@@ -35,7 +34,7 @@ indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ e
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
-atom = { range | number | boolean | none | void | string | char | tuple | listLiteral | call | structConstruction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
+atom = { range | number | boolean | none | void | string | char | tuple | listLiteral | call | construction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberCallTail | memberAccessTail | indexTail | "" }
 
 primary = { atom ~ exprTail }
@@ -46,8 +45,9 @@ logicResult = _{ eqResult ~ ((and | or) ~ eqResult)* }
 expr = { logicResult }
 
 call = { pathIdent ~ ("<" ~ typeList ~ ">")? ~ "(" ~ exprList ~ ")" }
-structConstruction = { pathIdent ~ ("<" ~ typeList ~ ">")? ~ "{" ~ (structMemberInit ~ ",")* ~ structMemberInit? ~ "}" }
-structMemberInit = { ident ~ ":" ~ expr }
+heap = { "heap" }
+construction = { heap? ~ pathIdent ~ ("<" ~ typeList ~ ">")? ~ "{" ~ (memberInit ~ ",")* ~ memberInit? ~ "}" }
+memberInit = { ident ~ ":" ~ expr }
 
 postfixBangTail = { ("!" ~ !"=") ~ exprTail }
 memberAccessTail = { "." ~ ident ~ exprTail }
@@ -90,7 +90,7 @@ strchar = {
 
 optIdentifier = { ident | ignoredIdentifier }
 ignoredIdentifier = { "~" }
-keyword = _{ "let" | "const" | "follows" | "bundle" | "struct" | "contract" | "extend" | "module" | "fn" | 
+keyword = _{ "let" | "const" | "follows" | "bundle" | "contract" | "extend" | "module" | "fn" | "heap" |
     "throw" | "break" | "continue" | "return" | "while" | "if" | "elif" | "else" | "for" | "true" | "false" }
 ident = ${ !(keyword ~ !identChar) ~ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
 pathIdent = { (ident ~ "::")* ~ ident }

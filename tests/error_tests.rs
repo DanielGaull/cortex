@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter}, top_level::{BasicBody, Body, Bundle, PFunction, Struct}, r#type::CortexType}, parser::{CortexParser, ParseError}}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
+use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter}, top_level::{BasicBody, Body, Bundle, PFunction}, r#type::CortexType}, parser::{CortexParser, ParseError}}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -83,7 +83,7 @@ fn test_composite_errors() -> Result<(), Box<dyn Error>> {
     assert_err("dneStruct { foo: 5 };", PreprocessingError::TypeDoesNotExist(String::from("dneStruct")), &mut interpreter)?;
     assert_err("simple::Time { m: 2 };", PreprocessingError::NotAllFieldsAssigned(String::from("simple::Time"), String::from("s")), &mut interpreter)?;
     assert_err("simple::Time { m: 2, m: 3 };", PreprocessingError::MultipleFieldAssignment(String::from("m")), &mut interpreter)?;
-    interpreter.execute_statement(CortexParser::parse_statement("let box: &simple::IntBox = simple::IntBox { v: 100 };")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let box: &simple::IntBox = heap simple::IntBox { v: 100 };")?)?;
     assert_err("box.v = 7;", PreprocessingError::CannotModifyFieldOnImmutableReference(String::from("simple::IntBox")), &mut interpreter)?;
     assert_err("5.hello();", PreprocessingError::FunctionDoesNotExist(String::from("hello (on type number)")), &mut interpreter)?;
     Ok(())
@@ -144,19 +144,16 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
 
     interpreter.run_top_level(CortexParser::parse_top_level("fn f(): void {}")?)?;
     assert_err_toplevel("fn f(): void {}", ModuleError::FunctionAlreadyExists(String::from("f")), &mut interpreter)?;
-    interpreter.run_top_level(CortexParser::parse_top_level("struct s{}")?)?;
-    assert_err_toplevel("struct s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
     assert_err_toplevel("module myMod{ module m{} module m{} }", ModuleError::ModuleAlreadyExists(String::from("m")), &mut interpreter)?;
 
-    assert_err_toplevel("struct A{a:A}", PreprocessingError::StructContainsCircularFields(String::from("A")), &mut interpreter)?;
+    assert_err_toplevel("bundle A{a:A}", PreprocessingError::StructContainsCircularFields(String::from("A")), &mut interpreter)?;
     // interpreter.run_top_level(CortexParser::parse_top_level("struct B{c:C}")?)?;
     // assert_err_toplevel("struct C{b:B}", ModuleError::StructContainsCircularFields(String::from("C")), &mut interpreter)?;
 
+    interpreter.run_top_level(CortexParser::parse_top_level("bundle s{}")?)?;
     assert_err_toplevel("bundle s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
-    interpreter.run_top_level(CortexParser::parse_top_level("bundle b{}")?)?;
-    assert_err_toplevel("struct b{}", ModuleError::TypeAlreadyExists(String::from("b")), &mut interpreter)?;
 
-    assert_err_equal(CortexParser::parse_top_level("struct A{a:number, a:number}").map_err(|e| Box::new(e) as Box<dyn Error>), ParseError::CompositeContainsDuplicateFields(String::from("A"), String::from("a")))?;
+    assert_err_equal(CortexParser::parse_top_level("bundle A{a:number, a:number}").map_err(|e| Box::new(e) as Box<dyn Error>), ParseError::CompositeContainsDuplicateFields(String::from("A"), String::from("a")))?;
 
     interpreter.run_top_level(CortexParser::parse_top_level("contract c{}")?)?;
     assert_err_toplevel("contract c{}", ModuleError::ContractAlreadyExists(String::from("c")), &mut interpreter)?;
@@ -246,10 +243,10 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
         vec![String::from("T")],
     );
-    let test_struct = Struct::new("Time", vec![
+    let test_struct = Bundle::new("Time", vec![
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
-    ], vec![]);
+    ], vec![], vec![], None);
     let test_bundle = Bundle::new("IntBox", vec![
         ("v", CortexType::number(false)),
     ], vec![], vec![], None);
@@ -257,7 +254,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let mut module = Module::new();
     module.add_function(add_func)?;
     module.add_function(generic_func)?;
-    module.add_struct(test_struct)?;
+    module.add_bundle(test_struct)?;
     module.add_bundle(test_bundle)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.register_module(&path, module)?;

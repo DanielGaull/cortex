@@ -5,11 +5,11 @@ module main {
     }
 }
 
-struct Point {
+bundle Point {
     x: number,
     y: number,
 
-    fn getX(this): number {
+    fn getX(&this): number {
         this.x
     }
 }

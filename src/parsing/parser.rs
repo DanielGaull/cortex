@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType}};
+use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType}};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -83,15 +83,6 @@ impl CortexParser {
             },
         }
     }
-    pub fn parse_struct(input: &str) -> Result<Struct, ParseError> {
-        let pair = PestCortexParser::parse(Rule::r#struct, input);
-        match pair {
-            Ok(mut v) => Self::parse_struct_pair(v.next().unwrap()),
-            Err(e) => {
-                Err(ParseError::ParseFailure(String::from("struct"), String::from(e.line())))
-            },
-        }
-    }
     pub fn parse_bundle(input: &str) -> Result<Bundle, ParseError> {
         let pair = PestCortexParser::parse(Rule::bundle, input);
         match pair {
@@ -146,9 +137,6 @@ impl CortexParser {
         match pair.as_rule() {
             Rule::function => {
                 Ok(TopLevel::Function(Self::parse_func_pair(pair)?))
-            },
-            Rule::r#struct => {
-                Ok(TopLevel::Struct(Self::parse_struct_pair(pair)?))
             },
             Rule::bundle => {
                 Ok(TopLevel::Bundle(Self::parse_bundle_pair(pair)?))
@@ -502,9 +490,19 @@ impl CortexParser {
                 let args = Self::parse_expr_list(args_pair)?;
                 Ok(PExpression::Call { name: FunctionAddress::simple(name), args, type_args })
             },
-            Rule::structConstruction => {
+            Rule::construction => {
                 let mut pairs = pair.into_inner().peekable();
-                let name = Self::parse_path_ident(pairs.next().unwrap())?;
+                let first_pair = pairs.next().unwrap();
+                let name_pair;
+                let on_heap;
+                if let Rule::heap = first_pair.as_rule() {
+                    name_pair = pairs.next().unwrap();
+                    on_heap = true;
+                } else {
+                    name_pair = first_pair;
+                    on_heap = false;
+                }
+                let name = Self::parse_path_ident(name_pair)?;
                 let type_args;
                 if pairs.peek().unwrap().as_rule() == Rule::typeList {
                     type_args = Self::parse_type_list(pairs.next().unwrap())?;
@@ -518,7 +516,7 @@ impl CortexParser {
                     let expr = Self::parse_expr_pair(member_init.next().unwrap())?;
                     assignments.push((String::from(name), expr));
                 }
-                Ok(PExpression::Construction { name: name, assignments: assignments, type_args: type_args })
+                Ok(PExpression::Construction { name, assignments, type_args, on_heap })
             },
             Rule::r#if => {
                 let mut pairs = pair.into_inner();
@@ -752,40 +750,6 @@ impl CortexParser {
         }
     }
 
-    fn parse_struct_pair(pair: Pair<Rule>) -> Result<Struct, ParseError> {
-        let mut pairs = pair.into_inner();
-        let name = pairs.next().unwrap().as_str();
-        let mut type_args = Vec::new();
-        let next = pairs.next().unwrap();
-        let field_params;
-        if matches!(next.as_rule(), Rule::typeArgList) {
-            let type_arg_pairs = next.into_inner();
-            for ident in type_arg_pairs {
-                type_args.push(ident.as_str());
-            }
-            field_params = Self::parse_param_list(pairs.next().unwrap())?;
-        } else {
-            field_params = Self::parse_param_list(next)?;
-        }
-        let functions = Self::parse_member_func_list(pairs.next().unwrap())?;
-
-        let mut fields = HashMap::new();
-        for p in field_params {
-            if fields.contains_key(&p.name) {
-                return Err(ParseError::CompositeContainsDuplicateFields(String::from(name), p.name.clone()));
-            }
-            fields.insert(p.name, p.typ);
-        }
-        
-        Ok(
-            Struct { 
-                name: String::from(name),
-                fields: fields,
-                functions: functions,
-                type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
-            }
-        )
-    }
     fn parse_bundle_pair(pair: Pair<Rule>) -> Result<Bundle, ParseError> {
         let mut pairs = pair.into_inner();
         let name = pairs.next().unwrap().as_str();

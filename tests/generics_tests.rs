@@ -25,7 +25,7 @@ fn test_identity() -> Result<(), Box<dyn Error>> {
 
     assert_exp("getFirst((2, \"string\"))", "2", &mut interpreter)?;
 
-    run("let box = Box<number>{item: 5};", &mut interpreter)?;
+    run("let box = heap Box<number>{item: 5};", &mut interpreter)?;
     assert_exp("box.identity<number?>(5)", "5", &mut interpreter)?;
     assert_exp("box.identity<number?>(none)", "none", &mut interpreter)?;
 
@@ -45,7 +45,7 @@ fn test_box() -> Result<(), Box<dyn Error>> {
         interpreter.run_top_level(tl)?;
     }
 
-    run("let box = Box<number>{item: 5};", &mut interpreter)?;
+    run("let box = heap Box<number>{item: 5};", &mut interpreter)?;
     assert_exp("box.get()", "5", &mut interpreter)?;
     run("box.set(100);", &mut interpreter)?;
     assert_exp("box.get()", "100", &mut interpreter)?;
