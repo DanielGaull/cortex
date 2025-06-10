@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error};
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, Bundle, MemberFunction, PFunction}, r#type::{CortexType, FollowsEntry}}, parser::CortexParser}, preprocessing::module::{Module, TypeDefinition}};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, Struct, MemberFunction, PFunction}, r#type::{CortexType, FollowsEntry}}, parser::CortexParser}, preprocessing::module::{Module, TypeDefinition}};
 
 fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
@@ -68,7 +68,7 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
 fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
-    module.add_bundle(Bundle::new(
+    module.add_struct(Struct::new(
         "Time", 
         vec![
             ("m", CortexType::number(false)),
@@ -78,7 +78,7 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
         vec![],
         None,
     ))?;
-    module.add_bundle(Bundle::new(
+    module.add_struct(Struct::new(
         "Box",
         vec![
             ("time", CortexType::reference(CortexType::basic(PathIdent::simple(String::from("Time")), false, vec![]), true))
@@ -108,7 +108,7 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
 fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
-    module.add_bundle(Bundle::new(
+    module.add_struct(Struct::new(
         "Box",
         vec![
             ("item", CortexType::basic(PathIdent::simple(String::from("T")), false, vec![]))

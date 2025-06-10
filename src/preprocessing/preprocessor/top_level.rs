@@ -1,6 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Bundle, Contract, Extension, MemberFunction, PFunction, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, FollowsEntry}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::function_address::FunctionAddress, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Struct, Contract, Extension, MemberFunction, PFunction, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, FollowsEntry}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::function_address::FunctionAddress, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -39,8 +39,8 @@ impl CortexPreprocessor {
                 TopLevel::Function(function) => {
                     module.add_function(function)?;
                 },
-                TopLevel::Bundle(item) => {
-                    module.add_bundle(item)?;
+                TopLevel::Struct(item) => {
+                    module.add_struct(item)?;
                 },
                 TopLevel::Extension(item) => {
                     module.add_extension(item)?;
@@ -77,9 +77,9 @@ impl CortexPreprocessor {
                     OptionalIdentifier::Ignore => Ok(()),
                 }
             },
-            TopLevel::Bundle(bundle) => {
+            TopLevel::Struct(struc) => {
                 let mut funcs = Vec::new();
-                self.add_bundle(PathIdent::empty(), bundle, &mut funcs)?;
+                self.add_struct(PathIdent::empty(), struc, &mut funcs)?;
                 for (addr, f) in &funcs {
                     self.add_signature(addr, &f)?;
                 }
@@ -129,14 +129,14 @@ impl CortexPreprocessor {
             })
             .filter_map(|x| x)
             .collect::<Vec<(FunctionAddress, PFunction)>>();
-        let bundles = module.take_bundles()?;
+        let structs = module.take_structs()?;
         let extensions = module.take_extensions()?;
         let contracts = module.take_contracts()?;
 
         let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
 
-        for item in bundles {
-            self.add_bundle(path.clone(), item, &mut functions)?;
+        for item in structs {
+            self.add_struct(path.clone(), item, &mut functions)?;
         }
 
         for item in extensions {
@@ -196,7 +196,7 @@ impl CortexPreprocessor {
         }
     }
     
-    fn add_bundle(&mut self, n: PathIdent, item: Bundle, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
+    fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         let full_path = PathIdent::continued(n.clone(), item.name.clone());
         if self.has_type(&full_path) {
             Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
@@ -352,7 +352,7 @@ impl CortexPreprocessor {
         }
     }
 
-    fn search_struct_for_loops(&self, s: &Bundle) -> Result<bool, CortexError> {
+    fn search_struct_for_loops(&self, s: &Struct) -> Result<bool, CortexError> {
         let stype = CortexType::basic(PathIdent::simple(s.name.clone()), false, forwarded_type_args(&s.type_param_names));
         let mut q = VecDeque::new();
         for field in &s.fields {

@@ -1,5 +1,5 @@
 module First {
-    bundle Box<T> {
+    struct Box<T> {
         item: T,
     }
 

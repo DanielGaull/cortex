@@ -73,9 +73,9 @@ fn test_multi_module_pathing() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn test_bundle() -> Result<(), Box<dyn Error>> {
+fn test_struct() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
-    let path = Path::new("./tests/res/bundle_file.txt");
+    let path = Path::new("./tests/res/heap_struct_file.txt");
     let mut file = File::open(path).unwrap();
     let mut content = String::new();
     let _ = file.read_to_string(&mut content);

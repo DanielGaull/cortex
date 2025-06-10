@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter}, top_level::{BasicBody, Body, Bundle, PFunction}, r#type::CortexType}, parser::{CortexParser, ParseError}}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
+use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter}, top_level::{BasicBody, Body, Struct, PFunction}, r#type::CortexType}, parser::{CortexParser, ParseError}}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -55,14 +55,14 @@ fn test_contract_errors() -> Result<(), Box<dyn Error>> {
         fn next(&this): string;
     }")?)?;
 
-    assert_err_toplevel("bundle NumList follows Iterator<number> {}", PreprocessingError::ContractFunctionsMissing(String::from("next")), &mut interpreter)?;
-    assert_err_toplevel("bundle NumList follows NumIterator {}", PreprocessingError::ContractDoesNotExist(String::from("NumIterator")), &mut interpreter)?;
-    assert_err_toplevel("bundle NumList follows Iterator<number> + NetworkRequester {
+    assert_err_toplevel("struct NumList follows Iterator<number> {}", PreprocessingError::ContractFunctionsMissing(String::from("next")), &mut interpreter)?;
+    assert_err_toplevel("struct NumList follows NumIterator {}", PreprocessingError::ContractDoesNotExist(String::from("NumIterator")), &mut interpreter)?;
+    assert_err_toplevel("struct NumList follows Iterator<number> + NetworkRequester {
         fn next(&mut this): number {
             5
         }
     }", PreprocessingError::AmbiguousFunctionFromMultipleContracts(String::from("next")), &mut interpreter)?;
-    assert_err_toplevel("bundle NumList follows NetworkRequester + NetworkRequester {
+    assert_err_toplevel("struct NumList follows NetworkRequester + NetworkRequester {
         fn next(&this): number {
             5
         }
@@ -146,14 +146,14 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     assert_err_toplevel("fn f(): void {}", ModuleError::FunctionAlreadyExists(String::from("f")), &mut interpreter)?;
     assert_err_toplevel("module myMod{ module m{} module m{} }", ModuleError::ModuleAlreadyExists(String::from("m")), &mut interpreter)?;
 
-    assert_err_toplevel("bundle A{a:A}", PreprocessingError::StructContainsCircularFields(String::from("A")), &mut interpreter)?;
+    assert_err_toplevel("struct A{a:A}", PreprocessingError::StructContainsCircularFields(String::from("A")), &mut interpreter)?;
     // interpreter.run_top_level(CortexParser::parse_top_level("struct B{c:C}")?)?;
     // assert_err_toplevel("struct C{b:B}", ModuleError::StructContainsCircularFields(String::from("C")), &mut interpreter)?;
 
-    interpreter.run_top_level(CortexParser::parse_top_level("bundle s{}")?)?;
-    assert_err_toplevel("bundle s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
+    interpreter.run_top_level(CortexParser::parse_top_level("struct s{}")?)?;
+    assert_err_toplevel("struct s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
 
-    assert_err_equal(CortexParser::parse_top_level("bundle A{a:number, a:number}").map_err(|e| Box::new(e) as Box<dyn Error>), ParseError::CompositeContainsDuplicateFields(String::from("A"), String::from("a")))?;
+    assert_err_equal(CortexParser::parse_top_level("struct A{a:number, a:number}").map_err(|e| Box::new(e) as Box<dyn Error>), ParseError::CompositeContainsDuplicateFields(String::from("A"), String::from("a")))?;
 
     interpreter.run_top_level(CortexParser::parse_top_level("contract c{}")?)?;
     assert_err_toplevel("contract c{}", ModuleError::ContractAlreadyExists(String::from("c")), &mut interpreter)?;
@@ -179,11 +179,11 @@ fn test_type_argument_errors() -> Result<(), Box<dyn Error>> {
     interpreter.run_top_level(CortexParser::parse_top_level("fn a<T>(){}")?)?;
     assert_err("a();", PreprocessingError::CouldNotInferTypeBinding(String::from("a")), &mut interpreter)?;
     assert_err_toplevel("fn b<T, T>(){}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
-    assert_err_toplevel("bundle www<T, T>{}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
-    assert_err_toplevel("bundle abc<T> {\nfn x<T>(&this) {\n}\n}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
+    assert_err_toplevel("struct www<T, T>{}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
+    assert_err_toplevel("struct abc<T> {\nfn x<T>(&this) {\n}\n}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
 
-    interpreter.run_top_level(CortexParser::parse_top_level("bundle GenericBundle<T, R>{}")?)?;
-    assert_err("GenericBundle<number>{};", PreprocessingError::MismatchedTypeArgCount(String::from("GenericBundle"), 2, 1), &mut interpreter)?;
+    interpreter.run_top_level(CortexParser::parse_top_level("struct GenericStruct<T, R>{}")?)?;
+    assert_err("GenericStruct<number>{};", PreprocessingError::MismatchedTypeArgCount(String::from("GenericStruct"), 2, 1), &mut interpreter)?;
 
     Ok(())
 }
@@ -243,19 +243,19 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
         vec![String::from("T")],
     );
-    let test_struct = Bundle::new("Time", vec![
+    let test_struct = Struct::new("Time", vec![
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
     ], vec![], vec![], None);
-    let test_bundle = Bundle::new("IntBox", vec![
+    let test_struct2 = Struct::new("IntBox", vec![
         ("v", CortexType::number(false)),
     ], vec![], vec![], None);
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_function(add_func)?;
     module.add_function(generic_func)?;
-    module.add_bundle(test_struct)?;
-    module.add_bundle(test_bundle)?;
+    module.add_struct(test_struct)?;
+    module.add_struct(test_struct2)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.register_module(&path, module)?;
     Ok(interpreter)

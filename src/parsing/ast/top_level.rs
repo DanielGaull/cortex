@@ -14,7 +14,7 @@ pub enum TopLevel {
         contents: Vec<TopLevel>,
     },
     Function(PFunction),
-    Bundle(Bundle),
+    Struct(Struct),
     Extension(Extension),
     Contract(Contract),
 }
@@ -46,7 +46,7 @@ impl SimpleCodeGen for TopLevel {
                 s
             },
             Self::Function(func) => func.codegen(indent),
-            Self::Bundle(bundle) => bundle.codegen(indent),
+            Self::Struct(struc) => struc.codegen(indent),
             Self::Extension(extension) => extension.codegen(indent),
             Self::Contract(contract) => contract.codegen(indent),
         }
@@ -303,20 +303,20 @@ impl Body {
     }
 }
 
-pub struct Bundle {
+pub struct Struct {
     pub(crate) name: String,
     pub(crate) fields: HashMap<String, CortexType>,
     pub(crate) functions: Vec<MemberFunction>,
     pub(crate) type_param_names: Vec<String>,
     pub(crate) follows_clause: Option<FollowsClause>,
 }
-impl SimpleCodeGen for Bundle {
+impl SimpleCodeGen for Struct {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
         let indent_prefix = "    ".repeat(indent);
 
         s.push_str(&indent_prefix);
-        s.push_str("bundle ");
+        s.push_str("struct ");
         s.push_str(&self.name);
 
         if self.type_param_names.len() > 0 {
@@ -352,13 +352,13 @@ impl SimpleCodeGen for Bundle {
         s
     }
 }
-impl Bundle {
+impl Struct {
     pub fn new(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<MemberFunction>, type_arg_names: Vec<&str>, follows_clause: Option<FollowsClause>) -> Self {
         let mut map = HashMap::new();
         for f in fields {
             map.insert(String::from(f.0), f.1);
         }
-        Bundle {
+        Struct {
             name: String::from(name),
             fields: map,
             functions: funcs,

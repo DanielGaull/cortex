@@ -3,7 +3,7 @@ contract Iterator<T> {
     fn hasNext(&this): bool;
 }
 
-bundle ListWrapper<R> follows Iterator<R> {
+struct ListWrapper<R> follows Iterator<R> {
     items: &mut list<R>,
     index: number,
 

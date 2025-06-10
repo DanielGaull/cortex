@@ -1,6 +1,6 @@
 module GeometryExtended {
     module Geometry {
-        bundle Point {
+        struct Point {
             x: number,
             y: number,
 

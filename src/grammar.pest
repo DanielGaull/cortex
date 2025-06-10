@@ -4,11 +4,11 @@ WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
 program = { SOI ~ topLevel* ~ EOI }
 
 // Top-level
-topLevel = { import | function | bundle | extension | contract | module }
+topLevel = { import | function | struct | extension | contract | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
-bundle = { "bundle" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ followsClause? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
+struct = { "struct" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ followsClause? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
 contract = { "contract" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberFunctionSignature ~ ";")* ~ "}" }
 
@@ -90,7 +90,7 @@ strchar = {
 
 optIdentifier = { ident | ignoredIdentifier }
 ignoredIdentifier = { "~" }
-keyword = _{ "let" | "const" | "follows" | "bundle" | "contract" | "extend" | "module" | "fn" | "heap" |
+keyword = _{ "let" | "const" | "follows" | "struct" | "contract" | "extend" | "module" | "fn" | "heap" |
     "throw" | "break" | "continue" | "return" | "while" | "if" | "elif" | "else" | "for" | "true" | "false" }
 ident = ${ !(keyword ~ !identChar) ~ ("_" | ASCII_ALPHA) ~ (ASCII_ALPHANUMERIC | "_")* }
 pathIdent = { (ident ~ "::")* ~ ident }

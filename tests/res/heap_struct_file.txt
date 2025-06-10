@@ -1,4 +1,4 @@
-bundle Box {
+struct Box {
     value: number,
 
     fn increment(&mut this, amount: number) {
@@ -6,7 +6,7 @@ bundle Box {
     }
 }
 
-bundle BoxedBox {
+struct BoxedBox {
     box: &mut Box,
 
     fn getBox(&mut this): &mut Box {
@@ -14,7 +14,7 @@ bundle BoxedBox {
     }
 }
 
-bundle Access {
+struct Access {
     dummy: number,
 
     fn __indexGet(&this, val: number): number {

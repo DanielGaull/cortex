@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Bundle, Contract, Extension, PFunction}, r#type::{CortexType, FollowsEntry}};
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Struct, Contract, Extension, PFunction}, r#type::{CortexType, FollowsEntry}};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -42,7 +42,7 @@ impl TypeDefinition {
 pub struct Module {
     children: HashMap<String, Module>,
     functions: HashMap<String, PFunction>,
-    bundles: HashMap<String, Bundle>,
+    structs: HashMap<String, Struct>,
     extensions: Vec<Extension>,
     contracts: HashMap<String, Contract>,
 }
@@ -55,7 +55,7 @@ impl Module {
         Module {
             children: children,
             functions: HashMap::new(),
-            bundles: HashMap::new(),
+            structs: HashMap::new(),
             extensions: Vec::new(),
             contracts: HashMap::new(),
         }
@@ -143,12 +143,12 @@ impl Module {
         }
     }
 
-    pub fn take_bundles(&mut self) -> Result<Vec<Bundle>, ModuleError> {
-        let res = std::mem::take(&mut self.bundles).into_values().collect();
+    pub fn take_structs(&mut self) -> Result<Vec<Struct>, ModuleError> {
+        let res = std::mem::take(&mut self.structs).into_values().collect();
         Ok(res)
     }
-    pub fn add_bundle(&mut self, item: Bundle) -> Result<(), ModuleError> {
-        if self.bundles.contains_key(&item.name) {
+    pub fn add_struct(&mut self, item: Struct) -> Result<(), ModuleError> {
+        if self.structs.contains_key(&item.name) {
             Err(ModuleError::TypeAlreadyExists(item.name.clone()))
         } else {
             let mut seen_type_param_names = HashSet::new();
@@ -159,7 +159,7 @@ impl Module {
                 seen_type_param_names.insert(t);
             }
 
-            self.bundles.insert(item.name.clone(), item);
+            self.structs.insert(item.name.clone(), item);
             Ok(())
         }
     }

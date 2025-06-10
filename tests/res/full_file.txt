@@ -5,7 +5,7 @@ module main {
     }
 }
 
-bundle Point {
+struct Point {
     x: number,
     y: number,
 

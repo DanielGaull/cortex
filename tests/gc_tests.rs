@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{top_level::Bundle, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{top_level::Struct, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
 
 #[test]
 fn gc_test_simple() -> Result<(), Box<dyn Error>> {
@@ -30,7 +30,7 @@ fn gc_test_ref() -> Result<(), Box<dyn Error>> {
 }
 
 fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
-    let test_bundle = Bundle::new("Time", vec![
+    let test_struct = Struct::new("Time", vec![
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
     ], vec![], vec![], None);
@@ -38,7 +38,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_function(alloc_func)?;
-    module.add_bundle(test_bundle)?;
+    module.add_struct(test_struct)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.register_module(&path, module)?;
     Ok(interpreter)

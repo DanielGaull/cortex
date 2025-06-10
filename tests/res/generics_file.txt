@@ -2,7 +2,7 @@ fn identity<T>(item: T): T {
     item
 }
 
-bundle Box<T> {
+struct Box<T> {
     item: T,
 
     fn get(&this): T {

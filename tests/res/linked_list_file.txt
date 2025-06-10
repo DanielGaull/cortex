@@ -4,12 +4,12 @@ fn assertEq<T, R>(expected: T, actual: R) {
     }
 }
 
-bundle ListNode<T> {
+struct ListNode<T> {
     value: T,
     next: &mut ListNode<T>?,
 }
 
-bundle LinkedList<T> {
+struct LinkedList<T> {
     head: &mut ListNode<T>?,
 
     fn len(&this): number {

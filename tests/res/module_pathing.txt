@@ -1,5 +1,5 @@
 module Geometry {
-    bundle Point {
+    struct Point {
         x: number,
         y: number,
     }
@@ -23,7 +23,7 @@ module Geometry {
         abs(p2.x - p1.x) + abs(p2.y - p1.y)
     }
 
-    bundle Rectangle {
+    struct Rectangle {
         c1: Point,
         c2: Point,
     }
@@ -60,7 +60,7 @@ fn testFn(x1: number, y1: number, x2: number, y2: number): number {
 }
 
 module BGeometry {
-    bundle Point {
+    struct Point {
         x: number,
         y: number,
 
@@ -88,7 +88,7 @@ module BGeometry {
         }
     }
 
-    bundle Rectangle {
+    struct Rectangle {
         c1: &mut Point,
         c2: &mut Point,
     }

@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Bundle, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType}};
+use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Struct as Struct, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType}};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -83,12 +83,12 @@ impl CortexParser {
             },
         }
     }
-    pub fn parse_bundle(input: &str) -> Result<Bundle, ParseError> {
-        let pair = PestCortexParser::parse(Rule::bundle, input);
+    pub fn parse_struct(input: &str) -> Result<Struct, ParseError> {
+        let pair = PestCortexParser::parse(Rule::r#struct, input);
         match pair {
-            Ok(mut v) => Self::parse_bundle_pair(v.next().unwrap()),
+            Ok(mut v) => Self::parse_struct_pair(v.next().unwrap()),
             Err(e) => {
-                Err(ParseError::ParseFailure(String::from("bundle"), String::from(e.line())))
+                Err(ParseError::ParseFailure(String::from("struct"), String::from(e.line())))
             },
         }
     }
@@ -138,8 +138,8 @@ impl CortexParser {
             Rule::function => {
                 Ok(TopLevel::Function(Self::parse_func_pair(pair)?))
             },
-            Rule::bundle => {
-                Ok(TopLevel::Bundle(Self::parse_bundle_pair(pair)?))
+            Rule::r#struct => {
+                Ok(TopLevel::Struct(Self::parse_struct_pair(pair)?))
             },
             Rule::import => {
                 let name: &str;
@@ -750,7 +750,7 @@ impl CortexParser {
         }
     }
 
-    fn parse_bundle_pair(pair: Pair<Rule>) -> Result<Bundle, ParseError> {
+    fn parse_struct_pair(pair: Pair<Rule>) -> Result<Struct, ParseError> {
         let mut pairs = pair.into_inner();
         let name = pairs.next().unwrap().as_str();
         let mut follows_clause = None;
@@ -783,7 +783,7 @@ impl CortexParser {
         }
         
         Ok(
-            Bundle { 
+            Struct { 
                 name: String::from(name),
                 fields: fields,
                 functions: functions,

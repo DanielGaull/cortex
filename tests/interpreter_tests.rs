@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, Bundle, PFunction}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
+use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, Struct, PFunction}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -177,17 +177,17 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn struct_tests() -> Result<(), Box<dyn Error>> {
-    let test_struct = Bundle::new("Time", vec![
+    let test_struct = Struct::new("Time", vec![
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
     ], vec![], vec![], None);
-    let date_struct = Bundle::new("Date", vec![
+    let date_struct = Struct::new("Date", vec![
         ("t", CortexType::basic(PathIdent::new(vec!["Time"]), false, vec![])),
     ], vec![], vec![], None);
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
-    module.add_bundle(test_struct)?;
-    module.add_bundle(date_struct)?;
+    module.add_struct(test_struct)?;
+    module.add_struct(date_struct)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.register_module(&path, module)?;
 
@@ -211,18 +211,18 @@ fn struct_tests() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn bundle_tests() -> Result<(), Box<dyn Error>> {
-    let test_bundle = Bundle::new("Time", vec![
+fn heap_struct_tests() -> Result<(), Box<dyn Error>> {
+    let test_struct1 = Struct::new("Time", vec![
         ("m", CortexType::number(false)),
         ("s", CortexType::number(false)),
     ], vec![], vec![], None);
-    let date_bundle = Bundle::new("Date", vec![
+    let date_struct = Struct::new("Date", vec![
         ("t", CortexType::reference(CortexType::basic(PathIdent::new(vec!["Time"]), false, vec![]), true)),
     ], vec![], vec![], None);
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
-    module.add_bundle(test_bundle)?;
-    module.add_bundle(date_bundle)?;
+    module.add_struct(test_struct1)?;
+    module.add_struct(date_struct)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.register_module(&path, module)?;
 
@@ -239,7 +239,7 @@ fn bundle_tests() -> Result<(), Box<dyn Error>> {
     run_test("date.t.m", "14", &mut interpreter)?;
     interpreter.execute_statement(CortexParser::parse_statement("date.t.s = 100;")?)?;
     run_test("date.t.s", "100", &mut interpreter)?;
-    // Bundles are pass-by-reference
+    // Heap-initialized structs are pass-by-reference
     run_test("time.s", "100", &mut interpreter)?;
 
     Ok(())
