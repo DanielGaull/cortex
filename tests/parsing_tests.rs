@@ -83,6 +83,12 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("myNum.ref.ref().ref.increment(3)")?;
     run_expression_test_expected("item[5]", "item.__indexGet(5)")?;
     run_expression_test("trueList")?;
+    run_expression_test("heap 5")?;
+    run_expression_test("heap true")?;
+    run_expression_test("heap foo.bar")?;
+    run_expression_test("heap simple::Box<number> { item: 5, }")?;
+    run_expression_test("*value")?;
+    run_expression_test("*(heap 5)")?;
     Ok(())
 }
 

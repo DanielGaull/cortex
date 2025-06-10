@@ -13,7 +13,6 @@ pub enum RExpression {
     Call(usize, Vec<RExpression>),
     Construction {
         assignments: Vec<(String, RExpression)>,
-        is_heap_allocated: bool,
     },
     IfStatement {
         first: Box<RConditionBody>,
@@ -39,6 +38,7 @@ pub enum RExpression {
         index_in_vtable: usize,
         args: Vec<RExpression>,
     },
+    HeapAlloc(Box<RExpression>),
 }
 
 pub struct RIdentExpression {

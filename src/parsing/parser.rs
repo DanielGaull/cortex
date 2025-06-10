@@ -492,17 +492,7 @@ impl CortexParser {
             },
             Rule::construction => {
                 let mut pairs = pair.into_inner().peekable();
-                let first_pair = pairs.next().unwrap();
-                let name_pair;
-                let on_heap;
-                if let Rule::heap = first_pair.as_rule() {
-                    name_pair = pairs.next().unwrap();
-                    on_heap = true;
-                } else {
-                    name_pair = first_pair;
-                    on_heap = false;
-                }
-                let name = Self::parse_path_ident(name_pair)?;
+                let name = Self::parse_path_ident(pairs.next().unwrap())?;
                 let type_args;
                 if pairs.peek().unwrap().as_rule() == Rule::typeList {
                     type_args = Self::parse_type_list(pairs.next().unwrap())?;
@@ -516,7 +506,7 @@ impl CortexParser {
                     let expr = Self::parse_expr_pair(member_init.next().unwrap())?;
                     assignments.push((String::from(name), expr));
                 }
-                Ok(PExpression::Construction { name, assignments, type_args, on_heap })
+                Ok(PExpression::Construction { name, assignments, type_args })
             },
             Rule::r#if => {
                 let mut pairs = pair.into_inner();
@@ -580,6 +570,11 @@ impl CortexParser {
                 }
 
                 Ok(PExpression::Range { start, end, step })
+            },
+            Rule::heapExp => {
+                let inner = pair.into_inner().next().unwrap();
+                let inner = Self::parse_expr_pair(inner)?;
+                Ok(PExpression::HeapAlloc(Box::new(inner)))
             },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
@@ -672,6 +667,7 @@ impl CortexParser {
         match pair.as_rule() {
             Rule::negate => Ok(UnaryOperator::Negate),
             Rule::invert => Ok(UnaryOperator::Invert),
+            Rule::deref => Ok(UnaryOperator::Deref),
             _ => Err(ParseError::OperatorDoesNotExist(String::from(pair.as_str()))),
         }
     }

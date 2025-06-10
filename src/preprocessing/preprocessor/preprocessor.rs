@@ -387,17 +387,16 @@ impl CortexPreprocessor {
                 );
                 result
             },
-            PExpression::Construction { name, type_args, assignments, on_heap } => {
-                self.check_construction(name, type_args, assignments, on_heap, &st_str)
+            PExpression::Construction { name, type_args, assignments } => {
+                self.check_construction(name, type_args, assignments, &st_str)
             },
             PExpression::IfStatement { first, conds, last } => {
                 self.check_if_statement(*first, conds, last.map(|b| *b), &st_str)
             },
             PExpression::UnaryOperation { op, exp } => {
-                // NOTE: neither unary operation changes the type of the value
-                let (exp, typ, statements) = self.check_exp(*exp, expected_type)?;
                 match op {
                     UnaryOperator::Negate => {
+                        let (exp, typ, statements) = self.check_exp(*exp, expected_type)?;
                         if typ == CortexType::number(false) {
                             Ok((RExpression::UnaryOperation { op: UnaryOperator::Negate, exp: Box::new(exp) }, CortexType::number(false), statements))
                         } else {
@@ -405,10 +404,20 @@ impl CortexPreprocessor {
                         }
                     },
                     UnaryOperator::Invert => {
+                        let (exp, typ, statements) = self.check_exp(*exp, expected_type)?;
                         if typ == CortexType::boolean(false) {
                             Ok((RExpression::UnaryOperation { op: UnaryOperator::Invert, exp: Box::new(exp) }, CortexType::boolean(false), statements))
                         } else {
                             Err(Box::new(PreprocessingError::InvalidOperatorUnary("bool", "!", typ.codegen(0))))
+                        }
+                    },
+                    UnaryOperator::Deref => {
+                        let sub_expected_type = expected_type.map(|t| CortexType::reference(t, false));
+                        let (exp, typ, statements) = self.check_exp(*exp, sub_expected_type)?;
+                        if let CortexType::RefType(r) = typ {
+                            Ok((RExpression::UnaryOperation { op: UnaryOperator::Deref, exp: Box::new(exp) }, *r.contained, statements))
+                        } else {
+                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("&T", "*", typ.codegen(0))))
                         }
                     },
                 }
@@ -529,9 +538,18 @@ impl CortexPreprocessor {
                         (String::from("end"), otov(end)),
                         (String::from("step"), otov(step)),
                     ],
-                    is_heap_allocated: false,
                 };
                 Ok((construction, CortexType::range(false), vec![]))
+            },
+            PExpression::HeapAlloc(exp) => {
+                let mut typ = None;
+                if let Some(CortexType::RefType(contained)) = expected_type {
+                    typ = Some(*contained.contained);
+                }
+
+                let (sub, typ, st) = self.check_exp(*exp, typ)?;
+
+                Ok((RExpression::HeapAlloc(Box::new(sub)), CortexType::reference(typ, true), st))
             },
         }
     }
@@ -581,7 +599,7 @@ impl CortexPreprocessor {
         Ok((RExpression::MemberAccess(Box::new(atom_exp), format!("t{}", index)), member_type, vec![]))
     }
 
-    fn check_construction(&mut self, name: PathIdent, type_args: Vec<CortexType>, assignments: Vec<(String, PExpression)>, on_heap: bool, st_str: &String) -> CheckResult<RExpression> {
+    fn check_construction(&mut self, name: PathIdent, type_args: Vec<CortexType>, assignments: Vec<(String, PExpression)>, st_str: &String) -> CheckResult<RExpression> {
         let typedef = self.lookup_type(&name)?;
         let base_type = CortexType::basic(name.clone(), false, type_args.clone()).with_prefix_if_not_core(&self.current_context);
 
@@ -642,11 +660,7 @@ impl CortexPreprocessor {
         }
 
         if fields_to_assign.is_empty() {
-            if on_heap {
-                Ok((RExpression::Construction { assignments: new_assignments, is_heap_allocated: true }, CortexType::reference(base_type, true), statements))
-            } else {
-                Ok((RExpression::Construction { assignments: new_assignments, is_heap_allocated: false }, base_type, statements))
-            }
+            Ok((RExpression::Construction { assignments: new_assignments }, base_type, statements))
         } else {
             Err(Box::new(PreprocessingError::NotAllFieldsAssigned(name.codegen(0), fields_to_assign.join(","))))
         }

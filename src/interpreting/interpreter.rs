@@ -256,14 +256,8 @@ impl CortexInterpreter {
                 let func_result = self.run_function(&func, expressions.iter().collect());
                 Ok(func_result?)
             },
-            RExpression::Construction { assignments, is_heap_allocated } => {
-                if !*is_heap_allocated {
-                    Ok(self.construct_struct(assignments)?)
-                } else {
-                    let value = self.construct_struct(assignments)?;
-                    let addr = self.allocate(value);
-                    Ok(CortexValue::Reference(addr))
-                }
+            RExpression::Construction { assignments } => {
+                Ok(self.construct_struct(assignments)?)
             },
             RExpression::IfStatement { first, conds, last } => {
                 let cond = self.evaluate_expression(&first.condition)?;
@@ -304,6 +298,13 @@ impl CortexInterpreter {
                     UnaryOperator::Invert => {
                         if let CortexValue::Boolean(b) = val {
                             Ok(CortexValue::Boolean(!b))
+                        } else {
+                            Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
+                        }
+                    },
+                    UnaryOperator::Deref => {
+                        if let CortexValue::Reference(addr) = val {
+                            Ok(self.heap.get(addr).borrow().clone())
                         } else {
                             Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                         }
@@ -392,6 +393,11 @@ impl CortexInterpreter {
                 } else {
                     Err(Box::new(InterpreterError::ExpectedFatPointer(String::from(val.get_variant_name()))))
                 }
+            },
+            RExpression::HeapAlloc(inner) => {
+                let value = self.evaluate_expression(&*inner)?;
+                let addr = self.allocate(value);
+                Ok(CortexValue::Reference(addr))
             },
         }
     }

@@ -40,7 +40,6 @@ pub enum PExpression {
         name: PathIdent,
         type_args: Vec<CortexType>,
         assignments: Vec<(String, PExpression)>,
-        on_heap: bool,
     },
     IfStatement {
         first: Box<PConditionBody>,
@@ -70,7 +69,8 @@ pub enum PExpression {
         start: Option<f64>,
         end: Option<f64>,
         step: Option<f64>,
-    }
+    },
+    HeapAlloc(Box<PExpression>),
 }
 impl SimpleCodeGen for PExpression {
     fn codegen(&self, indent: usize) -> String {
@@ -99,11 +99,8 @@ impl SimpleCodeGen for PExpression {
                 s.push_str(")");
                 s
             },
-            PExpression::Construction { name, type_args, assignments, on_heap } => {
+            PExpression::Construction { name, type_args, assignments } => {
                 let mut s = String::new();
-                if *on_heap {
-                    s.push_str("heap ");
-                }
                 s.push_str(&name.codegen(0));
                 if type_args.len() > 0 {
                     s.push_str("<");
@@ -199,6 +196,7 @@ impl SimpleCodeGen for PExpression {
                     format!("{}:{}", ts(start), ts(end))
                 }
             },
+            PExpression::HeapAlloc(exp) => format!("heap {}", exp.codegen(indent)),
         }
     }
 }
@@ -207,14 +205,15 @@ impl PExpression {
         match self {
             PExpression::Number(_) | PExpression::Boolean(_) | PExpression::Void | PExpression::None | 
             PExpression::String(_) | PExpression::PathIdent(_) | PExpression::Call { name: _, args: _, type_args: _ } |
-            PExpression::Construction { name: _, type_args: _, assignments: _, on_heap: _ } |
+            PExpression::Construction { name: _, type_args: _, assignments: _ } |
             PExpression::IfStatement { first: _, conds: _, last: _ } | PExpression::MemberAccess(_, _) |
             PExpression::ListLiteral(_) | PExpression::MemberCall { callee: _, member: _, args: _, type_args: _ } |
             PExpression::Tuple(_) | PExpression::Char(_) 
                 => true,
             
             PExpression::UnaryOperation { op: _, exp: _ } | PExpression::Bang(_) | 
-            PExpression::BinaryOperation { left: _, op: _, right: _ } | PExpression::Range { start: _, end: _, step: _ }
+            PExpression::BinaryOperation { left: _, op: _, right: _ } | PExpression::Range { start: _, end: _, step: _ } |
+            PExpression::HeapAlloc(_)
                 => false,
         }
     }
@@ -470,6 +469,7 @@ impl PathIdent {
 pub enum UnaryOperator {
     Negate,
     Invert,
+    Deref,
 }
 impl SimpleCodeGen for UnaryOperator {
     fn codegen(&self, _indent: usize) -> String {
@@ -477,6 +477,7 @@ impl SimpleCodeGen for UnaryOperator {
             match self {
                 UnaryOperator::Negate => "-",
                 UnaryOperator::Invert => "!",
+                UnaryOperator::Deref => "*",
             }
         )
     }

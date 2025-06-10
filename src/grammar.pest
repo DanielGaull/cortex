@@ -34,7 +34,7 @@ indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ e
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
-atom = { range | number | boolean | none | void | string | char | tuple | listLiteral | call | construction | if | pathIdent | unOpAtom | "(" ~ expr ~ ")" }
+atom = { range | number | boolean | none | void | string | char | tuple | listLiteral | call | construction | if | pathIdent | unOpAtom | heapExp | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberCallTail | memberAccessTail | indexTail | "" }
 
 primary = { atom ~ exprTail }
@@ -45,8 +45,8 @@ logicResult = _{ eqResult ~ ((and | or) ~ eqResult)* }
 expr = { logicResult }
 
 call = { pathIdent ~ ("<" ~ typeList ~ ">")? ~ "(" ~ exprList ~ ")" }
-heap = { "heap" }
-construction = { heap? ~ pathIdent ~ ("<" ~ typeList ~ ">")? ~ "{" ~ (memberInit ~ ",")* ~ memberInit? ~ "}" }
+heapExp = { "heap" ~ expr }
+construction = { pathIdent ~ ("<" ~ typeList ~ ">")? ~ "{" ~ (memberInit ~ ",")* ~ memberInit? ~ "}" }
 memberInit = { ident ~ ":" ~ expr }
 
 postfixBangTail = { ("!" ~ !"=") ~ exprTail }
@@ -61,7 +61,8 @@ else = { "else" ~ "{" ~ body ~ "}" }
 
 negate = { "-" }
 invert = { "!" }
-unOp = _{ negate | invert }
+deref = { "*" }
+unOp = _{ negate | invert | deref }
 unOpAtom = { unOp ~ expr }
 
 // Literals/Primitives
