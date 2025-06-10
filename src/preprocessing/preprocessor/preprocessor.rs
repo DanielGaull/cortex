@@ -517,10 +517,21 @@ impl CortexPreprocessor {
                 Ok((RExpression::BinaryOperation { left: Box::new(left_exp), op: op, right: Box::new(right_exp) }, op_type, statements))
             },
             PExpression::Tuple(items) => {
-                // TODO: Derive tuple value types from the expected type if provided
+                let expected_types;
+                if let Some(CortexType::TupleType(t)) = expected_type {
+                    if t.types.len() == items.len() {
+                        expected_types = t.types.into_iter().map(|t| Some(t)).collect();
+                    } else {
+                        expected_types = vec![None; items.len()];
+                    }
+                } else {
+                    expected_types = vec![None; items.len()];
+                }
+                
                 let results = items
                     .into_iter()
-                    .map(|e| self.check_exp(e, None))
+                    .zip(expected_types)
+                    .map(|(exp, expected)| self.check_exp(exp, expected))
                     .collect::<Result<Vec<_>, _>>()?;
                 let (exps, types, statements): (Vec<RExpression>, Vec<CortexType>, Vec<Vec<RStatement>>) = unzip3(results);
                 Ok((RExpression::Tuple(exps), CortexType::tuple(types, false), statements.into_iter().flatten().collect()))

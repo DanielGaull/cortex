@@ -150,6 +150,16 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn run_inference_type_tests() -> Result<(), Box<dyn Error>> {
+    // Tests where absence of an error is all that is expected
+    let mut interpreter = CortexInterpreter::new()?;
+    interpreter.execute_statement(CortexParser::parse_statement("let l1: &list<number> = [];")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let l2: (&list<number>, &list<string>) = ([], []);")?)?;
+
+    Ok(())
+}
+
 // #[test]
 // fn run_var_type_tests() -> Result<(), Box<dyn Error>> {
 //     let mut interpreter = CortexInterpreter::new();
