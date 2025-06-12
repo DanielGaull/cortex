@@ -89,6 +89,29 @@ impl CortexPreprocessor {
             }
 
             Ok((RExpression::MakeFat(Box::new(base), vtable), vec![]))
+        } else if let CortexType::TupleType(t) = typ {
+            // TODO: this will crash if the tuple type is optional and the value is `none`
+            let mut statements = Vec::new();
+            let mut tuple_entries = Vec::new();
+            let temp_tup = self.next_temp();
+            self.current_env.as_mut().unwrap().add(temp_tup.clone(), base_type, true)?;
+            statements.push(RStatement::VariableDeclaration {
+                name: temp_tup.clone(),
+                is_const: true,
+                initial_value: base,
+            });
+            for (i, entry) in t.types.into_iter().enumerate() {
+                let member_access_exp = PExpression::MemberAccess(
+                    Box::new(PExpression::PathIdent(PathIdent::simple(temp_tup.clone()))),
+                    format!("t{}", i)
+                );
+                let (member_access_exp, member_access_typ, st) = self.check_exp(member_access_exp, None)?;
+                statements.extend(st);
+                let (value, st) = self.assign_to(member_access_exp, member_access_typ, entry)?;
+                statements.extend(st);
+                tuple_entries.push(value);
+            }
+            Ok((RExpression::Tuple(tuple_entries), statements))
         } else {
             Ok((base, vec![]))
         }
