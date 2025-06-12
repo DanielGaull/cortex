@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::module::TypeDefinition};
+use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::{module::TypeDefinition, type_env::TypeEnvironment}};
 
 use super::expression::PathIdent;
 
@@ -472,9 +472,11 @@ impl CortexType {
             },
             (CortexType::BasicType(b), CortexType::FollowsType(f)) => {
                 if let Some(type_def) = type_defs.get(&b.name) {
+                    let entries = 
+                        TypeEnvironment::fill_in_follows_entry_from_typedef(b.clone(), type_def.type_param_names.clone(), type_def.followed_contracts.clone());
                     // have to be no contracts in f that aren't in b
                     for c in &f.clause.contracts {
-                        if !type_def.followed_contracts.contains(c) {
+                        if !entries.contains(c) {
                             return false;
                         }
                     }

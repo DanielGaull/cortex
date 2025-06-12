@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::FunctionSignature, r#type::{forwarded_type_args, BasicType, CortexType, FollowsEntry, FollowsType}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress, statement::RStatement}, error::PreprocessingError, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::FunctionSignature, r#type::{forwarded_type_args, CortexType, FollowsType}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress, statement::RStatement}, error::PreprocessingError, type_env::TypeEnvironment}};
 
 use super::preprocessor::{CheckResult, CortexPreprocessor};
 
@@ -315,7 +315,7 @@ impl CortexPreprocessor {
                 let mut true_correct = true;
                 if let Some(typedef) = self.type_map.get(&basic.name) {
                     let follows_entries = 
-                        Self::fill_in_follows_entry_from_typedef(basic.clone(), typedef.type_param_names.clone(), typedef.followed_contracts.clone());
+                        TypeEnvironment::fill_in_follows_entry_from_typedef(basic.clone(), typedef.type_param_names.clone(), typedef.followed_contracts.clone());
                     'top: for entry in &follows.clause.contracts {
                         let mut found = false;
                         for def_entry in &follows_entries {
@@ -341,6 +341,10 @@ impl CortexPreprocessor {
                 }
                 correct = true_correct;
             },
+            (CortexType::FollowsType(_), CortexType::RefType(r2)) => {
+                self.infer_arg(param_type, &*r2.contained, type_param_names, bindings, param_name, st_str)?;
+                correct = true;
+            },
             (_, _) => {
                 correct = false;
             },
@@ -350,25 +354,6 @@ impl CortexPreprocessor {
         } else {
             Err(Box::new(PreprocessingError::MismatchedType(param_type.codegen(0), arg_type.codegen(0), param_name.clone(), st_str.clone())))
         }
-    }
-
-    // For example, going from Iterator<D> where Wrapper<D> follows Iterator<D> when we have a Wrapper<number>
-    // to an Iterator<number>
-    // Returns a list (in the same order as in the typedef) of all follows entries, filled in
-    fn fill_in_follows_entry_from_typedef(concrete_type: BasicType, type_param_names: Vec<String>, followed_contracts: Vec<FollowsEntry>) -> Vec<FollowsEntry> {
-        let type_arg_map: HashMap<_, _> = type_param_names.into_iter().zip(concrete_type.type_args).collect();
-        let mut result = Vec::new();
-        for init_entry in followed_contracts {
-            let mut args = Vec::new();
-            for arg in init_entry.type_args {
-                args.push(TypeEnvironment::fill(arg, &type_arg_map));
-            }
-            result.push(FollowsEntry {
-                name: init_entry.name,
-                type_args: args,
-            });
-        }
-        result
     }
 
     pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<&FunctionSignature, CortexError> {

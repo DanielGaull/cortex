@@ -92,4 +92,23 @@ impl TypeEnvironment {
     pub fn create_bindings(names: &Vec<String>, types: &Vec<CortexType>) -> HashMap<String, CortexType> {
         names.clone().into_iter().zip(types.clone()).collect()
     }
+
+    // For example, going from Iterator<D> where Wrapper<D> follows Iterator<D> when we have a Wrapper<number>
+    // to an Iterator<number>
+    // Returns a list (in the same order as in the typedef) of all follows entries, filled in
+    pub(crate) fn fill_in_follows_entry_from_typedef(concrete_type: BasicType, type_param_names: Vec<String>, followed_contracts: Vec<FollowsEntry>) -> Vec<FollowsEntry> {
+        let type_arg_map: HashMap<_, _> = type_param_names.into_iter().zip(concrete_type.type_args).collect();
+        let mut result = Vec::new();
+        for init_entry in followed_contracts {
+            let mut args = Vec::new();
+            for arg in init_entry.type_args {
+                args.push(TypeEnvironment::fill(arg, &type_arg_map));
+            }
+            result.push(FollowsEntry {
+                name: init_entry.name,
+                type_args: args,
+            });
+        }
+        result
+    }
 }

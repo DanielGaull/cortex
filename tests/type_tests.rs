@@ -46,11 +46,15 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
             FollowsEntry::new(PathIdent::new(vec!["X"]), vec![])
         ]
     ));
+    type_map.insert(PathIdent::new(vec!["Box"]), TypeDefinition::new(
+        HashMap::new(), vec![String::from("T")], vec![
+            FollowsEntry::new(PathIdent::new(vec!["Container"]), vec![CortexType::simple("T", false)]),
+        ]
+    ));
 
     assert_subtype("none?", "number?", &type_map)?;
     assert_subtype("&mut number", "&number", &type_map)?;
     assert_not_subtype("&number", "&mut number", &type_map)?;
-    // assert_subtype("list<number>", "list<number?>", &type_map)?;
     assert_subtype("(&mut number, none?)", "(&number, bool?)", &type_map)?;
     assert_not_subtype("(number, number)", "(number, number, number)", &type_map)?;
 
@@ -61,6 +65,8 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
     assert_subtype("TestType", "follows Iterable", &type_map)?;
     assert_not_subtype("TestType", "follows Iterable + X", &type_map)?;
     assert_subtype("OtherTestType", "follows Iterable", &type_map)?;
+    assert_subtype("&mut Box<number>", "follows Container<number>", &type_map)?;
+
     assert_not_subtype("Box<TestType>", "Box<follows Iterable>", &type_map)?;
     Ok(())
 }

@@ -18,7 +18,7 @@ struct ListWrapper<D> follows Iterator<D> {
 }
 
 contract MapFn<T, R> {
-    fn map(&this,item: T): R;
+    fn map(&this, item: T): R;
 }
 
 struct AddMapFn follows MapFn<number, number> {

@@ -465,6 +465,10 @@ impl CortexInterpreter {
         // 2. Run the code of the function and store the return value
         // 3. Deconstruct the environment we just created
         // 4. Return the saved-off value
+
+        if args.len() != param_names.len() {
+            return Err(Box::new(InterpreterError::InvalidArgCountNoPreprocess(param_names.len(), args.len())));
+        }
         
         // Create new env
         // Get ownership sorted first before adding values to the new environment
