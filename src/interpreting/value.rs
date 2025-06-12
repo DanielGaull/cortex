@@ -31,7 +31,7 @@ pub enum CortexValue {
     },
     Reference(usize),
     List(Vec<CortexValue>),
-    Fat(Box<CortexValue>, VTable),
+    Fat(Rc<RefCell<CortexValue>>, VTable),
 }
 
 impl PartialEq for CortexValue {
@@ -80,7 +80,7 @@ impl Display for CortexValue {
                         write!(f, "]")
                     },
             CortexValue::Char(v) => write!(f, "\'{}\'", *v as char),
-            CortexValue::Fat(cortex_value, _) => write!(f, "{}", cortex_value),
+            CortexValue::Fat(v, _) => write!(f, "{}", *v.borrow()),
         }
     }
 }
@@ -107,7 +107,7 @@ impl CortexValue {
             CortexValue::Reference(_) => "pointer",
             CortexValue::List(_) => "list",
             CortexValue::Char(_) => "char",
-            CortexValue::Fat(cortex_value, _) => cortex_value.get_variant_name(),
+            CortexValue::Fat(v, _) => v.borrow().get_variant_name(),
         }
     }
 

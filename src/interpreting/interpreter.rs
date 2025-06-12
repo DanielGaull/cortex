@@ -329,17 +329,7 @@ impl CortexInterpreter {
             },
             RExpression::MemberAccess(inner, member) => {
                 let inner = self.evaluate_expression(inner)?;
-                if let CortexValue::Reference(addr) = inner {
-                    let val = self.heap
-                        .get(addr)
-                        .borrow()
-                        .get_field(member)?
-                        .borrow()
-                        .clone();
-                    Ok(val)
-                } else {
-                    Ok(inner.get_field(member)?.borrow().clone())
-                }
+                Ok(self.access_member(Rc::new(RefCell::new(inner)), member)?)
             },
             RExpression::BinaryOperation { left, op, right } => {
                 let left = self.evaluate_expression(left)?;
@@ -368,18 +358,20 @@ impl CortexInterpreter {
             },
             RExpression::MakeFat(exp, vtable) => {
                 let val = self.evaluate_expression(&*exp)?;
-                Ok(
-                    CortexValue::Fat(Box::new(val), vtable.clone())
-                )
+                if val == CortexValue::None {
+                    Ok(CortexValue::None)
+                } else {
+                    Ok(CortexValue::Fat(Rc::new(RefCell::new(val)), vtable.clone()))
+                }
             },
             RExpression::FatCall { callee, index_in_vtable, args } => {
                 let val = self.evaluate_expression(&*callee)?;
-                if let CortexValue::Fat(val, vtable) = val {
+                if let CortexValue::Fat(_, vtable) = val {
                     let index = vtable.get(*index_in_vtable);
                     if let Some(index) = index {
                         let func = self.lookup_function(index)?.clone();
                         let mut true_args = Vec::new();
-                        true_args.push(*val);
+                        // Note that the preprocessor already put the callee in the argument list
                         for arg in args {
                             let arg_val = self.evaluate_expression(arg)?;
                             true_args.push(arg_val);
@@ -399,6 +391,22 @@ impl CortexInterpreter {
                 let addr = self.allocate(value);
                 Ok(CortexValue::Reference(addr))
             },
+        }
+    }
+
+    fn access_member(&self, inner: Rc<RefCell<CortexValue>>, member: &String) -> Result<CortexValue, CortexError> {
+        if let CortexValue::Reference(addr) = *inner.borrow() {
+            let val = self.heap
+                .get(addr)
+                .borrow()
+                .get_field(member)?
+                .borrow()
+                .clone();
+            Ok(val)
+        } else if let CortexValue::Fat(contained, _) = &*inner.borrow() {
+            Ok(self.access_member(contained.clone(), member)?)
+        } else {
+            Ok(inner.borrow().get_field(member)?.borrow().clone())
         }
     }
 
@@ -427,11 +435,9 @@ impl CortexInterpreter {
     
     fn set_field_path(&mut self, mut base: Rc<RefCell<CortexValue>>, mut path: Vec<String>, value: CortexValue) -> Result<(), ValueError> {
         let first_option = path.get(0);
-        if let CortexValue::Reference(addr) = &*base.clone().borrow() {
-            base = self.heap.get(*addr);
-        }
+        base = self.unwrap(base);
         if let Some(first) = first_option {
-            if path.len() == 1{
+            if path.len() == 1 {
                 base.borrow_mut().set_field(first, value)
             } else {
                 let fname = first.clone();
@@ -441,6 +447,17 @@ impl CortexInterpreter {
             }
         } else {
             Err(ValueError::MemberPathCannotBeEmpty)
+        }
+    }
+
+    // Unwraps fat pointers and standard pointers to get the underlying true value
+    fn unwrap(&self, val: Rc<RefCell<CortexValue>>) -> Rc<RefCell<CortexValue>> {
+        if let CortexValue::Reference(addr) = &*val.clone().borrow() {
+            self.heap.get(*addr)
+        } else if let CortexValue::Fat(inner, _) = &*val.clone().borrow() {
+            self.unwrap(inner.clone())
+        } else {
+            val
         }
     }
 
