@@ -84,7 +84,6 @@ impl TypeEnvironment {
                             type_args: c.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect()
                         }).collect(),
                     },
-                    optional: f.optional,
                 })
             },
         }

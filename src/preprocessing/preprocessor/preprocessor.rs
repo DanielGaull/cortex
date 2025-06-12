@@ -67,53 +67,57 @@ impl CortexPreprocessor {
     // When a value is assigned to a certain type, sometimes transformations are needed
     // (ex vtables); this is the function that takes care of that
     pub(super) fn assign_to(&mut self, base: RExpression, base_type: CortexType, typ: CortexType) -> Result<(RExpression, Vec<RStatement>), CortexError> {
-        if let CortexType::FollowsType(follows) = typ {
-            let prefix = base_type.prefix();
-            let mut func_addresses = Vec::new();
-            for entry in follows.clause.contracts {
-                let contract = self.lookup_contract(&entry.name)?;
-                for sig in &contract.function_sigs {
-                    if let OptionalIdentifier::Ident(fname) = &sig.name {
-                        let addr = self.get_member_function_address(&base_type, fname)?;
-                        let extended_prefix = PathIdent::concat(&self.current_context, &prefix);
-                        let full_path = FunctionAddress::concat(&extended_prefix, &addr);
-                        func_addresses.push(full_path);
+        match (typ, base_type) {
+            (CortexType::FollowsType(follows), ref other) if !matches!(other, CortexType::FollowsType(_)) => {
+                let prefix = other.prefix();
+                let mut func_addresses = Vec::new();
+                for entry in follows.clause.contracts {
+                    let contract = self.lookup_contract(&entry.name)?;
+                    for sig in &contract.function_sigs {
+                        if let OptionalIdentifier::Ident(fname) = &sig.name {
+                            let addr = self.get_member_function_address(other, fname)?;
+                            let extended_prefix = PathIdent::concat(&self.current_context, &prefix);
+                            let full_path = FunctionAddress::concat(&extended_prefix, &addr);
+                            func_addresses.push(full_path);
+                        }
                     }
                 }
+    
+                let mut vtable = VTable::new(vec![]);
+                for addr in func_addresses {
+                    let id = self.function_dict.add_call(addr)?;
+                    vtable.add(id);
+                }
+    
+                Ok((RExpression::MakeFat(Box::new(base), vtable), vec![]))
+            },
+            (CortexType::TupleType(t), base_type) => {
+                // TODO: this will crash if the tuple type is optional and the value is `none`
+                let mut statements = Vec::new();
+                let mut tuple_entries = Vec::new();
+                let temp_tup = self.next_temp();
+                self.current_env.as_mut().unwrap().add(temp_tup.clone(), base_type, true)?;
+                statements.push(RStatement::VariableDeclaration {
+                    name: temp_tup.clone(),
+                    is_const: true,
+                    initial_value: base,
+                });
+                for (i, entry) in t.types.into_iter().enumerate() {
+                    let member_access_exp = PExpression::MemberAccess(
+                        Box::new(PExpression::PathIdent(PathIdent::simple(temp_tup.clone()))),
+                        format!("t{}", i)
+                    );
+                    let (member_access_exp, member_access_typ, st) = self.check_exp(member_access_exp, None)?;
+                    statements.extend(st);
+                    let (value, st) = self.assign_to(member_access_exp, member_access_typ, entry)?;
+                    statements.extend(st);
+                    tuple_entries.push(value);
+                }
+                Ok((RExpression::Tuple(tuple_entries), statements))
+            },
+            (_, _) => {
+                Ok((base, vec![]))
             }
-
-            let mut vtable = VTable::new(vec![]);
-            for addr in func_addresses {
-                let id = self.function_dict.add_call(addr)?;
-                vtable.add(id);
-            }
-
-            Ok((RExpression::MakeFat(Box::new(base), vtable), vec![]))
-        } else if let CortexType::TupleType(t) = typ {
-            // TODO: this will crash if the tuple type is optional and the value is `none`
-            let mut statements = Vec::new();
-            let mut tuple_entries = Vec::new();
-            let temp_tup = self.next_temp();
-            self.current_env.as_mut().unwrap().add(temp_tup.clone(), base_type, true)?;
-            statements.push(RStatement::VariableDeclaration {
-                name: temp_tup.clone(),
-                is_const: true,
-                initial_value: base,
-            });
-            for (i, entry) in t.types.into_iter().enumerate() {
-                let member_access_exp = PExpression::MemberAccess(
-                    Box::new(PExpression::PathIdent(PathIdent::simple(temp_tup.clone()))),
-                    format!("t{}", i)
-                );
-                let (member_access_exp, member_access_typ, st) = self.check_exp(member_access_exp, None)?;
-                statements.extend(st);
-                let (value, st) = self.assign_to(member_access_exp, member_access_typ, entry)?;
-                statements.extend(st);
-                tuple_entries.push(value);
-            }
-            Ok((RExpression::Tuple(tuple_entries), statements))
-        } else {
-            Ok((base, vec![]))
         }
     }
 

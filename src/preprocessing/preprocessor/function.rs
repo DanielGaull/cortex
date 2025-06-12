@@ -289,6 +289,56 @@ impl CortexPreprocessor {
                     correct = false;
                 }
             },
+            (CortexType::FollowsType(f1), CortexType::FollowsType(f2)) => {
+                // As an example, we might have something like `follows X` and `follows X+Y`
+                let mut true_correct: bool = true;
+                for entry in &f1.clause.contracts {
+                    let matching = f2.clause.contracts
+                        .iter()
+                        .find(|x| x.name == entry.name);
+                    if let Some(matching) = matching {
+                        if matching.type_args.len() != entry.type_args.len() {
+                            true_correct = false;
+                            break;
+                        }
+                        for (t1, t2) in entry.type_args.iter().zip(&matching.type_args) {
+                            self.infer_arg(t1, t2, type_param_names, bindings, param_name, st_str)?;
+                        }
+                    } else {
+                        true_correct = false;
+                        break;
+                    }
+                }
+                correct = true_correct;
+            },
+            (CortexType::FollowsType(follows), CortexType::BasicType(basic)) => {
+                let mut true_correct = true;
+                if let Some(type_def) = self.type_map.get(&basic.name) {
+                    'top: for entry in &follows.clause.contracts {
+                        let mut found = false;
+                        for def_entry in &type_def.followed_contracts {
+                            if def_entry.name == entry.name {
+                                if def_entry.type_args.len() == entry.type_args.len() {
+                                    for (ta1, ta2) in entry.type_args.iter().zip(&def_entry.type_args) {
+                                        self.infer_arg(ta1, ta2, type_param_names, bindings, param_name, st_str)?;
+                                    }
+                                } else {
+                                    true_correct = false;
+                                    break 'top;
+                                }
+                                found = true;
+                            }
+                        }
+                        if !found {
+                            true_correct = false;
+                            break;
+                        }
+                    }
+                } else {
+                    return Err(Box::new(PreprocessingError::TypeDoesNotExist(basic.name.codegen(0))));
+                }
+                correct = true_correct;
+            },
             (_, _) => {
                 correct = false;
             },

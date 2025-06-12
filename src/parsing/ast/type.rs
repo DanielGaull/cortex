@@ -46,7 +46,6 @@ pub struct TupleType {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FollowsType {
     pub(crate) clause: FollowsClause,
-    pub(crate) optional: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -93,7 +92,7 @@ impl SimpleCodeGen for CortexType {
                 }
             },
             CortexType::FollowsType(t) => {
-                format!("{}{}", t.clause.codegen(0), if t.optional {"?"} else {""})
+                format!("{}", t.clause.codegen(0))
             },
         }
     }
@@ -176,7 +175,6 @@ impl CortexType {
                             type_args: c.type_args.iter().map(|t| t.with_prefix(path)).collect(),
                         }).collect(),
                     },
-                    optional: f.optional,
                 })
             },
         }
@@ -211,7 +209,6 @@ impl CortexType {
                             type_args: c.type_args.into_iter().map(|t| t.subtract_if_possible(prefix)).collect(),
                         }).collect()
                     },
-                    optional: f.optional,
                 })
             },
         }
@@ -251,7 +248,7 @@ impl CortexType {
                 r.contained.optional()
             },
             CortexType::TupleType(t) => t.optional,
-            CortexType::FollowsType(t) => t.optional,
+            CortexType::FollowsType(_) => false,
         }
     }
 
@@ -299,7 +296,6 @@ impl CortexType {
             CortexType::TupleType(t) => CortexType::TupleType(TupleType { types: t.types, optional: value }),
             CortexType::FollowsType(t) => CortexType::FollowsType(FollowsType {
                 clause: t.clause,
-                optional: value,
             })
         }
     }
@@ -389,7 +385,6 @@ impl CortexType {
                         clause: FollowsClause {
                             contracts: common_contracts.into_iter().collect(),
                         },
-                        optional: t1.optional || t2.optional,
                     }))
                 }
             },
@@ -413,7 +408,6 @@ impl CortexType {
                             clause: FollowsClause {
                                 contracts: common_contracts.into_iter().collect(),
                             },
-                            optional: f.optional || b.optional,
                         }))
                     }
                 } else {
@@ -465,10 +459,6 @@ impl CortexType {
                 }
             },
             (CortexType::FollowsType(t1), CortexType::FollowsType(t2)) => {
-                if t1.optional && !t2.optional {
-                    return false;
-                }
-
                 // have to be no contracts in t2 that aren't in t1
                 for c in &t2.clause.contracts {
                     if !t1.clause.contracts.contains(c) {

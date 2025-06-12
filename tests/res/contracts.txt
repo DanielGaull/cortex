@@ -16,3 +16,24 @@ struct ListWrapper<R> follows Iterator<R> {
         this.index < this.items.len()
     }
 }
+
+contract MapFn<T, R> {
+    fn map(&this,item: T): R;
+}
+
+struct AddMapFn follows MapFn<number, number> {
+    value: number,
+
+    fn map(&this, item: number): number {
+        item + this.value
+    }
+}
+
+fn mapper<T, R>(iter: follows Iterator<T>, function: follows MapFn<T, R>): &mut list<R> {
+    let result: &mut list<R> = [];
+    while iter.hasNext() {
+        let item = function.map(iter.next());
+        result.add(item);
+    }
+    result
+}

@@ -731,7 +731,6 @@ impl CortexParser {
                 let clause = Self::parse_follows_clause(pairs.next().unwrap())?;
                 Ok(CortexType::FollowsType(FollowsType {
                     clause,
-                    optional,
                 }))
             },
             _ => Err(ParseError::FailType(String::from(pair_str)))

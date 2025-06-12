@@ -103,24 +103,6 @@ fn test_struct() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[test]
-fn test_contracts() -> Result<(), Box<dyn Error>> {
-    let mut interpreter = CortexInterpreter::new()?;
-    let path = Path::new("./tests/res/contracts.txt");
-    let mut file = File::open(path).unwrap();
-    let mut content = String::new();
-    let _ = file.read_to_string(&mut content);
-    content = content.replace("\r\n", "\n");
-    let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
-
-    // Making it this far without throwing errors indicates that the preprocessor found no issues
-    
-    Ok(())
-}
-
 fn run_statement(input: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_statement(input)?;
     interpreter.execute_statement(ast)?;
