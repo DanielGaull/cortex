@@ -16,8 +16,8 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
     }
 
     run("let myList = [1, 2, 3];", &mut interpreter)?;
-    run("let wrapper = ListWrapper<number> { items: myList, index: 0, };", &mut interpreter)?;
-    run("let addFn = AddMapFn { value: 1, };", &mut interpreter)?;
+    run("let wrapper = heap ListWrapper<number> { items: myList, index: 0, };", &mut interpreter)?;
+    run("let addFn = heap AddMapFn { value: 1, };", &mut interpreter)?;
     assert("mapper(wrapper, addFn)", "&([2, 3, 4])", &mut interpreter)?;
     
     Ok(())

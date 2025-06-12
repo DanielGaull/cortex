@@ -3,11 +3,11 @@ contract Iterator<T> {
     fn hasNext(&this): bool;
 }
 
-struct ListWrapper<R> follows Iterator<R> {
-    items: &mut list<R>,
+struct ListWrapper<D> follows Iterator<D> {
+    items: &mut list<D>,
     index: number,
 
-    fn next(&mut this): R {
+    fn next(&mut this): D {
         let result = this.items[this.index];
         this.index += 1;
         result
