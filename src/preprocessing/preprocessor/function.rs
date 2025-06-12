@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::FunctionSignature, r#type::{forwarded_type_args, CortexType, FollowsType}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress, statement::RStatement}, error::PreprocessingError, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::FunctionSignature, r#type::{forwarded_type_args, CortexType, FollowsClause, FollowsEntry, FollowsType}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress, statement::RStatement}, error::PreprocessingError, type_env::TypeEnvironment}};
 
 use super::preprocessor::{CheckResult, CortexPreprocessor};
 
@@ -42,17 +42,32 @@ impl CortexPreprocessor {
         }
         let index = index.unwrap();
 
-        let (callee_processed, this_type, callee_st) = self.check_exp(*callee.clone(), None)?;
-        args.insert(0, *callee.clone());
-        
+        function_sig.type_param_names.extend(contract_to_use.type_param_names.clone());
+        let this_type = CortexType::FollowsType(FollowsType {
+            clause: FollowsClause {
+                contracts: vec![
+                    FollowsEntry {
+                        name: PathIdent::simple(contract_to_use.name.clone()),
+                        type_args: contract_to_use.type_param_names
+                            .iter()
+                            .map(|t| CortexType::basic(PathIdent::simple(t.clone()), false, vec![]))
+                            .collect(),
+                    }
+                ]
+            }
+        });
         function_sig.params.insert(0, Parameter::named("this", this_type));
+
+        let (callee_processed, _, callee_st) = self.check_exp(*callee.clone(), None)?;
+        args.insert(0, *callee.clone());
+
         let pure_sig = FunctionSignature {
             params: function_sig.params,
             return_type: function_sig.return_type,
             type_param_names: function_sig.type_param_names,
         };
 
-        let call = self.check_call_base(pure_sig, String::from("##temp##"), args, type_args, full_prefix, &st_str)?;
+        let call = self.check_call_base(pure_sig, member.clone(), args, type_args, full_prefix, &st_str)?;
         let mut statements = Vec::new();
         statements.extend(callee_st);
         statements.extend(call.statements);

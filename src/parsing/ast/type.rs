@@ -48,7 +48,7 @@ pub struct FollowsType {
     pub(crate) clause: FollowsClause,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum CortexType {
     // Represents a simple named type that may or may not have type arguments
     BasicType(BasicType),
@@ -95,6 +95,12 @@ impl SimpleCodeGen for CortexType {
                 format!("{}", t.clause.codegen(0))
             },
         }
+    }
+}
+
+impl std::fmt::Debug for CortexType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.codegen(0))
     }
 }
 

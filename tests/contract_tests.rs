@@ -19,6 +19,20 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
     run("let wrapper = heap ListWrapper<number> { items: myList, index: 0, };", &mut interpreter)?;
     run("let addFn = heap AddMapFn { value: 1, };", &mut interpreter)?;
     assert("toString(mapper(wrapper, addFn))", "\"&([2, 3, 4])\"", &mut interpreter)?;
+
+    run("let myBoxNumber = heap BoxNumber { value: 5 };", &mut interpreter)?;
+    assert("myBoxNumber.add(5)", "10", &mut interpreter)?;
+    assert("myBoxNumber.map(5)", "0", &mut interpreter)?;
+
+    run("let addFn2: follows MapFn<number, number> = heap AddMapFn {value: 1};", &mut interpreter)?;
+    assert("addFn2.map(1)", "2", &mut interpreter)?;
+    run("let box = heap Box<follows MapFn<number, number>> {item: addFn2};", &mut interpreter)?;
+    assert("box.get().map(1)", "2", &mut interpreter)?;
+    run("let addFn3: follows MapFn<number, number> = heap AddMapFn {value: 3};", &mut interpreter)?;
+    run("box.item = addFn3;", &mut interpreter)?;
+    assert("box.get().map(1)", "4", &mut interpreter)?;
+    run("box.set(addFn2);", &mut interpreter)?;
+    assert("box.get().map(1)", "2", &mut interpreter)?;
     
     Ok(())
 }

@@ -37,3 +37,30 @@ fn mapper<T, R>(iter: follows Iterator<T>, function: follows MapFn<T, R>): &mut 
     }
     result
 }
+
+contract AddTo<R, Out> {
+    fn add(&this, other: R): Out;
+}
+
+struct BoxNumber follows MapFn<number, number> + AddTo<number, number> {
+    value: number,
+
+    fn add(&this, other: number): number {
+        this.value + other
+    }
+
+    fn map(&this, item: number): number {
+        this.value - item
+    }
+}
+
+struct Box<T> {
+    item: T,
+
+    fn get(&this): T {
+        this.item
+    }
+    fn set(&mut this, value: T) {
+        this.item = value;
+    }
+}
