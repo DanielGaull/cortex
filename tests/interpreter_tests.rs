@@ -62,9 +62,9 @@ fn op_tests() -> Result<(), Box<dyn Error>> {
     run_test("!false", "true", &mut interpreter)?;
     run_test("-(5+2)", "-7", &mut interpreter)?;
 
-    run_test("*(heap 5)", "5", &mut interpreter)?;
+    run_test("@(heap 5)", "5", &mut interpreter)?;
     interpreter.execute_statement(CortexParser::parse_statement("let x = heap true;")?)?;
-    run_test("*x", "true", &mut interpreter)?;
+    run_test("@x", "true", &mut interpreter)?;
     Ok(())
 }
 

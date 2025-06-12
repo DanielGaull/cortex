@@ -477,7 +477,7 @@ impl SimpleCodeGen for UnaryOperator {
             match self {
                 UnaryOperator::Negate => "-",
                 UnaryOperator::Invert => "!",
-                UnaryOperator::Deref => "*",
+                UnaryOperator::Deref => "@",
             }
         )
     }

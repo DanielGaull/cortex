@@ -61,7 +61,7 @@ else = { "else" ~ "{" ~ body ~ "}" }
 
 negate = { "-" }
 invert = { "!" }
-deref = { "*" }
+deref = { "@" }
 unOp = _{ negate | invert | deref }
 unOpAtom = { unOp ~ expr }
 

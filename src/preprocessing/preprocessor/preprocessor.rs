@@ -444,7 +444,7 @@ impl CortexPreprocessor {
                         if let CortexType::RefType(r) = typ {
                             Ok((RExpression::UnaryOperation { op: UnaryOperator::Deref, exp: Box::new(exp) }, *r.contained, statements))
                         } else {
-                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("&T", "*", typ.codegen(0))))
+                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("&T", "@", typ.codegen(0))))
                         }
                     },
                 }
