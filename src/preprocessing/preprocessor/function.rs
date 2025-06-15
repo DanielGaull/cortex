@@ -50,7 +50,7 @@ impl CortexPreprocessor {
                         name: PathIdent::simple(contract_to_use.name.clone()),
                         type_args: contract_to_use.type_param_names
                             .iter()
-                            .map(|t| CortexType::basic(PathIdent::simple(t.clone()), false, vec![]))
+                            .map(|t| CortexType::basic(PathIdent::simple(t.clone()), vec![]))
                             .collect(),
                     }
                 ]
@@ -88,7 +88,7 @@ impl CortexPreprocessor {
             let typedef = self.lookup_type(caller_type)?;
             let mut bindings = HashMap::new();
             self.infer_arg(&CortexType::reference(
-                CortexType::basic(caller_type.clone(), false, forwarded_type_args(&typedef.type_param_names)),
+                CortexType::basic(caller_type.clone(), forwarded_type_args(&typedef.type_param_names)),
                 true,
             ), &atom_type, &typedef.type_param_names, &mut bindings, &String::from("this"), &st_str)?;
             let mut beginning_type_args = Vec::new();
@@ -253,11 +253,7 @@ impl CortexPreprocessor {
         match (&param_type, arg_type) {
             (CortexType::BasicType(b), arg_type) => {
                 if let Some(name) = TypeEnvironment::does_arg_list_contain(type_param_names, &param_type) {
-                    // If we take in a T? and passing a number?, then we want T = number, not T = number?
-                    let mut bound_type = arg_type.clone();
-                    if b.optional {
-                        bound_type = bound_type.to_non_optional();
-                    }
+                    let bound_type = arg_type.clone();
                     if b.type_args.len() > 0 {
                         return Err(Box::new(PreprocessingError::CannotHaveTypeArgsOnGeneric(param_type.codegen(0))));
                     }
@@ -358,6 +354,14 @@ impl CortexPreprocessor {
             },
             (CortexType::FollowsType(_), CortexType::RefType(r2)) => {
                 self.infer_arg(param_type, &*r2.contained, type_param_names, bindings, param_name, st_str)?;
+                correct = true;
+            },
+            (CortexType::OptionalType(_), CortexType::NoneType) |
+            (CortexType::NoneType, CortexType::NoneType) => {
+                correct = true;
+            },
+            (CortexType::OptionalType(o), other) => {
+                self.infer_arg(o, other, type_param_names, bindings, param_name, st_str)?;
                 correct = true;
             },
             (_, _) => {

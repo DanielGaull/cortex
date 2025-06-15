@@ -20,7 +20,7 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
     run_test("false", "bool", &mut interpreter)?;
     run_test("void", "void", &mut interpreter)?;
     run_test("(((void)))", "void", &mut interpreter)?;
-    run_test("none", "none?", &mut interpreter)?;
+    run_test("none", "none", &mut interpreter)?;
     run_test("[1]", "&mut list<number>", &mut interpreter)?;
     run_test("[1, none]", "&mut list<number?>", &mut interpreter)?;
     run_test("(1,)", "(number,)", &mut interpreter)?;
@@ -48,14 +48,14 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
     ));
     type_map.insert(PathIdent::new(vec!["Box"]), TypeDefinition::new(
         HashMap::new(), vec![String::from("T")], vec![
-            FollowsEntry::new(PathIdent::new(vec!["Container"]), vec![CortexType::simple("T", false)]),
+            FollowsEntry::new(PathIdent::new(vec!["Container"]), vec![CortexType::simple("T")]),
         ]
     ));
 
-    assert_subtype("none?", "number?", &type_map)?;
+    assert_subtype("none", "number?", &type_map)?;
     assert_subtype("&mut number", "&number", &type_map)?;
     assert_not_subtype("&number", "&mut number", &type_map)?;
-    assert_subtype("(&mut number, none?)", "(&number, bool?)", &type_map)?;
+    assert_subtype("(&mut number, none)", "(&number, bool?)", &type_map)?;
     assert_not_subtype("(number, number)", "(number, number, number)", &type_map)?;
 
     assert_subtype("follows X + Y + Z", "follows X", &type_map)?;
@@ -78,8 +78,8 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_struct(Struct::new(
         "Time", 
         vec![
-            ("m", CortexType::number(false)),
-            ("s", CortexType::number(false)),
+            ("m", CortexType::number()),
+            ("s", CortexType::number()),
         ],
         vec![],
         vec![],
@@ -88,13 +88,13 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_struct(Struct::new(
         "Box",
         vec![
-            ("time", CortexType::reference(CortexType::basic(PathIdent::simple(String::from("Time")), false, vec![]), true))
+            ("time", CortexType::reference(CortexType::basic(PathIdent::simple(String::from("Time")), vec![]), true))
         ],
         vec![
             MemberFunction::new(
                 OptionalIdentifier::Ident(String::from("get")), 
                 vec![],
-                CortexType::reference(CortexType::simple("Time", false), true),
+                CortexType::reference(CortexType::simple("Time"), true),
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.time")?))),
                 cortex_lang::parsing::ast::top_level::ThisArg::RefMutThis,
                 vec![],
@@ -118,13 +118,13 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_struct(Struct::new(
         "Box",
         vec![
-            ("item", CortexType::basic(PathIdent::simple(String::from("T")), false, vec![]))
+            ("item", CortexType::basic(PathIdent::simple(String::from("T")), vec![]))
         ],
         vec![
             MemberFunction::new(
                 OptionalIdentifier::Ident(String::from("get")), 
                 vec![],
-                CortexType::basic(PathIdent::simple(String::from("T")), false, vec![]),
+                CortexType::basic(PathIdent::simple(String::from("T")), vec![]),
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.item")?))),
                 cortex_lang::parsing::ast::top_level::ThisArg::RefThis,
                 vec![],
@@ -136,9 +136,9 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_function(PFunction::new(
         OptionalIdentifier::Ident(String::from("generic")),
         vec![
-            Parameter::named("t", CortexType::simple("T", true))
+            Parameter::named("t", CortexType::OptionalType(Box::new(CortexType::simple("T"))))
         ],
-        CortexType::simple("T", true),
+        CortexType::OptionalType(Box::new(CortexType::simple("T"))),
         Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
         vec![String::from("T")],
     ))?;

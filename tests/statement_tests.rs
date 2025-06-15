@@ -39,10 +39,10 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let add_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("add")),
         vec![
-            Parameter::named("a", CortexType::number(false)),
-            Parameter::named("b", CortexType::number(false))
+            Parameter::named("a", CortexType::number()),
+            Parameter::named("b", CortexType::number())
         ],
-        CortexType::number(false),
+        CortexType::number(),
         add_body,
         vec![],
     );

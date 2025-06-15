@@ -57,12 +57,12 @@ impl TypeEnvironment {
                 if !b.name.is_empty() {
                     let ident = b.name.get_back().unwrap();
                     if let Some(result) = bindings.get(ident) {
-                        result.clone().to_optional_if_true(b.optional)
+                        result.clone()
                     } else {
-                        CortexType::BasicType(BasicType { optional: b.optional, name: b.name, type_args: b.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() })
+                        CortexType::BasicType(BasicType { name: b.name, type_args: b.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() })
                     }
                 } else {
-                    CortexType::BasicType(BasicType { optional: b.optional, name: b.name, type_args: b.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() })
+                    CortexType::BasicType(BasicType { name: b.name, type_args: b.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() })
                 }
             },
             CortexType::RefType(r) => {
@@ -73,7 +73,6 @@ impl TypeEnvironment {
                 let new_types = t.types.into_iter().map(|t| Self::fill(t, bindings)).collect();
                 CortexType::TupleType(TupleType {
                     types: new_types,
-                    optional: t.optional,
                 })
             },
             CortexType::FollowsType(f) => {
@@ -86,6 +85,10 @@ impl TypeEnvironment {
                     },
                 })
             },
+            CortexType::OptionalType(t) => {
+                CortexType::OptionalType(Box::new(Self::fill(*t, bindings)))
+            },
+            CortexType::NoneType => CortexType::NoneType,
         }
     }
 

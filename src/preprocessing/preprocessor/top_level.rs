@@ -340,20 +340,20 @@ impl CortexPreprocessor {
         match this_arg {
             ThisArg::RefThis => 
                 CortexType::reference(
-                    CortexType::basic(PathIdent::simple(item_name.clone()), false, forwarded_type_args(type_param_names)),
+                    CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_param_names)),
                     false,
                 ),
             ThisArg::RefMutThis => 
                 CortexType::reference(
-                    CortexType::basic(PathIdent::simple(item_name.clone()), false, forwarded_type_args(type_param_names)),
+                    CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_param_names)),
                     true,
                 ),
-            ThisArg::DirectThis => CortexType::basic(PathIdent::simple(item_name.clone()), false, forwarded_type_args(type_param_names)),
+            ThisArg::DirectThis => CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_param_names)),
         }
     }
 
     fn search_struct_for_loops(&self, s: &Struct) -> Result<bool, CortexError> {
-        let stype = CortexType::basic(PathIdent::simple(s.name.clone()), false, forwarded_type_args(&s.type_param_names));
+        let stype = CortexType::basic(PathIdent::simple(s.name.clone()), forwarded_type_args(&s.type_param_names));
         let mut q = VecDeque::new();
         for field in &s.fields {
             q.push_back(field.1.clone());

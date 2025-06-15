@@ -102,7 +102,7 @@ fn nullable_member_access_tests() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_none_related_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
-    assert_err("let notOptional: number = none;", PreprocessingError::MismatchedType(String::from("number"), String::from("none?"), String::from("notOptional"), String::from("let notOptional: number = none;")), &mut interpreter)?;
+    assert_err("let notOptional: number = none;", PreprocessingError::MismatchedType(String::from("number"), String::from("none"), String::from("notOptional"), String::from("let notOptional: number = none;")), &mut interpreter)?;
     assert_err("none!;", InterpreterError::BangCalledOnNoneValue, &mut interpreter)?;
     Ok(())
 }
@@ -227,28 +227,28 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let add_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("add")),
         vec![
-            Parameter::named("a", CortexType::number(false)),
-            Parameter::named("b", CortexType::number(false))
+            Parameter::named("a", CortexType::number()),
+            Parameter::named("b", CortexType::number())
         ],
-        CortexType::number(false),
+        CortexType::number(),
         add_body,
         vec![],
     );
     let generic_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("generic")),
         vec![
-            Parameter::named("t", CortexType::simple("T", false))
+            Parameter::named("t", CortexType::simple("T"))
         ],
-        CortexType::simple("T", true),
+        CortexType::OptionalType(Box::new(CortexType::simple("T"))),
         Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
         vec![String::from("T")],
     );
     let test_struct = Struct::new("Time", vec![
-        ("m", CortexType::number(false)),
-        ("s", CortexType::number(false)),
+        ("m", CortexType::number()),
+        ("s", CortexType::number()),
     ], vec![], vec![], None);
     let test_struct2 = Struct::new("IntBox", vec![
-        ("v", CortexType::number(false)),
+        ("v", CortexType::number()),
     ], vec![], vec![], None);
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();

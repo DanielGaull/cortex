@@ -13,9 +13,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from(INDEX_GET_FN_NAME)), 
                     vec![
-                        Parameter::named("index", CortexType::number(false))
+                        Parameter::named("index", CortexType::number())
                     ], 
-                    CortexType::simple("T", false), 
+                    CortexType::simple("T"), 
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
@@ -43,10 +43,10 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from(INDEX_SET_FN_NAME)), 
                     vec![
-                        Parameter::named("index", CortexType::number(false)),
-                        Parameter::named("value", CortexType::simple("T", false)),
+                        Parameter::named("index", CortexType::number()),
+                        Parameter::named("value", CortexType::simple("T")),
                     ], 
-                    CortexType::void(false), 
+                    CortexType::void(), 
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
@@ -75,7 +75,7 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("len")), 
                     vec![], 
-                    CortexType::number(false),
+                    CortexType::number(),
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
@@ -94,9 +94,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("find")), 
                     vec![
-                        Parameter::named("item", CortexType::simple("T", false)),
+                        Parameter::named("item", CortexType::simple("T")),
                     ], 
-                    CortexType::number(true),
+                    CortexType::number(),
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
@@ -121,9 +121,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("contains")), 
                     vec![
-                        Parameter::named("item", CortexType::simple("T", false)),
+                        Parameter::named("item", CortexType::simple("T")),
                     ], 
-                    CortexType::boolean(false),
+                    CortexType::boolean(),
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
@@ -143,9 +143,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("add")), 
                     vec![
-                        Parameter::named("item", CortexType::simple("T", false)),
+                        Parameter::named("item", CortexType::simple("T")),
                     ], 
-                    CortexType::void(false),
+                    CortexType::void(),
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
@@ -166,10 +166,10 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("insert")), 
                     vec![
-                        Parameter::named("index", CortexType::number(false)),
-                        Parameter::named("item", CortexType::simple("T", false)),
+                        Parameter::named("index", CortexType::number()),
+                        Parameter::named("item", CortexType::simple("T")),
                     ], 
-                    CortexType::void(false),
+                    CortexType::void(),
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
@@ -199,9 +199,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("remove")), 
                     vec![
-                        Parameter::named("index", CortexType::number(false)),
+                        Parameter::named("index", CortexType::number()),
                     ], 
-                    CortexType::void(false),
+                    CortexType::void(),
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {

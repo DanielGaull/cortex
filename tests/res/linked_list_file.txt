@@ -6,14 +6,14 @@ fn assertEq<T, R>(expected: T, actual: R) {
 
 struct ListNode<T> {
     value: T,
-    next: &mut ListNode<T>?,
+    next: (&mut ListNode<T>)?,
 }
 
 struct LinkedList<T> {
-    head: &mut ListNode<T>?,
+    head: (&mut ListNode<T>)?,
 
     fn len(&this): number {
-        let head: &ListNode<T>? = this.head;
+        let head: (&ListNode<T>)? = this.head;
         let length = 0;
         while head != none {
             head = head!.next;

@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::{module::TypeDefinition, type_env::TypeEnvironment}};
@@ -27,7 +28,6 @@ pub enum TypeError {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BasicType {
-    pub(crate) optional: bool,
     pub(crate) name: PathIdent,
     pub(crate) type_args: Vec<CortexType>,
 }
@@ -40,7 +40,6 @@ pub struct RefType {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TupleType {
     pub(crate) types: Vec<CortexType>,
-    pub(crate) optional: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -58,6 +57,10 @@ pub enum CortexType {
     TupleType(TupleType),
     // Represents a "follows" type
     FollowsType(FollowsType),
+    // Represents an optional type - either is a value or is `none`
+    OptionalType(Box<CortexType>),
+    // Represents the unique `none` type
+    NoneType,
 }
 
 impl SimpleCodeGen for CortexType {
@@ -71,9 +74,6 @@ impl SimpleCodeGen for CortexType {
                     s.push_str(&b.type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(","));
                     s.push_str(">");
                 }
-                if b.optional {
-                    s.push_str("?");
-                }
                 s
             },
             CortexType::RefType(r) => {
@@ -86,14 +86,41 @@ impl SimpleCodeGen for CortexType {
             },
             CortexType::TupleType(t) => {
                 if t.types.len() == 1 {
-                    format!("({},){}", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "), if t.optional {"?"} else {""})
+                    format!("({},)", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
                 } else {
-                    format!("({}){}", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "), if t.optional {"?"} else {""})
+                    format!("({})", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
                 }
             },
             CortexType::FollowsType(t) => {
                 format!("{}", t.clause.codegen(0))
             },
+            CortexType::OptionalType(inner) => {
+                format!("{}?", inner.codegen_wrap_if_needed())
+            },
+            CortexType::NoneType => String::from("none"),
+        }
+    }
+}
+
+static NONE_NAME: Lazy<PathIdent> = Lazy::new(|| PathIdent::new(vec!["none"]));
+
+impl CortexType {
+    fn codegen_wrap_if_needed(&self) -> String {
+        if self.needs_to_be_wrapped() {
+            format!("({})", self.codegen(0))
+        } else {
+            self.codegen(0)
+        }
+    }
+
+    fn needs_to_be_wrapped(&self) -> bool {
+        match &self {
+            CortexType::BasicType(_) => false,
+            CortexType::RefType(_) => true,
+            CortexType::TupleType(_) => false,
+            CortexType::FollowsType(_) => true,
+            CortexType::OptionalType(_) => true,
+            CortexType::NoneType => false,
         }
     }
 }
@@ -105,17 +132,15 @@ impl std::fmt::Debug for CortexType {
 }
 
 impl CortexType {
-    pub fn basic(name: PathIdent, optional: bool, type_args: Vec<CortexType>) -> Self {
+    pub fn basic(name: PathIdent, type_args: Vec<CortexType>) -> Self {
         Self::BasicType(BasicType {
             name: name,
-            optional,
             type_args: type_args,
         })
     }
-    pub fn basic_simple(name: &str, optional: bool, type_args: Vec<CortexType>) -> Self {
+    pub fn basic_simple(name: &str, type_args: Vec<CortexType>) -> Self {
         Self::BasicType(BasicType {
             name: PathIdent::simple(String::from(name)),
-            optional,
             type_args: type_args,
         })
     }
@@ -125,42 +150,41 @@ impl CortexType {
             mutable: mutable,
         })
     }
-    pub fn tuple(types: Vec<CortexType>, optional: bool) -> Self {
-        Self::TupleType(TupleType { types, optional })
+    pub fn tuple(types: Vec<CortexType>) -> Self {
+        Self::TupleType(TupleType { types })
     }
-    pub fn simple(name: &str, optional: bool) -> Self {
-        Self::basic(PathIdent::simple(String::from(name)), optional, vec![])
+    pub fn simple(name: &str) -> Self {
+        Self::basic(PathIdent::simple(String::from(name)), vec![])
     }
-    pub fn number(optional: bool) -> Self {
-        Self::simple("number", optional)
+    pub fn number() -> Self {
+        Self::simple("number")
     }
-    pub fn boolean(optional: bool) -> Self {
-        Self::simple("bool", optional)
+    pub fn boolean() -> Self {
+        Self::simple("bool")
     }
-    pub fn string(optional: bool) -> Self {
-        Self::simple("string", optional)
+    pub fn string() -> Self {
+        Self::simple("string")
     }
-    pub fn void(optional: bool) -> Self {
-        Self::simple("void", optional)
+    pub fn void() -> Self {
+        Self::simple("void")
     }
     pub fn none() -> Self {
-        Self::simple("none", true)
+        Self::NoneType
     }
-    pub fn list(typ: CortexType, optional: bool) -> Self {
-        Self::basic(PathIdent::simple(String::from("list")), optional, vec![typ])
+    pub fn list(typ: CortexType) -> Self {
+        Self::basic(PathIdent::simple(String::from("list")), vec![typ])
     }
-    pub fn char(optional: bool) -> Self {
-        Self::simple("char", optional)
+    pub fn char() -> Self {
+        Self::simple("char")
     }
-    pub fn range(optional: bool) -> Self {
-        Self::simple("range", optional)
+    pub fn range() -> Self {
+        Self::simple("range")
     }
     pub fn with_prefix(&self, path: &PathIdent) -> Self {
         match self {
             CortexType::BasicType(b) => {
                 CortexType::BasicType(BasicType {
                     name: PathIdent::concat(path, &b.name),
-                    optional: b.optional,
                     type_args: b.type_args.clone(),
                 })
             },
@@ -171,7 +195,7 @@ impl CortexType {
                 })
             },
             CortexType::TupleType(t) => {
-                CortexType::TupleType(TupleType { types: t.types.iter().map(|t| t.with_prefix(path).clone()).collect(), optional: t.optional })
+                CortexType::TupleType(TupleType { types: t.types.iter().map(|t| t.with_prefix(path).clone()).collect() })
             },
             CortexType::FollowsType(f) => {
                 CortexType::FollowsType(FollowsType {
@@ -183,6 +207,10 @@ impl CortexType {
                     },
                 })
             },
+            CortexType::OptionalType(t) => {
+                CortexType::OptionalType(Box::new(t.with_prefix(path)))
+            },
+            CortexType::NoneType => CortexType::NoneType,
         }
     }
     pub fn with_prefix_if_not_core(self, prefix: &PathIdent) -> Self {
@@ -196,7 +224,7 @@ impl CortexType {
         match self {
             CortexType::BasicType(b) => {
                 if b.name.is_prefixed_by(prefix) {
-                    CortexType::BasicType(BasicType { optional: b.optional, name: b.name.subtract(prefix).unwrap(), type_args: b.type_args })
+                    CortexType::BasicType(BasicType { name: b.name.subtract(prefix).unwrap(), type_args: b.type_args })
                 } else {
                     CortexType::BasicType(b)
                 }
@@ -205,7 +233,7 @@ impl CortexType {
                 CortexType::RefType(RefType { contained: Box::new(r.contained.subtract_if_possible(prefix)), mutable: r.mutable })
             },
             CortexType::TupleType(t) => {
-                CortexType::TupleType(TupleType { types: t.types.iter().map(|t| t.clone().subtract_if_possible(prefix)).collect(), optional: t.optional })
+                CortexType::TupleType(TupleType { types: t.types.iter().map(|t| t.clone().subtract_if_possible(prefix)).collect() })
             },
             CortexType::FollowsType(f) => {
                 CortexType::FollowsType(FollowsType {
@@ -217,6 +245,10 @@ impl CortexType {
                     },
                 })
             },
+            CortexType::OptionalType(t) => {
+                CortexType::OptionalType(Box::new(t.subtract_if_possible(prefix)))
+            },
+            CortexType::NoneType => CortexType::NoneType,
         }
     }
     // Forwards immutability if mutable is false. If mutable is true, returns self
@@ -242,19 +274,18 @@ impl CortexType {
             CortexType::RefType(r) => {
                 r.contained.prefix()
             },
-            CortexType::TupleType(_) | CortexType::FollowsType(_) => PathIdent::empty(),
+            CortexType::TupleType(_) | CortexType::FollowsType(_) | CortexType::NoneType => PathIdent::empty(),
+            CortexType::OptionalType(t) => t.prefix(),
         }
     }
     pub fn optional(&self) -> bool {
         match self {
-            CortexType::BasicType(b) => {
-                b.optional
+            CortexType::BasicType(_) | CortexType::RefType(_) | CortexType::TupleType(_) | 
+            CortexType::FollowsType(_) => {
+                false
             },
-            CortexType::RefType(r) => {
-                r.contained.optional()
-            },
-            CortexType::TupleType(t) => t.optional,
-            CortexType::FollowsType(_) => false,
+            CortexType::OptionalType(_) => true,
+            CortexType::NoneType => true,
         }
     }
 
@@ -269,6 +300,8 @@ impl CortexType {
             },
             CortexType::TupleType(_) => false,
             CortexType::FollowsType(_) => false,
+            CortexType::OptionalType(t) => t.is_core(),
+            CortexType::NoneType => true,
         }
     }
     pub fn is_non_composite(&self) -> bool {
@@ -282,6 +315,8 @@ impl CortexType {
             },
             CortexType::TupleType(_) => true,
             CortexType::FollowsType(_) => true,
+            CortexType::OptionalType(t) => t.is_non_composite(),
+            CortexType::NoneType => true,
         }
     }
 
@@ -293,16 +328,20 @@ impl CortexType {
     }
     pub fn to_optional_value(self, value: bool) -> Self {
         match self {
-            CortexType::BasicType(b) => {
-                CortexType::BasicType(BasicType { optional: value, name: b.name, type_args: b.type_args })
+            CortexType::OptionalType(inner) => {
+                if value {
+                    CortexType::OptionalType(inner)
+                } else {
+                    *inner
+                }
             },
-            CortexType::RefType(r) => {
-                CortexType::RefType(RefType { contained: Box::new(r.contained.to_optional_value(value)), mutable: r.mutable })
+            other => {
+                if value {
+                    CortexType::OptionalType(Box::new(other))
+                } else {
+                    other
+                }
             },
-            CortexType::TupleType(t) => CortexType::TupleType(TupleType { types: t.types, optional: value }),
-            CortexType::FollowsType(t) => CortexType::FollowsType(FollowsType {
-                clause: t.clause,
-            })
         }
     }
     pub fn to_optional_if_true(self, value: bool) -> Self {
@@ -319,6 +358,8 @@ impl CortexType {
             CortexType::RefType(r) => r.contained.name(),
             CortexType::TupleType(_) => Err(TypeError::TupleTypeNotValid),
             CortexType::FollowsType(_) => Err(TypeError::FollowsTypeNotValid),
+            CortexType::OptionalType(t) => t.name(),
+            CortexType::NoneType => Ok(&*NONE_NAME),
         }
     }
 
@@ -338,7 +379,7 @@ impl CortexType {
                         // When there's only 1 type argument, we can try to combine it (ex. a list<number?> with a list<number>)
                         if b1.type_args.len() == 1 && b2.type_args.len() == 1 {
                             if let Some(inner) = b1.type_args.get(0).unwrap().clone().combine_with(b2.type_args.get(0).unwrap().clone(), type_defs) {
-                                Some(Self::basic(b1.name.clone(), b1.optional || b2.optional, vec![inner]))
+                                Some(Self::basic(b1.name.clone(), vec![inner]))
                             } else {
                                 None
                             }
@@ -346,7 +387,7 @@ impl CortexType {
                             None
                         }
                     } else {
-                        Some(Self::basic(b1.name.clone(), b1.optional || b2.optional, b1.type_args.clone()))
+                        Some(Self::basic(b1.name.clone(), b1.type_args.clone()))
                     }
                 } else {
                     None
@@ -370,7 +411,7 @@ impl CortexType {
                             return None;
                         }
                     }
-                    Some(CortexType::TupleType(TupleType { types, optional: t1.optional || t2.optional }))
+                    Some(CortexType::TupleType(TupleType { types }))
                 } else {
                     None
                 }
@@ -420,6 +461,21 @@ impl CortexType {
                     None
                 }
             },
+            (CortexType::NoneType, CortexType::OptionalType(o)) | 
+            (CortexType::OptionalType(o), CortexType::NoneType)=> {
+                Some(CortexType::OptionalType(o))
+            },
+            (CortexType::OptionalType(t1), other) | 
+            (other, CortexType::OptionalType(t1)) => {
+                if let Some(result) = t1.combine_with(other, type_defs) {
+                    Some(CortexType::OptionalType(Box::new(result)))
+                } else {
+                    None
+                }
+            },
+            (CortexType::NoneType, CortexType::NoneType) => {
+                Some(CortexType::NoneType)
+            },
             _ => None
         }
     }
@@ -432,11 +488,7 @@ impl CortexType {
         match (self, other) {
             (CortexType::BasicType(b1), CortexType::BasicType(b2)) => {
                 if b1.name == b2.name {
-                    if b1.optional && !b2.optional {
-                        false
-                    } else {
-                        are_type_args_equal(&b1.type_args, &b2.type_args)
-                    }
+                    are_type_args_equal(&b1.type_args, &b2.type_args)
                 } else {
                     false
                 }
@@ -491,6 +543,18 @@ impl CortexType {
                     false
                 }
             },
+            (CortexType::OptionalType(o1), CortexType::OptionalType(o2)) => {
+                o1.is_subtype_of(o2, type_defs)
+            },
+            (CortexType::NoneType, CortexType::OptionalType(_)) => {
+                true
+            },
+            (other, CortexType::OptionalType(o)) => {
+                other.is_subtype_of(&*o, type_defs)
+            },
+            (CortexType::NoneType, CortexType::NoneType) => {
+                true
+            },
             _ => false,
         }
     }
@@ -511,7 +575,7 @@ fn are_type_args_equal(a: &Vec<CortexType>, b: &Vec<CortexType>) -> bool {
 pub fn forwarded_type_args(names: &Vec<String>) -> Vec<CortexType> {
     let mut type_args = Vec::new();
     for name in names {
-        type_args.push(CortexType::basic(PathIdent::simple(name.clone()), false, vec![]));
+        type_args.push(CortexType::basic(PathIdent::simple(name.clone()), vec![]));
     }
     type_args
 }
