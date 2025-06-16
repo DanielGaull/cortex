@@ -57,6 +57,7 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
     assert("sizer.size(shape)", "4", &mut interpreter)?;
 
     assert("5.add(5)", "10", &mut interpreter)?;
+    assert("doAdd(5, 5)", "10", &mut interpreter)?;
     
     Ok(())
 }
