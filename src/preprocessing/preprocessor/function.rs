@@ -174,14 +174,19 @@ impl CortexPreprocessor {
         let mut param_types = Vec::<CortexType>::with_capacity(sig.params.len());
         for param in &sig.params {
             param_names.push(param.name.clone());
-            param_types.push(param.typ.clone().with_prefix_if_not_core(&extended_prefix));
+            if let Some(_) = TypeEnvironment::does_arg_list_contain(&sig.type_param_names, &param.typ) {
+                param_types.push(param.typ.clone());
+            } else {
+                param_types.push(param.typ.clone().with_prefix_if_not_core(&extended_prefix));
+            }
         }
 
         let bindings;
         if let Some(type_args) = type_args {
             bindings = sig.type_param_names.iter().cloned().zip(type_args).collect();
         } else {
-            bindings = self.infer_type_args(&sig, &arg_types, name, st_str)?;
+            bindings = self.infer_type_args(&param_names, &param_types, &sig.type_param_names,
+                &arg_types, name, st_str)?;
         }
         let parent_type_env = self.current_type_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         let mut new_type_env = TypeEnvironment::new(*parent_type_env);
@@ -212,9 +217,11 @@ impl CortexPreprocessor {
             final_args.push(arg);
             statements.extend(st);
         }
-
-        return_type = self.clean_type(return_type)
-            .with_prefix_if_not_core(&extended_prefix);
+        
+        return_type = self.clean_type(return_type);
+        if let None = TypeEnvironment::does_arg_list_contain(&sig.type_param_names, &return_type) {
+            return_type = return_type.with_prefix_if_not_core(&extended_prefix);
+        }
 
         self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
 
@@ -241,13 +248,15 @@ impl CortexPreprocessor {
         }
         Ok(bindings)
     }
-    fn infer_type_args(&self, sig: &FunctionSignature, args: &Vec<CortexType>, name: String, st_str: &String) -> Result<HashMap<String, CortexType>, CortexError> {
+    fn infer_type_args(&self, param_names: &Vec<String>, param_types: &Vec<CortexType>, 
+            type_param_names: &Vec<String>, args: &Vec<CortexType>, 
+            name: String, st_str: &String) -> Result<HashMap<String, CortexType>, CortexError> {
         let mut bindings = HashMap::<String, CortexType>::new();
-        for (arg, param) in args.iter().zip(&sig.params) {
-            self.infer_arg(&param.typ, &arg, &sig.type_param_names, &mut bindings, param.name(), st_str)?;
+        for (arg, param) in args.iter().zip(param_names.iter().zip(param_types)) {
+            self.infer_arg(&param.1, &arg, type_param_names, &mut bindings, param.0, st_str)?;
         }
 
-        if bindings.len() != sig.type_param_names.len() {
+        if bindings.len() != type_param_names.len() {
             Err(Box::new(PreprocessingError::CouldNotInferTypeBinding(name)))
         } else {
             Ok(bindings)

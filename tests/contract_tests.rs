@@ -82,6 +82,25 @@ fn test_contracts2() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn test_contracts_modules() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    let path = Path::new("./tests/res/contract_module_tests.txt");
+    let mut file = File::open(path).unwrap();
+    let mut content = String::new();
+    let _ = file.read_to_string(&mut content);
+    content = content.replace("\r\n", "\n");
+    let program = CortexParser::parse_program(&content)?;
+    for tl in program.into_iter() {
+        interpreter.run_top_level(tl)?;
+    }
+
+    assert("5.add(5)", "10", &mut interpreter)?;
+    assert("performAdd(5, 10)", "15", &mut interpreter)?;
+
+    Ok(())
+}
+
 fn assert(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
     let value = interpreter.execute_expression(ast)?;

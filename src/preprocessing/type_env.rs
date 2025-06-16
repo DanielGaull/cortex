@@ -40,7 +40,7 @@ impl TypeEnvironment {
     pub fn does_arg_list_contain<'a>(type_param_names: &Vec<String>, typ: &'a CortexType) -> Option<&'a String> {
         let typ_name = typ.name().ok()?;
         if typ_name.is_final() {
-            let name = typ_name.get_back().unwrap();
+            let name = typ_name.get_back().ok()?;
             if type_param_names.contains(name) {
                 Some(name)
             } else {

@@ -1,0 +1,15 @@
+module mystd {
+    contract MyAdd<T> {
+        fn add(this, other: T): T;
+    }
+}
+
+extend number follows mystd::MyAdd<number> {
+    fn add(this, other: number): number {
+        this + other
+    }
+}
+
+fn performAdd<T>(first: follows mystd::MyAdd<T>, second: T): T {
+    first.add(second)
+}
