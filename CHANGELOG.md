@@ -7,6 +7,18 @@
     > Ex. `let x: follows X = ...;`
   - Contracts can define functions that types must implement in order to follow the contract
     > Offers a guarantee that certain functions exist
+  - Please note: There is a known issue with using contracts with list literals
+    > Specifically, syntax like this: `let x: list<follows X> = [a, b, c, ...];` is undefined
+    > This is planned to be fixed in a future alpha release, alongside new features
+* Merging bundles and structs, plus `heap`/dereferencing
+  - Bundles no longer exist. Everything is now a struct
+  - Struct member functions can take in `this`, `&this`, or `&mut this`
+  - Structs can be placed on the heap (acting as bundles did and creating a reference) with the `heap` keyword: `heap Box<number> {item: 5}`
+  - The `heap` expression can be used with *any* value to place it on the heap - for example, `heap 5` creates a `&mut number` reference to the value `5` on the heap
+  - You can dereference any reference with the unary dereference operator `@`: `@myReference` (read-only)
+* Generics are now invariant (so for example `list<number>` is no longer a subtype of `list<number?>`)
+* Struct names are no longer optional (can't use `struct ~{...}`)
+* Bug fixes
 
 # 1.0.0alpha3 and 1.0.0alpha4
 * Critical bug fixes and minor API enhancements
