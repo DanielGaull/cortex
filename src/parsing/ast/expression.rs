@@ -71,6 +71,7 @@ pub enum PExpression {
         step: Option<f64>,
     },
     HeapAlloc(Box<PExpression>),
+    DerefFat(Box<PExpression>),
 }
 impl SimpleCodeGen for PExpression {
     fn codegen(&self, indent: usize) -> String {
@@ -197,6 +198,7 @@ impl SimpleCodeGen for PExpression {
                 }
             },
             PExpression::HeapAlloc(exp) => format!("heap {}", exp.codegen(indent)),
+            PExpression::DerefFat(exp) => exp.codegen(indent),
         }
     }
 }
@@ -208,7 +210,7 @@ impl PExpression {
             PExpression::Construction { name: _, type_args: _, assignments: _ } |
             PExpression::IfStatement { first: _, conds: _, last: _ } | PExpression::MemberAccess(_, _) |
             PExpression::ListLiteral(_) | PExpression::MemberCall { callee: _, member: _, args: _, type_args: _ } |
-            PExpression::Tuple(_) | PExpression::Char(_) 
+            PExpression::Tuple(_) | PExpression::Char(_) | PExpression::DerefFat(_)
                 => true,
             
             PExpression::UnaryOperation { op: _, exp: _ } | PExpression::Bang(_) | 

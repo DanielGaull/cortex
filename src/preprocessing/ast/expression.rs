@@ -39,6 +39,7 @@ pub enum RExpression {
         args: Vec<RExpression>,
     },
     HeapAlloc(Box<RExpression>),
+    DerefFat(Box<RExpression>),
 }
 
 pub struct RIdentExpression {

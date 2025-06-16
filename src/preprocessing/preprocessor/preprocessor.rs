@@ -596,6 +596,10 @@ impl CortexPreprocessor {
 
                 Ok((RExpression::HeapAlloc(Box::new(sub)), CortexType::reference(typ, true), st))
             },
+            PExpression::DerefFat(inner) => {
+                let (exp, typ, st) = self.check_exp(*inner, expected_type)?;
+                Ok((RExpression::DerefFat(Box::new(exp)), typ, st))
+            }
         }
     }
 

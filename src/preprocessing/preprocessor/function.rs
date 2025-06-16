@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::FunctionSignature, r#type::{forwarded_type_args, CortexType, FollowsClause, FollowsEntry, FollowsType}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress, statement::RStatement}, error::PreprocessingError, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{FunctionSignature, ThisArg}, r#type::{forwarded_type_args, CortexType, FollowsClause, FollowsEntry, FollowsType}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress, statement::RStatement}, error::PreprocessingError, type_env::TypeEnvironment}};
 
 use super::preprocessor::{CheckResult, CortexPreprocessor};
 
@@ -59,7 +59,12 @@ impl CortexPreprocessor {
         function_sig.params.insert(0, Parameter::named("this", this_type));
 
         let (callee_processed, _, callee_st) = self.check_exp(*callee.clone(), None)?;
-        args.insert(0, *callee.clone());
+        let wrap_this_in_deref = function_sig.this_arg == ThisArg::DirectThis;
+        if wrap_this_in_deref {
+            args.insert(0, PExpression::DerefFat(Box::new(*callee.clone())));
+        } else {
+            args.insert(0, *callee.clone());
+        }
 
         let pure_sig = FunctionSignature {
             params: function_sig.params,

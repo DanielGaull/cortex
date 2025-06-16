@@ -391,6 +391,15 @@ impl CortexInterpreter {
                 let addr = self.allocate(value);
                 Ok(CortexValue::Reference(addr))
             },
+            RExpression::DerefFat(inner) => {
+                let value = self.evaluate_expression(inner)?;
+                if let CortexValue::Fat(val, _) = value {
+                    let val = val.borrow().clone();
+                    Ok(val)
+                } else {
+                    Err(Box::new(InterpreterError::ExpectedFatPointer(String::from(value.get_variant_name()))))
+                }
+            },
         }
     }
 
