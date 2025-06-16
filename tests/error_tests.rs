@@ -68,6 +68,11 @@ fn test_contract_errors() -> Result<(), Box<dyn Error>> {
         }
     }", PreprocessingError::DuplicateInFollowsClause(String::from("NetworkRequester")), &mut interpreter)?;
 
+    interpreter.run_top_level(CortexParser::parse_top_level("struct NumList follows Iterator<number> { i: number, values: &list<number>, fn next(&mut this): number { let result = this.values[this.i]; this.i += 1; result } }")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let x: follows Iterator<number> = heap NumList { i: 0, values: [1, 2] };")?)?;
+    assert_err("x.dne();", PreprocessingError::FunctionDoesNotExist(String::from("dne")), &mut interpreter)?;
+    assert_err("x.i;", PreprocessingError::CannotAccessMemberOfFollowsType, &mut interpreter)?;
+
     Ok(())
 }
 
