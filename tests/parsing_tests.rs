@@ -119,6 +119,8 @@ fn test_types() -> Result<(), Box<dyn Error>> {
     run_type_test("follows X + Y")?;
     run_type_test("follows X<number> + Y<string>")?;
     run_type_test("follows X<T> + Y<R> + Z<A, B>")?;
+    run_type_test("(&mut Box<number>, &list<string>)?")?;
+    run_type_test("(follows X<T> + Y<R> + Z<A, B>)?")?;
     Ok(())
 }
 
