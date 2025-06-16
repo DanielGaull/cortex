@@ -1,0 +1,9 @@
+contract Transformer {
+    fn transform<T>(&this, item: T): T;
+}
+
+struct IdentityTransformer follows Transformer {
+    fn transform<T>(&this, item: T): T {
+        item
+    }
+}

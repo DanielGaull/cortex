@@ -62,6 +62,26 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn test_contracts2() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    let path = Path::new("./tests/res/contracts2.txt");
+    let mut file = File::open(path).unwrap();
+    let mut content = String::new();
+    let _ = file.read_to_string(&mut content);
+    content = content.replace("\r\n", "\n");
+    let program = CortexParser::parse_program(&content)?;
+    for tl in program.into_iter() {
+        interpreter.run_top_level(tl)?;
+    }
+
+    run("let t: follows Transformer = heap IdentityTransformer {};", &mut interpreter)?;
+    assert("t.transform(5)", "5", &mut interpreter)?;
+    assert("t.transform<number?>(none)", "none", &mut interpreter)?;
+
+    Ok(())
+}
+
 fn assert(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
     let value = interpreter.execute_expression(ast)?;
