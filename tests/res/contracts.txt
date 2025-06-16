@@ -109,3 +109,13 @@ struct ConcreteShapeSizer follows SizerWrapper {
         sz.size()
     }
 }
+
+contract Add<T> {
+    fn add(this, rhs: T): T;
+}
+
+extend number follows Add<number> {
+    fn add(this, rhs: number): number {
+        this + rhs
+    }
+}

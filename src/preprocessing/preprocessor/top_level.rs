@@ -303,6 +303,10 @@ impl CortexPreprocessor {
     }
     
     fn add_extension(&mut self, n: PathIdent, item: Extension, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
+        if let Some(clause) = &item.follows_clause {
+            self.check_contract_follows(&item.functions, &clause.contracts)?;
+        }
+
         let item_name = item.name.get_back()?;
         let item_prefix = item.name.without_last();
         for func in item.functions {
@@ -333,6 +337,14 @@ impl CortexPreprocessor {
                 OptionalIdentifier::Ignore => (),
             }
         }
+
+        let followed_contracts = item.follows_clause
+            .map(|f| f.contracts.clone())
+            .unwrap_or(vec![]);
+        self.type_map
+            .get_mut(&PathIdent::concat(&n, &item.name))
+            .map(|t| t.followed_contracts.extend(followed_contracts));
+
         Ok(())
     }
 

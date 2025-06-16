@@ -55,6 +55,8 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
     run("let shape = heap Square {len: 2};", &mut interpreter)?;
     run("let sizer = heap ConcreteShapeSizer{};", &mut interpreter)?;
     assert("sizer.size(shape)", "4", &mut interpreter)?;
+
+    assert("5.add(5)", "10", &mut interpreter)?;
     
     Ok(())
 }
