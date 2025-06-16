@@ -498,7 +498,7 @@ impl CortexParser {
                 let mut pairs = pair.into_inner().peekable();
                 let name = Self::parse_path_ident(pairs.next().unwrap())?;
                 let type_args;
-                if pairs.peek().unwrap().as_rule() == Rule::typeList {
+                if pairs.peek().is_some() && pairs.peek().unwrap().as_rule() == Rule::typeList {
                     type_args = Self::parse_type_list(pairs.next().unwrap())?;
                 } else {
                     type_args = vec![];

@@ -42,6 +42,19 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
     // run("wrapper = heap ListWrapper<number> { items: [1, 2, 3], index: 0, };", &mut interpreter)?;
     // run("let iterList: &mut list<follows Iterator<number>> = [wrapper];", &mut interpreter)?;
     // assert("iterList[0].next()", "1", &mut interpreter)?;
+
+    run("let myOtherListWrapper = heap OtherListWrapper<number>{ items: [1, 2, 3] };", &mut interpreter)?;
+    run("let result = myOtherListWrapper.map(addFn2);", &mut interpreter)?;
+    assert("toString(result)", "\"&([2, 3, 4])\"", &mut interpreter)?;
+
+    run("wrapper = heap ListWrapper<number> { items: [1, 2, 3], index: 0, };", &mut interpreter)?;
+    run("let myIteratorMapper = heap IteratorMapper<number, number>{ iter: wrapper, mapper: addFn2 };", &mut interpreter)?;
+    run("result = myIteratorMapper.map();", &mut interpreter)?;
+    assert("toString(result)", "\"&([2, 3, 4])\"", &mut interpreter)?;
+
+    run("let shape = heap Square {len: 2};", &mut interpreter)?;
+    run("let sizer = heap ConcreteShapeSizer{};", &mut interpreter)?;
+    assert("sizer.size(shape)", "4", &mut interpreter)?;
     
     Ok(())
 }

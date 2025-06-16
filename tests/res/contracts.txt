@@ -64,3 +64,48 @@ struct Box<T> {
         this.item = value;
     }
 }
+
+struct OtherListWrapper<D> {
+    items: &mut list<D>,
+
+    fn map<R>(&this, mapper: follows MapFn<D, R>): &mut list<R> {
+        let result: &mut list<R> = [];
+        let index = 0;
+        while index < this.items.len() {
+            result.add(mapper.map(this.items[index]));
+            index += 1;
+        }
+        result
+    }
+}
+
+struct IteratorMapper<T, R> {
+    iter: follows Iterator<T>,
+    mapper: follows MapFn<T, R>,
+
+    fn map(&this): &mut list<R> {
+        mapper(this.iter, this.mapper)
+    }
+}
+
+contract Sizer {
+    fn size(&this): number;
+}
+
+contract SizerWrapper {
+    fn size(&this, sz: follows Sizer): number;
+}
+
+struct Square follows Sizer {
+    len: number,
+
+    fn size(&this): number {
+        this.len * this.len
+    }
+}
+
+struct ConcreteShapeSizer follows SizerWrapper {
+    fn size(&this, sz: follows Sizer): number {
+        sz.size()
+    }
+}
