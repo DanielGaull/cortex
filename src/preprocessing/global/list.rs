@@ -9,6 +9,7 @@ impl CortexPreprocessor {
         global.add_extension(Extension {
             name: PathIdent::simple(String::from("list")),
             type_param_names: vec![String::from("T")],
+            follows_clause: None,
             functions: vec![
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from(INDEX_GET_FN_NAME)), 

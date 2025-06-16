@@ -9,7 +9,7 @@ module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
 function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 struct = { "struct" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ followsClause? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
-extension = { "extend" ~ pathIdent ~ "{" ~ memberFuncList ~ "}" }
+extension = { "extend" ~ pathIdent ~ followsClause? ~ "{" ~ memberFuncList ~ "}" }
 contract = { "contract" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberFunctionSignature ~ ";")* ~ "}" }
 
 // Statements

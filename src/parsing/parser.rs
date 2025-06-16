@@ -827,24 +827,31 @@ impl CortexParser {
     fn parse_extension_pair(pair: Pair<Rule>) -> Result<Extension, ParseError> {
         let mut pairs = pair.into_inner();
         let name = Self::parse_path_ident(pairs.next().unwrap())?;
+        let mut follows_clause = None;
         let mut type_args = Vec::new();
-        let next = pairs.next().unwrap();
-        let functions;
+        let mut next = pairs.next().unwrap();
         if matches!(next.as_rule(), Rule::typeArgList) {
             let type_arg_pairs = next.into_inner();
             for ident in type_arg_pairs {
                 type_args.push(ident.as_str());
             }
-            functions = Self::parse_member_func_list(pairs.next().unwrap())?;
-        } else {
-            functions = Self::parse_member_func_list(next)?;
+            next = pairs.next().unwrap();
         }
+        
+        if matches!(next.as_rule(), Rule::followsClause) {
+            let clause = Self::parse_follows_clause(next)?;
+            follows_clause = Some(clause);
+            next = pairs.next().unwrap();
+        }
+
+        let functions = Self::parse_member_func_list(next)?;
         
         Ok(
             Extension { 
                 name: name,
                 functions: functions,
                 type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+                follows_clause,
             }
         )
     }

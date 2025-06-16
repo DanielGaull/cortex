@@ -372,6 +372,7 @@ pub struct Extension {
     pub(crate) name: PathIdent,
     pub(crate) type_param_names: Vec<String>,
     pub(crate) functions: Vec<MemberFunction>,
+    pub(crate) follows_clause: Option<FollowsClause>,
 }
 impl SimpleCodeGen for Extension {
     fn codegen(&self, indent: usize) -> String {
@@ -386,6 +387,11 @@ impl SimpleCodeGen for Extension {
             s.push_str("<");
             s.push_str(&self.type_param_names.join(","));
             s.push_str(">");
+        }
+
+        if let Some(clause) = &self.follows_clause {
+            s.push_str(" ");
+            s.push_str(&clause.codegen(indent));
         }
 
         s.push_str(" {\n");
