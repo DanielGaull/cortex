@@ -479,11 +479,20 @@ impl CortexPreprocessor {
                     }
                     new_items.push(item_exp);
                 }
-                if let Some(contained) = contained_type {
+                if let Some(expected) = expected_internal {
+                    if let Some(contained) = contained_type {
+                        if contained.is_subtype_of(&expected, &self.type_map) {
+                            let true_type = CortexType::reference(CortexType::list(expected), true);
+                            Ok((RExpression::ListLiteral(new_items), true_type, statements))
+                        } else {
+                            Err(Box::new(PreprocessingError::CannotDetermineType(st_str)))
+                        }
+                    } else {
+                        let true_type = CortexType::reference(CortexType::list(expected), true);
+                        Ok((RExpression::ListLiteral(new_items), true_type, statements))
+                    }
+                } else if let Some(contained) = contained_type {
                     let true_type = CortexType::reference(CortexType::list(contained), true);
-                    Ok((RExpression::ListLiteral(new_items), true_type, statements))
-                } else if let Some(expected_internal) = expected_internal {
-                    let true_type = CortexType::reference(CortexType::list(expected_internal), true);
                     Ok((RExpression::ListLiteral(new_items), true_type, statements))
                 } else {
                     Err(Box::new(PreprocessingError::CannotDetermineType(st_str)))

@@ -33,6 +33,15 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
     assert("box.get().map(1)", "4", &mut interpreter)?;
     run("box.set(addFn2);", &mut interpreter)?;
     assert("box.get().map(1)", "2", &mut interpreter)?;
+
+    run("wrapper = heap ListWrapper<number> { items: [1, 2, 3], index: 0, };", &mut interpreter)?;
+    run("let iterTuple: (follows Iterator<number>,) = (wrapper,);", &mut interpreter)?;
+    assert("iterTuple.t0.next()", "1", &mut interpreter)?;
+
+    // TODO: uncomment in the future once all issues with this test are fixed
+    // run("wrapper = heap ListWrapper<number> { items: [1, 2, 3], index: 0, };", &mut interpreter)?;
+    // run("let iterList: &mut list<follows Iterator<number>> = [wrapper];", &mut interpreter)?;
+    // assert("iterList[0].next()", "1", &mut interpreter)?;
     
     Ok(())
 }
