@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Struct, Contract, Extension, PFunction}, r#type::{CortexType, FollowsEntry}};
+use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Contract, Extension, PFunction, Struct}, r#type::{CortexType, FollowsEntry, TypeParam}};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -26,14 +26,14 @@ pub enum ModuleError {
 
 pub struct TypeDefinition {
     pub(crate) fields: HashMap<String, CortexType>,
-    pub(crate) type_param_names: Vec<String>,
+    pub(crate) type_params: Vec<TypeParam>,
     pub(crate) followed_contracts: Vec<FollowsEntry>,
 }
 impl TypeDefinition {
-    pub fn new(fields: HashMap<String, CortexType>, type_param_names: Vec<String>, followed_contracts: Vec<FollowsEntry>) -> Self {
+    pub fn new(fields: HashMap<String, CortexType>, type_params: Vec<TypeParam>, followed_contracts: Vec<FollowsEntry>) -> Self {
         TypeDefinition {
             fields,
-            type_param_names,
+            type_params,
             followed_contracts,
         }
     }
@@ -128,9 +128,9 @@ impl Module {
                     Err(ModuleError::FunctionAlreadyExists(name.clone()))
                 } else {
                     let mut seen_type_param_names = HashSet::new();
-                    for t in &func.type_param_names {
+                    for t in &func.type_params {
                         if seen_type_param_names.contains(t) {
-                            return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
+                            return Err(ModuleError::DuplicateTypeArgumentName(t.name.clone()));
                         }
                         seen_type_param_names.insert(t);
                     }
@@ -152,9 +152,9 @@ impl Module {
             Err(ModuleError::TypeAlreadyExists(item.name.clone()))
         } else {
             let mut seen_type_param_names = HashSet::new();
-            for t in &item.type_param_names {
+            for t in &item.type_params {
                 if seen_type_param_names.contains(t) {
-                    return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
+                    return Err(ModuleError::DuplicateTypeArgumentName(t.name.clone()));
                 }
                 seen_type_param_names.insert(t);
             }
@@ -170,9 +170,9 @@ impl Module {
     }
     pub fn add_extension(&mut self, item: Extension) -> Result<(), ModuleError> {
         let mut seen_type_param_names = HashSet::new();
-        for t in &item.type_param_names {
+        for t in &item.type_params {
             if seen_type_param_names.contains(t) {
-                return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
+                return Err(ModuleError::DuplicateTypeArgumentName(t.name.clone()));
             }
             seen_type_param_names.insert(t);
         }
@@ -190,9 +190,9 @@ impl Module {
             Err(ModuleError::ContractAlreadyExists(item.name.clone()))
         } else {
             let mut seen_type_param_names = HashSet::new();
-            for t in &item.type_param_names {
+            for t in &item.type_params {
                 if seen_type_param_names.contains(t) {
-                    return Err(ModuleError::DuplicateTypeArgumentName(t.clone()));
+                    return Err(ModuleError::DuplicateTypeArgumentName(t.name.clone()));
                 }
                 seen_type_param_names.insert(t);
             }

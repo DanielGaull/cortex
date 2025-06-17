@@ -29,7 +29,7 @@ pub enum TypeError {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BasicType {
     pub(crate) name: PathIdent,
-    pub(crate) type_args: Vec<CortexType>,
+    pub(crate) type_args: Vec<TypeArg>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RefType {
@@ -132,13 +132,13 @@ impl std::fmt::Debug for CortexType {
 }
 
 impl CortexType {
-    pub fn basic(name: PathIdent, type_args: Vec<CortexType>) -> Self {
+    pub fn basic(name: PathIdent, type_args: Vec<TypeArg>) -> Self {
         Self::BasicType(BasicType {
             name: name,
             type_args: type_args,
         })
     }
-    pub fn basic_simple(name: &str, type_args: Vec<CortexType>) -> Self {
+    pub fn basic_simple(name: &str, type_args: Vec<TypeArg>) -> Self {
         Self::BasicType(BasicType {
             name: PathIdent::simple(String::from(name)),
             type_args: type_args,
@@ -172,7 +172,10 @@ impl CortexType {
         Self::NoneType
     }
     pub fn list(typ: CortexType) -> Self {
-        Self::basic(PathIdent::simple(String::from("list")), vec![typ])
+        Self::basic(
+            PathIdent::simple(String::from("list")), 
+            vec![TypeArg::Ty(typ)]
+        )
     }
     pub fn char() -> Self {
         Self::simple("char")
@@ -531,7 +534,7 @@ impl CortexType {
             (CortexType::BasicType(b), CortexType::FollowsType(f)) => {
                 if let Some(type_def) = type_defs.get(&b.name) {
                     let entries = 
-                        TypeEnvironment::fill_in_follows_entry_from_typedef(b.clone(), type_def.type_param_names.clone(), type_def.followed_contracts.clone());
+                        TypeEnvironment::fill_in_follows_entry_from_typedef(b.clone(), type_def.type_params.clone(), type_def.followed_contracts.clone());
                     // have to be no contracts in f that aren't in b
                     for c in &f.clause.contracts {
                         if !entries.contains(c) {
@@ -560,7 +563,7 @@ impl CortexType {
     }
 }
 
-fn are_type_args_equal(a: &Vec<CortexType>, b: &Vec<CortexType>) -> bool {
+fn are_type_args_equal(a: &Vec<TypeArg>, b: &Vec<TypeArg>) -> bool {
     if a.len() != b.len() {
         return false;
     }
@@ -572,10 +575,10 @@ fn are_type_args_equal(a: &Vec<CortexType>, b: &Vec<CortexType>) -> bool {
     true
 }
 
-pub fn forwarded_type_args(names: &Vec<String>) -> Vec<CortexType> {
+pub fn forwarded_type_args(params: &Vec<TypeParam>) -> Vec<TypeArg> {
     let mut type_args = Vec::new();
-    for name in names {
-        type_args.push(CortexType::basic(PathIdent::simple(name.clone()), vec![]));
+    for p in params {
+        type_args.push(TypeArg::Ident(p.name.clone()));
     }
     type_args
 }
@@ -583,7 +586,7 @@ pub fn forwarded_type_args(names: &Vec<String>) -> Vec<CortexType> {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FollowsEntry {
     pub(crate) name: PathIdent,
-    pub(crate) type_args: Vec<CortexType>,
+    pub(crate) type_args: Vec<TypeArg>,
 }
 impl SimpleCodeGen for FollowsEntry {
     fn codegen(&self, indent: usize) -> String {
@@ -596,7 +599,7 @@ impl SimpleCodeGen for FollowsEntry {
     }
 }
 impl FollowsEntry {
-    pub fn new(name: PathIdent, type_args: Vec<CortexType>) -> Self {
+    pub fn new(name: PathIdent, type_args: Vec<TypeArg>) -> Self {
         FollowsEntry {
             name,
             type_args,
@@ -611,5 +614,93 @@ pub struct FollowsClause {
 impl SimpleCodeGen for FollowsClause {
     fn codegen(&self, indent: usize) -> String {
         format!("follows {}", self.contracts.iter().map(|c| c.codegen(indent)).collect::<Vec<_>>().join(" + "))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TypeParamType {
+    Ty,
+    Int,
+}
+impl SimpleCodeGen for TypeParamType {
+    fn codegen(&self, _: usize) -> String {
+        match self {
+            TypeParamType::Ty => String::from("ty"),
+            TypeParamType::Int => String::from("int"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct TypeParam {
+    pub(crate) name: String,
+    pub(crate) typ: TypeParamType,
+}
+
+impl TypeParam {
+    pub fn new(name: &str, typ: TypeParamType) -> Self {
+        Self {
+            name: String::from(name),
+            typ,
+        }
+    }
+    pub fn ty(name: &str) -> Self {
+        Self::new(name, TypeParamType::Ty)
+    }
+    pub fn int(name: &str) -> Self {
+        Self::new(name, TypeParamType::Int)
+    }
+}
+
+impl SimpleCodeGen for TypeParam {
+    fn codegen(&self, indent: usize) -> String {
+        format!("{}: {}", self.name, self.typ.codegen(indent))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TypeArg {
+    Ty(CortexType),
+    Int(i32),
+    Ident(String),
+}
+impl SimpleCodeGen for TypeArg {
+    fn codegen(&self, indent: usize) -> String {
+        match self {
+            TypeArg::Ty(ty) => ty.codegen(indent),
+            TypeArg::Int(i) => format!("{}", i),
+            TypeArg::Ident(n) => n.clone(),
+        }
+    }
+}
+impl TypeArg {
+    pub fn combine_with(self, other: Self, type_defs: &HashMap<PathIdent, TypeDefinition>) -> Option<Self> {
+        match (self, other) {
+            (TypeArg::Ty(t1), TypeArg::Ty(t2)) => {
+                Some(TypeArg::Ty(t1.combine_with(t2, type_defs)?))
+            },
+            (TypeArg::Int(i1), TypeArg::Int(i2)) => {
+                if i1 == i2 {
+                    Some(TypeArg::Int(i1))
+                } else {
+                    None
+                }
+            },
+            (_, _) => None,
+        }
+    }
+    
+    pub fn with_prefix(&self, prefix: &PathIdent) -> Self {
+        match self {
+            TypeArg::Ty(typ) => TypeArg::Ty(typ.with_prefix(prefix)),
+            other => other.clone(),
+        }
+    }
+
+    pub(crate) fn subtract_if_possible(self, prefix: &PathIdent) -> Self {
+        match self {
+            TypeArg::Ty(typ) => TypeArg::Ty(typ.subtract_if_possible(prefix)),
+            other => other,
+        }
     }
 }

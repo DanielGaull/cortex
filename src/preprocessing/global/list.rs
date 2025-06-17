@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, ThisArg}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}};
+use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, ThisArg}, r#type::{CortexType, TypeParam}}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}};
 
 use super::runtime_error::RuntimeError;
 
@@ -8,7 +8,7 @@ impl CortexPreprocessor {
     pub(crate) fn add_list_funcs(global: &mut Module) -> Result<(), Box<dyn Error>> {
         global.add_extension(Extension {
             name: PathIdent::simple(String::from("list")),
-            type_param_names: vec![String::from("T")],
+            type_params: vec![TypeParam::ty("T")],
             follows_clause: None,
             functions: vec![
                 MemberFunction::new(OptionalIdentifier::Ident(

@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Struct as Struct, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType}};
+use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct as Struct, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam, TypeParamType}};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -37,12 +37,17 @@ pub enum ParseError {
     FailTypeTail(String),
     #[error("Failed to parse top level declaration '{0}'")]
     FailTopLevel(String),
-    #[error("Operator does not exist '{0}'")]
-    OperatorDoesNotExist(String),
+    #[error("Failed to parse type argument '{0}'")]
+    FailTypeArg(String),
+    #[error("Failed to parse type parameter '{0}'")]
+    FailTypeParam(String),
+
     #[error("Failed to parse program")]
     FailProgram,
     #[error("Failed to parse {0}: {1}")]
     ParseFailure(String, String),
+    #[error("Operator does not exist '{0}'")]
+    OperatorDoesNotExist(String),
 
     #[error("Invalid this-arg: {0}")]
     InvalidThisArg(String),
@@ -485,8 +490,8 @@ impl CortexParser {
                 let name = Self::parse_path_ident(first_pair)?;
                 let next_pair = pairs.peek().unwrap();
                 let type_args;
-                if let Rule::typeList = next_pair.as_rule() {
-                    type_args = Some(Self::parse_type_list(pairs.next().unwrap())?);
+                if let Rule::typeArgList = next_pair.as_rule() {
+                    type_args = Some(Self::parse_type_arg_list(pairs.next().unwrap())?);
                 } else {
                     type_args = None;
                 }
@@ -498,8 +503,8 @@ impl CortexParser {
                 let mut pairs = pair.into_inner().peekable();
                 let name = Self::parse_path_ident(pairs.next().unwrap())?;
                 let type_args;
-                if pairs.peek().is_some() && pairs.peek().unwrap().as_rule() == Rule::typeList {
-                    type_args = Self::parse_type_list(pairs.next().unwrap())?;
+                if pairs.peek().is_some() && pairs.peek().unwrap().as_rule() == Rule::typeArgList {
+                    type_args = Self::parse_type_arg_list(pairs.next().unwrap())?;
                 } else {
                     type_args = vec![];
                 }
@@ -608,8 +613,8 @@ impl CortexParser {
                             let member = pairs.next().unwrap().as_str();
                             let next_pair = pairs.peek().unwrap();
                             let type_args;
-                            if let Rule::typeList = next_pair.as_rule() {
-                                type_args = Some(Self::parse_type_list(pairs.next().unwrap())?);
+                            if let Rule::typeArgList = next_pair.as_rule() {
+                                type_args = Some(Self::parse_type_arg_list(pairs.next().unwrap())?);
                             } else {
                                 type_args = None;
                             }
@@ -700,6 +705,31 @@ impl CortexParser {
         })
     }
 
+    fn parse_type_arg(pair: Pair<Rule>) -> Result<TypeArg, ParseError> {
+        match pair.as_rule() {
+            Rule::ident => Ok(TypeArg::Ident(String::from(pair.as_str()))),
+            Rule::typ => Ok(TypeArg::Ty(Self::parse_type_pair(pair)?)),
+            Rule::int => Ok(TypeArg::Int(pair.as_str().parse().unwrap())),
+            _ => Err(ParseError::FailTypeArg(String::from(pair.as_str())))
+        }
+    }
+
+    fn parse_type_param(pair: Pair<Rule>) -> Result<TypeParam, ParseError> {
+        let as_str = pair.as_str();
+        let mut pairs = pair.into_inner();
+        let name = pairs.next().unwrap().as_str();
+        let mut type_param_type = TypeParamType::Ty;
+        if let Some(p) = pairs.next() {
+            match p.as_rule() {
+                Rule::typeParamTy => type_param_type = TypeParamType::Ty,
+                Rule::typeParamInt => type_param_type = TypeParamType::Int,
+                _ => return Err(ParseError::FailTypeParam(String::from(as_str))),
+            }
+        }
+
+        Ok(TypeParam::new(name, type_param_type))
+    }
+
     fn parse_type_pair(pair: Pair<Rule>) -> Result<CortexType, ParseError> {
         let mut pairs = pair.into_inner();
         let atom = Self::parse_type_atom(pairs.next().unwrap())?;
@@ -720,7 +750,7 @@ impl CortexParser {
                 if let Some(type_args_top_pair) = pairs.next() {
                     let type_arg_pairs = type_args_top_pair.into_inner();
                     for typ_pair in type_arg_pairs {
-                        type_args.push(Self::parse_type_pair(typ_pair)?);
+                        type_args.push(Self::parse_type_arg(typ_pair)?);
                     }
                 }
                 if ident.is_final() && ident.get_back().unwrap() == "none" && type_args.len() == 0 {
@@ -786,14 +816,11 @@ impl CortexParser {
         let mut pairs = pair.into_inner();
         let name = pairs.next().unwrap().as_str();
         let mut follows_clause = None;
-        let mut type_args = Vec::new();
+        let mut type_params = Vec::new();
         let mut next = pairs.next().unwrap();
         let field_params;
-        if matches!(next.as_rule(), Rule::typeArgList) {
-            let type_arg_pairs = next.into_inner();
-            for ident in type_arg_pairs {
-                type_args.push(ident.as_str());
-            }
+        if matches!(next.as_rule(), Rule::typeParamList) {
+            type_params = Self::parse_type_param_list(next)?;
             next = pairs.next().unwrap();
         }
 
@@ -819,7 +846,7 @@ impl CortexParser {
                 name: String::from(name),
                 fields: fields,
                 functions: functions,
-                type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+                type_params,
                 follows_clause,
             }
         )
@@ -828,13 +855,10 @@ impl CortexParser {
         let mut pairs = pair.into_inner();
         let name = Self::parse_path_ident(pairs.next().unwrap())?;
         let mut follows_clause = None;
-        let mut type_args = Vec::new();
+        let mut type_params = Vec::new();
         let mut next = pairs.next().unwrap();
-        if matches!(next.as_rule(), Rule::typeArgList) {
-            let type_arg_pairs = next.into_inner();
-            for ident in type_arg_pairs {
-                type_args.push(ident.as_str());
-            }
+        if matches!(next.as_rule(), Rule::typeParamList) {
+            type_params = Self::parse_type_param_list(next)?;
             next = pairs.next().unwrap();
         }
         
@@ -850,7 +874,7 @@ impl CortexParser {
             Extension { 
                 name: name,
                 functions: functions,
-                type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+                type_params,
                 follows_clause,
             }
         )
@@ -858,15 +882,12 @@ impl CortexParser {
     fn parse_contract_pair(pair: Pair<Rule>) -> Result<Contract, ParseError> {
         let mut pairs = pair.into_inner();
         let name = pairs.next().unwrap().as_str();
-        let mut type_args = Vec::new();
+        let mut type_params = Vec::new();
         let next = pairs.next();
         let functions;
         if let Some(next) = next {
-            if matches!(next.as_rule(), Rule::typeArgList) {
-                let type_arg_pairs = next.into_inner();
-                for ident in type_arg_pairs {
-                    type_args.push(ident.as_str());
-                }
+            if matches!(next.as_rule(), Rule::typeParamList) {
+                type_params = Self::parse_type_param_list(next)?;
                 let mut sigs = Vec::new();
                 while let Some(p) = pairs.next() {
                     sigs.push(Self::parse_member_function_signature(p)?);
@@ -889,7 +910,7 @@ impl CortexParser {
             Contract { 
                 name: String::from(name),
                 function_sigs: functions,
-                type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+                type_params,
             }
         )
     }
@@ -911,7 +932,7 @@ impl CortexParser {
         let name = Self::parse_path_ident(pairs.next().unwrap())?;
         let mut type_args = Vec::new();
         if let Some(next) = pairs.next() {
-            type_args = Self::parse_type_list(next)?;
+            type_args = Self::parse_type_arg_list(next)?;
         }
         Ok(
             FollowsEntry {
@@ -925,14 +946,11 @@ impl CortexParser {
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
 
-        let mut type_args = Vec::new();
+        let mut type_params = Vec::new();
         let next = pairs.next().unwrap();
         let params;
-        if matches!(next.as_rule(), Rule::typeArgList) {
-            let type_arg_pairs = next.into_inner();
-            for ident in type_arg_pairs {
-                type_args.push(ident.as_str());
-            }
+        if matches!(next.as_rule(), Rule::typeParamList) {
+            type_params = Self::parse_type_param_list(next)?;
             params = Self::parse_param_list(pairs.next().unwrap())?;
         } else {
             params = Self::parse_param_list(next)?;
@@ -949,7 +967,7 @@ impl CortexParser {
             params: params,
             return_type: return_type,
             body: Body::Basic(body),
-            type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+            type_params,
         })
     }
     fn parse_member_function(pair: Pair<Rule>) -> Result<MemberFunction, ParseError> {
@@ -966,14 +984,11 @@ impl CortexParser {
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
 
-        let mut type_args = Vec::new();
+        let mut type_params = Vec::new();
         let next = pairs.next().unwrap();
         let this_arg;
-        if matches!(next.as_rule(), Rule::typeArgList) {
-            let type_arg_pairs = next.into_inner();
-            for ident in type_arg_pairs {
-                type_args.push(ident.as_str());
-            }
+        if matches!(next.as_rule(), Rule::typeParamList) {
+            type_params = Self::parse_type_param_list(next)?;
             this_arg = Self::parse_this_arg(pairs.next().unwrap())?;
         } else {
             this_arg = Self::parse_this_arg(next)?;
@@ -991,7 +1006,7 @@ impl CortexParser {
             params: params,
             return_type: return_type,
             this_arg: this_arg,
-            type_param_names: type_args.into_iter().map(|s| String::from(s)).collect(),
+            type_params,
         })
     }
 
@@ -1025,11 +1040,20 @@ impl CortexParser {
         Ok(result)
     }
 
-    fn parse_type_list(pair: Pair<Rule>) -> Result<Vec<CortexType>, ParseError> {
+    fn parse_type_arg_list(pair: Pair<Rule>) -> Result<Vec<TypeArg>, ParseError> {
         let pairs = pair.into_inner();
         let mut result = Vec::new();
         for p in pairs {
-            result.push(Self::parse_type_pair(p)?);
+            result.push(Self::parse_type_arg(p)?);
+        }
+        Ok(result)
+    }
+
+    fn parse_type_param_list(pair: Pair<Rule>) -> Result<Vec<TypeParam>, ParseError> {
+        let pairs = pair.into_inner();
+        let mut result = Vec::new();
+        for p in pairs {
+            result.push(Self::parse_type_param(p)?);
         }
         Ok(result)
     }

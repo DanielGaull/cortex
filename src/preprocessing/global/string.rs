@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{constants::INDEX_GET_FN_NAME, interpreting::{heap::Heap, value::CortexValue}, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, PFunction, ThisArg}, r#type::CortexType}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}};
+use crate::{constants::INDEX_GET_FN_NAME, interpreting::{heap::Heap, value::CortexValue}, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, PFunction, ThisArg}, r#type::{CortexType, TypeParam}}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}};
 
 use super::runtime_error::RuntimeError;
 
@@ -14,12 +14,12 @@ impl CortexPreprocessor {
                 let item = env.get_value("item")?;
                 Ok(CortexValue::String(to_string(item, heap)))
             })),
-            vec![String::from("T")],
+            vec![TypeParam::ty("T")],
         ))?;
 
         global.add_extension(Extension {
             name: PathIdent::simple(String::from("string")),
-            type_param_names: vec![],
+            type_params: vec![],
             follows_clause: None,
             functions: vec![
                 MemberFunction::new(OptionalIdentifier::Ident(
@@ -362,7 +362,7 @@ impl CortexPreprocessor {
 
         global.add_extension(Extension {
             name: PathIdent::simple(String::from("char")),
-            type_param_names: vec![],
+            type_params: vec![],
             follows_clause: None,
             functions: vec![
                 MemberFunction::new(OptionalIdentifier::Ident(

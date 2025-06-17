@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error};
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, Struct, MemberFunction, PFunction}, r#type::{CortexType, FollowsEntry}}, parser::CortexParser}, preprocessing::module::{Module, TypeDefinition}};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, MemberFunction, PFunction, Struct}, r#type::{CortexType, FollowsEntry, TypeArg, TypeParam}}, parser::CortexParser}, preprocessing::module::{Module, TypeDefinition}};
 
 fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
@@ -47,8 +47,8 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
         ]
     ));
     type_map.insert(PathIdent::new(vec!["Box"]), TypeDefinition::new(
-        HashMap::new(), vec![String::from("T")], vec![
-            FollowsEntry::new(PathIdent::new(vec!["Container"]), vec![CortexType::simple("T")]),
+        HashMap::new(), vec![TypeParam::ty("T")], vec![
+            FollowsEntry::new(PathIdent::new(vec!["Container"]), vec![TypeArg::Ty(CortexType::simple("T"))]),
         ]
     ));
 
@@ -140,7 +140,7 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
         ],
         CortexType::OptionalType(Box::new(CortexType::simple("T"))),
         Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
-        vec![String::from("T")],
+        vec![TypeParam::ty("T")],
     ))?;
     interpreter.register_module(&PathIdent::simple(String::from("box")), module)?;
     interpreter.execute_statement(CortexParser::parse_statement("let box = heap box::Box<number>{ item: 5 };")?)?;

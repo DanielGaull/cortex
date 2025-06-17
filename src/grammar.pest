@@ -7,10 +7,10 @@ program = { SOI ~ topLevel* ~ EOI }
 topLevel = { import | function | struct | extension | contract | module }
 module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
 import = { "import" ~ (ident | string) ~ ";" }
-function = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
-struct = { "struct" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ followsClause? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
+function = { "fn" ~ optIdentifier ~ ("<" ~ typeParamList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
+struct = { "struct" ~ ident ~ ("<" ~ typeParamList ~ ">")? ~ followsClause? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 extension = { "extend" ~ pathIdent ~ followsClause? ~ "{" ~ memberFuncList ~ "}" }
-contract = { "contract" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberFunctionSignature ~ ";")* ~ "}" }
+contract = { "contract" ~ ident ~ ("<" ~ typeParamList ~ ">")? ~ "{" ~ (memberFunctionSignature ~ ";")* ~ "}" }
 
 // Statements
 statementNeedingSemicolon = _{ (throw | break | continue | tupleVarDec | varDec | indexVarAssign | tupleVarAssign | varAssign | expr) }
@@ -44,14 +44,14 @@ eqResult = { sumResult ~ ((eq | neq | lte | gte | lt | gt) ~ sumResult)* }
 logicResult = _{ eqResult ~ ((and | or) ~ eqResult)* }
 expr = { logicResult }
 
-call = { pathIdent ~ ("<" ~ typeList ~ ">")? ~ "(" ~ exprList ~ ")" }
+call = { pathIdent ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ exprList ~ ")" }
 heapExp = { "heap" ~ expr }
-construction = { pathIdent ~ ("<" ~ typeList ~ ">")? ~ "{" ~ (memberInit ~ ",")* ~ memberInit? ~ "}" }
+construction = { pathIdent ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberInit ~ ",")* ~ memberInit? ~ "}" }
 memberInit = { ident ~ ":" ~ expr }
 
 postfixBangTail = { ("!" ~ !"=") ~ exprTail }
 memberAccessTail = { "." ~ ident ~ exprTail }
-memberCallTail = { "." ~ ident ~ ("<" ~ typeList ~ ">")? ~ "(" ~ exprList ~ ")" ~ exprTail }
+memberCallTail = { "." ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ exprList ~ ")" ~ exprTail }
 indexTail = { "[" ~ exprList ~ "]" ~ exprTail }
 
 if = { "if" ~ expr ~ "{" ~ body ~ "}" ~ elifs ~ else? }
@@ -103,10 +103,15 @@ typ = { atomType ~ typeTail }
 atomType = _{ basicType | tupleType | followsType | refType | "(" ~ typ ~ ")" }
 typeTail = { optionalTail | "" }
 refType = { ("&mut" | "&") ~ typ }
-basicType = { pathIdent ~ ("<" ~ typeList ~ ">")? }
+basicType = { pathIdent ~ ("<" ~ typeArgList ~ ">")? }
 tupleType = { "(" ~ typ ~ "," ~ typ? ~ ("," ~ typ)* ~ ")" }
 followsType = { followsClause }
 optionalTail = { "?" }
+
+typeParam = { ident ~ (": " ~ (typeParamTy | typeParamInt))? }
+typeParamTy = { "ty" }
+typeParamInt = { "int" }
+typeArg = _{ ident | typ | int }
 
 // Useful utilities
 param = { ident ~ ":" ~ typ }
@@ -115,19 +120,19 @@ exprList = { (expr ~ ",")* ~ expr? }
 body = { statement* ~ expr? }
 
 followsClause = { "follows" ~ (followsEntry ~ "+")* ~ followsEntry }
-followsEntry = { pathIdent ~ ("<" ~ typeList ~ ">")? }
+followsEntry = { pathIdent ~ ("<" ~ typeArgList ~ ">")? }
 
 directThis = { "this" }
 refThis = { "&this" }
 refMutThis = { "&mut this" }
 
 memberParamList = { ("," ~ param)* }
-memberFunctionSignature = { "fn" ~ optIdentifier ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ memberParamList ~ ")" ~ (":" ~ typ)? }
+memberFunctionSignature = { "fn" ~ optIdentifier ~ ("<" ~ typeParamList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ memberParamList ~ ")" ~ (":" ~ typ)? }
 memberFunction = { memberFunctionSignature ~ "{" ~ body ~ "}" }
 memberFuncList = { memberFunction* }
 
-typeArgList = { (ident ~ ",")* ~ ident }
-typeList = { (typ ~ ",")* ~ typ }
+typeParamList = { (typeParam ~ ",")* ~ typeParam }
+typeArgList = { (typeArg ~ ",")* ~ typeArg }
 
 // Operator utilities
 add = { "+" }

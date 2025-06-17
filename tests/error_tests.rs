@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter}, top_level::{BasicBody, Body, Struct, PFunction}, r#type::CortexType}, parser::{CortexParser, ParseError}}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
+use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter}, top_level::{BasicBody, Body, PFunction, Struct}, r#type::{CortexType, TypeParam}}, parser::{CortexParser, ParseError}}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -247,7 +247,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         ],
         CortexType::OptionalType(Box::new(CortexType::simple("T"))),
         Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
-        vec![String::from("T")],
+        vec![TypeParam::ty("T")],
     );
     let test_struct = Struct::new("Time", vec![
         ("m", CortexType::number()),

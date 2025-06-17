@@ -3,7 +3,7 @@ use std::error::Error;
 
 use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::ast::function_address::FunctionAddress};
 
-use super::{top_level::BasicBody, r#type::CortexType};
+use super::{top_level::BasicBody, r#type::{CortexType, TypeArg}};
 
 #[derive(Clone)]
 pub struct PConditionBody {
@@ -34,11 +34,11 @@ pub enum PExpression {
     Call {
         name: FunctionAddress, 
         args: Vec<PExpression>,
-        type_args: Option<Vec<CortexType>>,
+        type_args: Option<Vec<TypeArg>>,
     },
     Construction {
         name: PathIdent,
-        type_args: Vec<CortexType>,
+        type_args: Vec<TypeArg>,
         assignments: Vec<(String, PExpression)>,
     },
     IfStatement {
@@ -57,7 +57,7 @@ pub enum PExpression {
         callee: Box<PExpression>,
         member: String,
         args: Vec<PExpression>,
-        type_args: Option<Vec<CortexType>>,
+        type_args: Option<Vec<TypeArg>>,
     },
     BinaryOperation {
         left: Box<PExpression>,

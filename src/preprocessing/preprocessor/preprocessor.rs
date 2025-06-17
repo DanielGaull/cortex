@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error, rc::Rc};
 
-use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, FunctionSignature, PFunction}, r#type::{CortexType, TupleType}}, codegen::r#trait::SimpleCodeGen}};
+use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, FunctionSignature, PFunction}, r#type::{CortexType, TupleType, TypeArg}}, codegen::r#trait::SimpleCodeGen}};
 
 use super::super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment};
 
@@ -35,7 +35,7 @@ impl CortexPreprocessor {
 
         macro_rules! add_core_type {
             ($name:literal) => {
-                this.type_map.insert(PathIdent::simple(String::from($name)), TypeDefinition { fields: HashMap::new(), type_param_names: Vec::new(), followed_contracts: vec![] });
+                this.type_map.insert(PathIdent::simple(String::from($name)), TypeDefinition { fields: HashMap::new(), type_params: Vec::new(), followed_contracts: vec![] });
             }
         }
 
@@ -454,7 +454,12 @@ impl CortexPreprocessor {
                     if let CortexType::RefType(r) = expected {
                         if let CortexType::BasicType(mut b) = *r.contained {
                             if b.name.is_final() && b.name.get_back().unwrap() == "list" {
-                                expected_internal = Some(b.type_args.remove(0));
+                                let type_arg = b.type_args.remove(0);
+                                if let TypeArg::Ty(t) = type_arg {
+                                    expected_internal = Some(t);
+                                } else if let TypeArg::Ident(name) = type_arg {
+                                    expected_internal = Some(CortexType::basic_simple(&name, vec![]));
+                                }
                             }
                         }
                     }
@@ -618,9 +623,9 @@ impl CortexPreprocessor {
             Err(Box::new(PreprocessingError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
         } else {
             let mut member_type = typedef.fields.get(&member).unwrap().clone();
-            let bindings = Self::get_bindings(&typedef.type_param_names, &atom_type)?;
+            let bindings = Self::get_bindings(&typedef.type_params, &atom_type)?;
             let prefix = atom_type.prefix();
-            member_type = TypeEnvironment::fill(member_type, 
+            member_type = TypeEnvironment::fill_type(member_type, 
                 &bindings
                     .into_iter()
                     .map(|(k, v)| (k, v.subtract_if_possible(&prefix)))
@@ -646,12 +651,12 @@ impl CortexPreprocessor {
         Ok((RExpression::MemberAccess(Box::new(atom_exp), format!("t{}", index)), member_type, vec![]))
     }
 
-    fn check_construction(&mut self, name: PathIdent, type_args: Vec<CortexType>, assignments: Vec<(String, PExpression)>, st_str: &String) -> CheckResult<RExpression> {
+    fn check_construction(&mut self, name: PathIdent, type_args: Vec<TypeArg>, assignments: Vec<(String, PExpression)>, st_str: &String) -> CheckResult<RExpression> {
         let typedef = self.lookup_type(&name)?;
         let base_type = CortexType::basic(name.clone(), type_args.clone()).with_prefix_if_not_core(&self.current_context);
 
-        if type_args.len() != typedef.type_param_names.len() {
-            return Err(Box::new(PreprocessingError::MismatchedTypeArgCount(name.codegen(0), typedef.type_param_names.len(), type_args.len())));
+        if type_args.len() != typedef.type_params.len() {
+            return Err(Box::new(PreprocessingError::MismatchedTypeArgCount(name.codegen(0), typedef.type_params.len(), type_args.len())));
         }
         let mut fields_to_assign = Vec::new();
         for k in typedef.fields.keys() {
@@ -660,7 +665,7 @@ impl CortexPreprocessor {
 
         let fields = typedef.fields.clone();
 
-        let bindings = TypeEnvironment::create_bindings(&typedef.type_param_names, &type_args);
+        let bindings = TypeEnvironment::create_bindings(&typedef.type_params, &type_args);
         let bindings = bindings
             .iter()
             .map(|(k, v)| (k.clone(), v.clone().subtract_if_possible(&name.without_last())))
@@ -672,7 +677,7 @@ impl CortexPreprocessor {
                 .get(&fname)
                 .map(|t| t.clone());
             if let Some(typ) = opt_typ {
-                let field_type = TypeEnvironment::fill(typ, &bindings)
+                let field_type = TypeEnvironment::fill_type(typ, &bindings)
                     .with_prefix_if_not_core(&self.current_context)
                     .with_prefix_if_not_core(&name.without_last());
                 let (exp, assigned_type, st) = self.check_exp(fvalue, Some(field_type.clone()))?;
