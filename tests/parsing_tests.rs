@@ -157,7 +157,7 @@ fn test_functions() -> Result<(), Box<dyn Error>> {
     run_function_test("fn ~(): void {\n    throw;\n}")?;
     run_function_test_expected("fn test() {\n    throw;\n}", "fn test(): void {\n    throw;\n}")?;
     run_function_test_expected("fn ~() {\n    throw;\n}", "fn ~(): void {\n    throw;\n}")?;
-    run_function_test_expected("fn test<T>() {\n    throw;\n}", "fn test<T>(): void {\n    throw;\n}")?;
+    run_function_test_expected("fn test<T>() {\n    throw;\n}", "fn test<T: ty>(): void {\n    throw;\n}")?;
     Ok(())
 }
 
@@ -175,25 +175,49 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
         "struct Point {\n    x: number,\n    y: number,\n    fn incX(&mut this, amt: number): void {\n        this.x = this.x + amt;\n    }\n}\n",
         "struct Point {\n    y: number,\n    x: number,\n    fn incX(&mut this, amt: number): void {\n        this.x = this.x + amt;\n    }\n}\n"
     )?;
-    run_top_level_test("struct Box<T> {\n    item: T,\n}\n")?;
-    run_top_level_test("struct Box<T> {\n    fn doAThing<U>(&this): void {\n    }\n}\n")?;
+    run_top_level_test_expected("struct Box<T> {\n    item: T,\n}\n", "struct Box<T: ty> {\n    item: T,\n}\n")?;
+    run_top_level_test_expected(
+        "struct Box<T> {\n    fn doAThing<U>(&this): void {\n    }\n}\n",
+        "struct Box<T: ty> {\n    fn doAThing<U: ty>(&this): void {\n    }\n}\n"
+    )?;
     run_top_level_test("extend string {\n}\n")?;
     run_top_level_test("extend string {\n    fn len(&this): number {\n        5\n    }\n}\n")?;
     run_top_level_test("extend number follows Add<number> {\n}\n")?;
 
     run_top_level_test("contract Empty {\n}\n")?;
     run_top_level_test("contract Requester {\n    fn request(&mut this): string;\n}\n")?;
-    run_top_level_test("contract Iterator<T> {\n    fn next(&mut this): T;\n    fn hasNext(&this): bool;\n}\n")?;
-    run_top_level_test("struct Box<T> follows Iterator<T> {\n}\n")?;
+    run_top_level_test_expected(
+        "contract Iterator<T> {\n    fn next(&mut this): T;\n    fn hasNext(&this): bool;\n}\n",
+        "contract Iterator<T: ty> {\n    fn next(&mut this): T;\n    fn hasNext(&this): bool;\n}\n"
+    )?;
+    run_top_level_test_expected(
+        "struct Box<T> follows Iterator<T> {\n}\n",
+        "struct Box<T: ty> follows Iterator<T> {\n}\n"
+    )?;
     run_top_level_test("struct Box follows C1 + C2 {\n}\n")?;
     run_top_level_test("struct Box follows C1 {\n}\n")?;
-    run_top_level_test("struct Box<T> {\n}\n")?;
+    run_top_level_test_expected(
+        "struct Box<T> {\n}\n",
+        "struct Box<T: ty> {\n}\n"
+    )?;
     run_top_level_test("struct Box {\n}\n")?;
-    run_top_level_test("struct Box<T> follows Iterator<T> + Iterable<T> {\n}\n")?;
-    run_top_level_test("struct Box<T,R> follows Iterator<T> + Iterable<R> {\n}\n")?;
-    run_top_level_test("struct Box<T,R> follows Iterator<R, T> + Iterable<R, R> {\n}\n")?;
+    run_top_level_test_expected(
+        "struct Box<T> follows Iterator<T> + Iterable<T> {\n}\n",
+        "struct Box<T: ty> follows Iterator<T> + Iterable<T> {\n}\n"
+    )?;
+    run_top_level_test_expected(
+        "struct Box<T,R> follows Iterator<T> + Iterable<R> {\n}\n",
+        "struct Box<T: ty,R: ty> follows Iterator<T> + Iterable<R> {\n}\n"
+    )?;
+    run_top_level_test_expected(
+        "struct Box<T,R> follows Iterator<R, T> + Iterable<R, R> {\n}\n",
+        "struct Box<T: ty,R: ty> follows Iterator<R, T> + Iterable<R, R> {\n}\n"
+    )?;
     run_top_level_test("struct NumList follows Iterator<number> {\n}\n")?;
-    run_top_level_test("struct DTupleList<T> follows Iterator<(T, T)> {\n}\n")?;
+    run_top_level_test_expected(
+        "struct DTupleList<T> follows Iterator<(T, T)> {\n}\n",
+    "struct DTupleList<T: ty> follows Iterator<(T, T)> {\n}\n"
+    )?;
     
     Ok(())
 }

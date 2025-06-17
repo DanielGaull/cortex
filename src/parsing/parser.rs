@@ -707,7 +707,6 @@ impl CortexParser {
 
     fn parse_type_arg(pair: Pair<Rule>) -> Result<TypeArg, ParseError> {
         match pair.as_rule() {
-            Rule::ident => Ok(TypeArg::Ident(String::from(pair.as_str()))),
             Rule::typ => Ok(TypeArg::Ty(Self::parse_type_pair(pair)?)),
             Rule::int => Ok(TypeArg::Int(pair.as_str().parse().unwrap())),
             _ => Err(ParseError::FailTypeArg(String::from(pair.as_str())))

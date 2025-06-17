@@ -578,7 +578,7 @@ fn are_type_args_equal(a: &Vec<TypeArg>, b: &Vec<TypeArg>) -> bool {
 pub fn forwarded_type_args(params: &Vec<TypeParam>) -> Vec<TypeArg> {
     let mut type_args = Vec::new();
     for p in params {
-        type_args.push(TypeArg::Ident(p.name.clone()));
+        type_args.push(TypeArg::Ty(CortexType::basic_simple(&p.name.clone(), vec![])));
     }
     type_args
 }
@@ -662,14 +662,12 @@ impl SimpleCodeGen for TypeParam {
 pub enum TypeArg {
     Ty(CortexType),
     Int(i32),
-    Ident(String),
 }
 impl SimpleCodeGen for TypeArg {
     fn codegen(&self, indent: usize) -> String {
         match self {
             TypeArg::Ty(ty) => ty.codegen(indent),
             TypeArg::Int(i) => format!("{}", i),
-            TypeArg::Ident(n) => n.clone(),
         }
     }
 }

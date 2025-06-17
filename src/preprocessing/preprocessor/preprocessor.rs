@@ -457,8 +457,6 @@ impl CortexPreprocessor {
                                 let type_arg = b.type_args.remove(0);
                                 if let TypeArg::Ty(t) = type_arg {
                                     expected_internal = Some(t);
-                                } else if let TypeArg::Ident(name) = type_arg {
-                                    expected_internal = Some(CortexType::basic_simple(&name, vec![]));
                                 }
                             }
                         }

@@ -111,7 +111,7 @@ optionalTail = { "?" }
 typeParam = { ident ~ (": " ~ (typeParamTy | typeParamInt))? }
 typeParamTy = { "ty" }
 typeParamInt = { "int" }
-typeArg = _{ ident | typ | int }
+typeArg = _{ typ | int }
 
 // Useful utilities
 param = { ident ~ ":" ~ typ }

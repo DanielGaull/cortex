@@ -50,7 +50,7 @@ impl CortexPreprocessor {
                         name: PathIdent::simple(contract_to_use.name.clone()),
                         type_args: contract_to_use.type_params
                             .iter()
-                            .map(|t| TypeArg::Ident(t.name.clone()))
+                            .map(|t| TypeArg::Ty(CortexType::basic_simple(&t.name.clone(), vec![])))
                             .collect(),
                     }
                 ]
@@ -277,19 +277,8 @@ impl CortexPreprocessor {
                 )?;
                 Ok(())
             },
-            (TypeArg::Ty(t1), TypeArg::Ident(name)) => {
-                self.infer_arg_type(
-                    t1,
-                    &CortexType::basic_simple(&name, vec![]),
-                    type_params,
-                    bindings,
-                    param_name,
-                    st_str,
-                )?;
-                Ok(())
-            },
-            (TypeArg::Ident(name), TypeArg::Int(_)) => {
-                bindings.insert(TypeParam::int(name), arg_type.clone());
+            (TypeArg::Ty(ty), TypeArg::Int(_)) => {
+                bindings.insert(TypeParam::int(ty.name()?.get_back()?), arg_type.clone());
                 Ok(())
             },
             (_, _) => {
