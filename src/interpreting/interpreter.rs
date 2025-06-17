@@ -251,7 +251,7 @@ impl CortexInterpreter {
             RExpression::Void => Ok(CortexValue::Void),
             RExpression::None => Ok(CortexValue::None),
             RExpression::Identifier(path) => Ok(self.lookup_value(path)?),
-            RExpression::Call(id, expressions) => {
+            RExpression::Call { addr: id, args: expressions } => {
                 let func = self.lookup_function(*id)?.clone();
                 let func_result = self.run_function(&func, expressions.iter().collect());
                 Ok(func_result?)

@@ -143,7 +143,7 @@ impl CortexPreprocessor {
         let full_path = FunctionAddress::concat(&extended_prefix, &addr);
         let call = self.check_call_base(sig, full_path.codegen(0), arg_exps, type_args, prefix, st_str)?;
         let func_id = self.function_dict.add_call(full_path)?;
-        Ok((RExpression::Call(func_id, call.args), call.return_type, call.statements))
+        Ok((RExpression::Call { addr: func_id, args: call.args }, call.return_type, call.statements))
     }
 
     fn check_call_base(&mut self, sig: FunctionSignature, name: String, arg_exps: Vec<PExpression>, type_args: Option<Vec<TypeArg>>, prefix: PathIdent, st_str: &String) -> Result<ProcessedCall, CortexError> {

@@ -10,7 +10,10 @@ pub enum RExpression {
     String(String),
     Char(u8),
     Identifier(String),
-    Call(usize, Vec<RExpression>),
+    Call {
+        addr: usize, 
+        args: Vec<RExpression>,
+    },
     Construction {
         assignments: Vec<(String, RExpression)>,
     },
