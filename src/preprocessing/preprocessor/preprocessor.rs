@@ -17,6 +17,8 @@ pub struct CortexPreprocessor {
     loop_depth: u32,
     temp_num: usize,
     pub(super) contract_map: HashMap<PathIdent, Contract>,
+    pub(super) imported_paths: Vec<PathIdent>,
+    pub(super) imported_aliases: HashMap<String, PathIdent>,
 }
 
 impl CortexPreprocessor {
@@ -31,6 +33,8 @@ impl CortexPreprocessor {
             loop_depth: 0,
             temp_num: 0,
             contract_map: HashMap::new(),
+            imported_paths: Vec::new(),
+            imported_aliases: HashMap::new(),
         };
 
         macro_rules! add_core_type {

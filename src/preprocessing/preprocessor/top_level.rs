@@ -31,7 +31,6 @@ impl CortexPreprocessor {
         let mut module = Module::new();
         for item in contents.into_iter() {
             match item {
-                TopLevel::Import { name: _, is_string_import: _ } => todo!("Imports are currently not supported!"),
                 TopLevel::Module { name: submod_name, contents } => {
                     let new_module = Self::construct_module(contents)?;
                     module.add_child(submod_name, new_module)?;
@@ -55,9 +54,6 @@ impl CortexPreprocessor {
 
     pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {
         match top_level {
-            TopLevel::Import { name: _, is_string_import: _ } => {
-                todo!("Imports are currently not supported!")
-            },
             TopLevel::Module { name, contents } => {
                 let module = Self::construct_module(contents)?;
                 self.register_module(&PathIdent::simple(name), module)?;

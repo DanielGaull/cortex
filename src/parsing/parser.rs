@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress};
 
-use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, Extension, MemberFunction, MemberFunctionSignature, PFunction, Struct as Struct, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam, TypeParamType}};
+use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, Extension, Import, ImportEntry, MemberFunction, MemberFunctionSignature, PFunction, Struct as Struct, ThisArg, TopLevel}, r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam, TypeParamType}};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -41,6 +41,8 @@ pub enum ParseError {
     FailTypeArg(String),
     #[error("Failed to parse type parameter '{0}'")]
     FailTypeParam(String),
+    #[error("Failed to parse import '{0}'")]
+    FailImport(String),
 
     #[error("Failed to parse program")]
     FailProgram,
@@ -110,6 +112,15 @@ impl CortexParser {
             },
         }
     }
+    pub fn parse_import(input: &str) -> Result<Import, ParseError> {
+        let pair = PestCortexParser::parse(Rule::import, input);
+        match pair {
+            Ok(mut v) => Self::parse_import_pair(v.next().unwrap()),
+            Err(e) => {
+                Err(ParseError::ParseFailure(String::from("import"), String::from(e.line())))
+            },
+        }
+    }
     pub fn parse_path(input: &str) -> Result<PathIdent, ParseError> {
         let pair = PestCortexParser::parse(Rule::pathIdent, input);
         match pair {
@@ -131,14 +142,23 @@ impl CortexParser {
     
     fn parse_program_pair(pair: Pair<Rule>) -> Result<Program, ParseError> {
         let pairs = pair.into_inner();
-        let mut content = Vec::<TopLevel>::new();
+        let mut content = Vec::new();
+        let mut imports = Vec::new();
         for p in pairs {
-            if p.as_rule() != Rule::EOI {
+            if p.as_rule() == Rule::import {
+                let im = Self::parse_import_pair(p)?;
+                imports.push(im);
+            } else if p.as_rule() == Rule::topLevel {
                 let t = Self::parse_toplevel_pair(p)?;
                 content.push(t);
+            } else if p.as_rule() != Rule::EOI {
+                return Err(ParseError::FailProgram);
             }
         }
-        Ok(Program { content: content })
+        Ok(Program {
+            content,
+            imports,
+        })
     }
 
     fn parse_toplevel_pair(mut pair: Pair<Rule>) -> Result<TopLevel, ParseError> {
@@ -149,18 +169,6 @@ impl CortexParser {
             },
             Rule::r#struct => {
                 Ok(TopLevel::Struct(Self::parse_struct_pair(pair)?))
-            },
-            Rule::import => {
-                let name: &str;
-                let mut is_string = false;
-                let p = pair.into_inner().next().unwrap();
-                if p.as_rule() == Rule::string {
-                    name = p.into_inner().next().unwrap().as_str();
-                    is_string = true;
-                } else {
-                    name = p.as_str();
-                }
-                Ok(TopLevel::Import { name: String::from(name), is_string_import: is_string })
             },
             Rule::module => {
                 let mut pairs = pair.into_inner();
@@ -180,6 +188,27 @@ impl CortexParser {
             },
             _ => Err(ParseError::FailTopLevel(String::from(pair.as_str()))),
         }
+    }
+
+    fn parse_import_pair(pair: Pair<Rule>) -> Result<Import, ParseError> {
+        let pairs = pair.into_inner();
+        let mut entries = Vec::new();
+        for p in pairs {
+            entries.push(Self::parse_import_entry(p)?);
+        }
+        Ok(Import { entries })
+    }
+    fn parse_import_entry(pair: Pair<Rule>) -> Result<ImportEntry, ParseError> {
+        let mut pairs = pair.into_inner();
+        let path = Self::parse_path_ident(pairs.next().unwrap())?;
+        let alias;
+        if let Some(next) = pairs.next() {
+            alias = Some(String::from(next.as_str()));
+        } else {
+            alias = None;
+        }
+
+        Ok(ImportEntry { path, alias })
     }
 
     fn parse_stmt_pair(mut pair: Pair<Rule>) -> Result<PStatement, ParseError> {

@@ -35,6 +35,7 @@ parse_test!(type);
 parse_test!(statement);
 parse_test!(function);
 parse_test!(top_level);
+parse_test!(import);
 
 #[test]
 fn test_parse_literals() -> Result<(), Box<dyn Error>> {
@@ -162,11 +163,17 @@ fn test_functions() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn test_import() -> Result<(), Box<dyn Error>> {
+    run_import_test("import hello;")?;
+    run_import_test("import foo::bar::baz;")?;
+    run_import_test("import foo::bar::Box as Box;")?;
+    Ok(())
+}
+
+#[test]
 fn test_top_level() -> Result<(), Box<dyn Error>> {
     run_top_level_test("fn test(x: number): void {\n    stop;\n}")?;
     run_top_level_test("module myMod {\n    fn test(x: number): void {\n        stop;\n    }\n}")?;
-    run_top_level_test("import hello;")?;
-    run_top_level_test("import \"hello\";")?;
     run_top_level_test_or(
         "struct Point {\n    x: number,\n    y: number,\n}\n",
         "struct Point {\n    y: number,\n    x: number,\n}\n"

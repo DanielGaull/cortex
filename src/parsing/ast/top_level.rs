@@ -4,11 +4,36 @@ use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, val
 
 use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, statement::PStatement, r#type::{CortexType, FollowsClause, TypeParam, TypeArg}};
 
+pub struct ImportEntry {
+    pub(crate) path: PathIdent,
+    pub(crate) alias: Option<String>,
+}
+impl SimpleCodeGen for ImportEntry {
+    fn codegen(&self, indent: usize) -> String {
+        if let Some(alias) = &self.alias {
+            format!("{} as {}", self.path.codegen(indent), alias)
+        } else {
+            format!("{}", self.path.codegen(indent))
+        }
+    }
+}
+
+pub struct Import {
+    pub(crate) entries: Vec<ImportEntry>,
+}
+impl SimpleCodeGen for Import {
+    fn codegen(&self, _: usize) -> String {
+        format!(
+            "import {};", 
+            self.entries.iter()
+                .map(|e| e.codegen(0))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
 pub enum TopLevel {
-    Import {
-        name: String, 
-        is_string_import: bool,
-    },
     Module {
         name: String,
         contents: Vec<TopLevel>,
@@ -21,13 +46,6 @@ pub enum TopLevel {
 impl SimpleCodeGen for TopLevel {
     fn codegen(&self, indent: usize) -> String {
         match self {
-            Self::Import { name, is_string_import } => {
-                if *is_string_import {
-                    format!("import \"{}\";", name)
-                } else {
-                    format!("import {};", name.clone())
-                }
-            },
             Self::Module { name, contents } => {
                 let mut s = String::new();
                 let indent_prefix = &"    ".repeat(indent);
