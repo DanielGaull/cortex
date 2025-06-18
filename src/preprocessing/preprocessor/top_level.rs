@@ -1,29 +1,85 @@
 use std::collections::{HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, FollowsEntry, TypeParam}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::function_address::FunctionAddress, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}, r#type::{forwarded_type_args, CortexType, FollowsEntry, TypeParam}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::function_address::FunctionAddress, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
 impl CortexPreprocessor {
     pub(super) fn lookup_type(&self, path: &PathIdent) -> Result<&TypeDefinition, CortexError> {
-        let full_path = PathIdent::concat(&self.current_context, &path);
+        let res = self.lookup_type_with(path, &self.current_context);
+        match res {
+            Ok(r) => Ok(r),
+            Err(e) => {
+                for prefix in &self.imported_paths {
+                    let res = self.lookup_type_with(path, prefix);
+                    if let Ok(r) = res {
+                        return Ok(r);
+                    }
+                }
+    
+                Err(e)
+            },
+        }
+    }
+    pub(super) fn has_type(&self, path: &PathIdent) -> bool {
+        self.lookup_type(path).is_ok()
+    }
+    fn lookup_type_with(&self, path: &PathIdent, prefix: &PathIdent) -> Result<&TypeDefinition, CortexError> {
+        let full_path = PathIdent::concat(prefix, &path);
         if let Some(c) = self.type_map.get(&full_path) {
             Ok(c)
         } else {
             Err(Box::new(PreprocessingError::TypeDoesNotExist(full_path.codegen(0))))
         }
     }
-    pub(super) fn has_type(&self, path: &PathIdent) -> bool {
-        let full_path = PathIdent::concat(&self.current_context, &path);
-        self.type_map.contains_key(&full_path)
-    }
 
     pub(super) fn lookup_contract(&self, path: &PathIdent) -> Result<&Contract, CortexError> {
-        let full_path = PathIdent::concat(&self.current_context, &path);
+        let res = self.lookup_contract_with(path, &self.current_context);
+        match res {
+            Ok(r) => Ok(r),
+            Err(e) => {
+                for prefix in &self.imported_paths {
+                    let res = self.lookup_contract_with(path, prefix);
+                    if let Ok(r) = res {
+                        return Ok(r);
+                    }
+                }
+    
+                Err(e)
+            },
+        }
+    }
+    fn lookup_contract_with(&self, path: &PathIdent, prefix: &PathIdent) -> Result<&Contract, CortexError> {
+        let full_path = PathIdent::concat(&prefix, &path);
         if let Some(c) = self.contract_map.get(&full_path) {
             Ok(c)
         } else {
             Err(Box::new(PreprocessingError::ContractDoesNotExist(full_path.codegen(0))))
+        }
+    }
+
+    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<&FunctionSignature, CortexError> {
+        let res = self.lookup_signature_with(path, &self.current_context);
+        match res {
+            Ok(r) => Ok(r),
+            Err(e) => {
+                for prefix in &self.imported_paths {
+                    let res = self.lookup_signature_with(path, prefix);
+                    if let Ok(r) = res {
+                        return Ok(r);
+                    }
+                }
+    
+                Err(e)
+            },
+        }
+    }
+    fn lookup_signature_with(&self, path: &FunctionAddress, prefix: &PathIdent) -> Result<&FunctionSignature, CortexError> {
+        let full_path: FunctionAddress = FunctionAddress::concat(prefix, &path);
+        if let Some(sig) = self.function_signature_map.get(&full_path) {
+            Ok(sig)
+        } else {
+            Err(Box::new(PreprocessingError::FunctionDoesNotExist(full_path.codegen(0))))
         }
     }
 

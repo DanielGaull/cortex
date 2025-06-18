@@ -419,15 +419,6 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<&FunctionSignature, CortexError> {
-        let full_path: FunctionAddress = FunctionAddress::concat(&self.current_context, &path);
-        if let Some(sig) = self.function_signature_map.get(&full_path) {
-            Ok(sig)
-        } else {
-            Err(Box::new(PreprocessingError::FunctionDoesNotExist(full_path.codegen(0))))
-        }
-    }
-
     fn search_for_extension(&self, typ: &PathIdent, member: &String) -> Result<Option<&FunctionAddress>, CortexError> {
         // Search through *ALL* functions
         // If they are prefixed by the current_context, and have a target type = to `typ`,

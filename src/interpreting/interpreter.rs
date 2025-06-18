@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 use crate::{parsing::{ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, statement::PStatement, top_level::{BasicBody, Import, PFunction, TopLevel}, r#type::CortexType}, parser::CortexParser}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
 
-const STDLIB: &str = include_str!("..\\..\\res\\preamble.txt");
+const STDLIB: &str = include_str!("..\\..\\res\\stdlib.txt");
 const PREAMBLE: &str = include_str!("..\\..\\res\\preamble.txt");
 
 pub struct CortexInterpreter {

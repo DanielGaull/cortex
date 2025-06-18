@@ -78,4 +78,8 @@ pub enum PreprocessingError {
     CannotAccessMemberOfFollowsType,
     #[error("Could not determine type, please provide type annotations: {0}")] 
     CannotDetermineType(String),
+    #[error("Duplicate import: Something has already been aliased to {0}")]
+    DuplicateAliasImport(String),
+    #[error("Duplicate import: {0} has already been imported")]
+    DuplicatePathImport(String),
 }
