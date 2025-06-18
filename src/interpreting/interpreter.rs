@@ -1,7 +1,10 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::{parsing::ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, statement::PStatement, top_level::{BasicBody, PFunction, TopLevel}, r#type::CortexType}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}};
+use crate::{parsing::{ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, statement::PStatement, top_level::{BasicBody, PFunction, TopLevel}, r#type::CortexType}, parser::CortexParser}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
+
+const STDLIB: &str = include_str!("..\\..\\res\\preamble.txt");
+const PREAMBLE: &str = include_str!("..\\..\\res\\preamble.txt");
 
 pub struct CortexInterpreter {
     preprocessor: CortexPreprocessor,
@@ -11,11 +14,24 @@ pub struct CortexInterpreter {
 
 impl CortexInterpreter {
     pub fn new() -> Result<Self, CortexError> {
-        Ok(CortexInterpreter {
+        let mut interpreter = CortexInterpreter {
             preprocessor: CortexPreprocessor::new()?,
             current_env: Some(Box::new(Environment::base())),
             heap: Heap::new(),
-        })
+        };
+
+        interpreter.execute_file(STDLIB)?;
+        interpreter.execute_file(PREAMBLE)?;
+
+        Ok(interpreter)
+    }
+
+    fn execute_file(&mut self, code: &str) -> Result<(), CortexError> {
+        let parsed = CortexParser::parse_program(code)?;
+        for tl in parsed.content {
+            self.run_top_level(tl)?;
+        }
+        Ok(())
     }
 
     pub fn preprocess_function(&mut self, function: PFunction) -> Result<RFunction, CortexError> {
