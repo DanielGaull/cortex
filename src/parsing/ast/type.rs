@@ -217,10 +217,22 @@ impl CortexType {
         }
     }
     pub fn with_prefix_if_not_core(self, prefix: &PathIdent) -> Self {
-        if !self.is_core() {
-            self.with_prefix(prefix)
-        } else {
-            self
+        match self {
+            CortexType::TupleType(t) => {
+                CortexType::TupleType(TupleType {
+                    types: t.types
+                        .into_iter()
+                        .map(|t| t.with_prefix_if_not_core(prefix))
+                        .collect(),
+                })
+            },
+            other => {
+                if !other.is_core() {
+                    other.with_prefix(prefix)
+                } else {
+                    other
+                }
+            }
         }
     }
     pub fn subtract_if_possible(self, prefix: &PathIdent) -> Self {
