@@ -28,10 +28,14 @@ impl CortexInterpreter {
 
     fn execute_file(&mut self, code: &str) -> Result<(), CortexError> {
         let parsed = CortexParser::parse_program(code)?;
-        for im in parsed.imports {
+        self.handle_program(parsed)?;
+        Ok(())
+    }
+    pub fn handle_program(&mut self, program: crate::parsing::ast::program::Program) -> Result<(), CortexError> {
+        for im in program.imports {
             self.handle_import(im)?;
         }
-        for tl in parsed.content {
+        for tl in program.content {
             self.run_top_level(tl)?;
         }
         Ok(())

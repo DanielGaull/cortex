@@ -1,0 +1,33 @@
+module mylib {
+    struct LibBox<T> {
+        item: T,
+
+        fn get(&this): T {
+            this.item
+        }
+
+        fn set(&mut this, value: T) {
+            this.item = value;
+        }
+    }
+
+    fn getBox<T>(item: T): &mut LibBox<T> {
+        heap LibBox<T> {
+            item: item,
+        }
+    }
+}
+
+module drawing {
+    struct Point {
+        coords: (number, number),
+
+        fn getX(&this): number {
+            this.coords.t0
+        }
+
+        fn getY(&this): number {
+            this.coords.t1
+        }
+    }
+}
