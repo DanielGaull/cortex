@@ -922,11 +922,6 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(super) fn has_function(&self, path: &FunctionAddress) -> bool {
-        let full_path: FunctionAddress = FunctionAddress::concat(&self.current_context, &path);
-        self.function_signature_map.contains_key(&full_path)
-    }
-
     fn next_temp(&mut self) -> String {
         let res = format!("$temp{}", self.temp_num);
         self.temp_num += 1;

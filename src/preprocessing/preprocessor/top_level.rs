@@ -58,15 +58,15 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<&FunctionSignature, CortexError> {
+    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<(&FunctionSignature, &PathIdent), CortexError> {
         let res = self.lookup_signature_with(path, &self.current_context);
         match res {
-            Ok(r) => Ok(r),
+            Ok(r) => Ok((r, &self.current_context)),
             Err(e) => {
                 for prefix in &self.imported_paths {
                     let res = self.lookup_signature_with(path, prefix);
                     if let Ok(r) = res {
-                        return Ok(r);
+                        return Ok((r, prefix));
                     }
                 }
     
@@ -81,6 +81,12 @@ impl CortexPreprocessor {
         } else {
             Err(Box::new(PreprocessingError::FunctionDoesNotExist(full_path.codegen(0))))
         }
+    }
+
+    pub(super) fn has_function(&self, path: &FunctionAddress) -> bool {
+        self.lookup_signature(path).is_ok()
+        // let full_path: FunctionAddress = FunctionAddress::concat(&self.current_context, &path);
+        // self.function_signature_map.contains_key(&full_path)
     }
 
     fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {

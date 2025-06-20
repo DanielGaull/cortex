@@ -28,9 +28,7 @@ fn load_lib(interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.handle_program(program)?;
     Ok(())
 }
 

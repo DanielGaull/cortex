@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::parsing::{ast::expression::{PathError, PathIdent}, codegen::r#trait::SimpleCodeGen};
 
 /// Represents an address/path to a function: so the key in a map to function signatures
@@ -9,6 +11,11 @@ use crate::parsing::{ast::expression::{PathError, PathIdent}, codegen::r#trait::
 pub struct FunctionAddress {
     pub(crate) own_module_path: PathIdent,
     pub(crate) target: Option<PathIdent>,
+}
+impl Debug for FunctionAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.codegen(0))
+    }
 }
 impl FunctionAddress {
     pub(crate) fn concat(prefix: &PathIdent, addr: &FunctionAddress) -> FunctionAddress {

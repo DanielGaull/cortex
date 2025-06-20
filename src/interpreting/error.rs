@@ -28,4 +28,6 @@ pub enum InterpreterError {
     FunctionNotFoundDynamicDispatch,
     #[error("Invalid arg count (expected {0} but found {1}: please run preprocessing on code before executing it")]
     InvalidArgCountNoPreprocess(usize, usize),
+    #[error("Function pointer {0} does not exist")]
+    FunctionPointerDoesNotExist(usize),
 }

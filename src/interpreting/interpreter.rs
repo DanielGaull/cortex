@@ -591,6 +591,10 @@ impl CortexInterpreter {
     }
 
     fn lookup_function(&self, id: usize) -> Result<&Rc<RFunction>, CortexError> {
-        Ok(self.preprocessor.get_function(id).unwrap())
+        if let Some(func) = self.preprocessor.get_function(id) {
+            Ok(func)
+        } else {
+            Err(Box::new(InterpreterError::FunctionPointerDoesNotExist(id)))
+        }
     }
 }
