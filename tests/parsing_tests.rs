@@ -166,7 +166,7 @@ fn test_functions() -> Result<(), Box<dyn Error>> {
 fn test_import() -> Result<(), Box<dyn Error>> {
     run_import_test("import hello;")?;
     run_import_test("import foo::bar::baz;")?;
-    run_import_test("import foo::bar::Box as Box;")?;
+    // run_import_test("import foo::bar::Box as Box;")?;
     Ok(())
 }
 

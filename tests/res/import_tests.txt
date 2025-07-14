@@ -1,5 +1,5 @@
 import mylib;
-import drawing::Point as DrawPoint;
+//import drawing::Point as DrawPoint;
 
 // Should just return the value that came into it
 fn doBox(v: number): number {

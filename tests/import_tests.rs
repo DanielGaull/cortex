@@ -39,7 +39,3 @@ fn assert(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> R
     assert_eq!(expected, value_string);
     Ok(())
 }
-// fn run(input: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
-//     interpreter.execute_statement(CortexParser::parse_statement(input)?)?;
-//     Ok(())
-// }

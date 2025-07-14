@@ -201,12 +201,12 @@ impl CortexParser {
     fn parse_import_entry(pair: Pair<Rule>) -> Result<ImportEntry, ParseError> {
         let mut pairs = pair.into_inner();
         let path = Self::parse_path_ident(pairs.next().unwrap())?;
-        let alias;
-        if let Some(next) = pairs.next() {
+        let alias = None;
+        /*if let Some(next) = pairs.next() {
             alias = Some(String::from(next.as_str()));
         } else {
             alias = None;
-        }
+        }*/
 
         Ok(ImportEntry { path, alias })
     }

@@ -134,7 +134,7 @@ memberFuncList = { memberFunction* }
 typeParamList = { (typeParam ~ ",")* ~ typeParam }
 typeArgList = { (typeArg ~ ",")* ~ typeArg }
 
-importEntry = { pathIdent ~ ("as" ~ ident)? }
+importEntry = { pathIdent } // ~ ("as" ~ ident)? }
 
 // Operator utilities
 add = { "+" }
