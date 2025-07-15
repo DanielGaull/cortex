@@ -16,6 +16,24 @@ module mylib {
             item: item,
         }
     }
+
+    extend string {
+        fn stringIdentity(this): string {
+            this
+        }
+    }
+
+    contract AFunc {
+        fn a(&this, other: number): number;
+    }
+
+    struct NumWrapper follows AFunc {
+        value: number,
+
+        fn a(&this, other: number): number {
+            this.value + other
+        }
+    }
 }
 
 module drawing {

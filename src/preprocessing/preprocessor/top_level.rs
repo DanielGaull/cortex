@@ -193,16 +193,16 @@ impl CortexPreprocessor {
 
         let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
 
+        for item in contracts {
+            self.add_contract(path.clone(), item)?;
+        }
+
         for item in structs {
             self.add_struct(path.clone(), item, &mut functions)?;
         }
 
         for item in extensions {
             self.add_extension(path.clone(), item, &mut functions)?;
-        }
-
-        for item in contracts {
-            self.add_contract(path.clone(), item)?;
         }
 
         for (addr, f) in &functions {
