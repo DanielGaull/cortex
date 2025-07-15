@@ -134,7 +134,7 @@ impl CortexPreprocessor {
         let mut new_env = TypeCheckingEnvironment::new(*parent_env);
         let mut params = Vec::new();
         for p in function.params {
-            let param_type = self.clean_type(p.typ.clone().with_prefix_if_not_core(&self.current_context));
+            let param_type = self.clean_type(p.typ.clone().with_prefix_if_not_core(&self.current_context))?;
             new_env.add(p.name.clone(), param_type, false)?;
             params.push(p.name);
         }
@@ -145,7 +145,7 @@ impl CortexPreprocessor {
         match function.body {
             Body::Basic(body) => {
                 let (new_body, body_type) = self.check_body(body, Some(function.return_type.clone()))?;
-                let return_type = self.clean_type(function.return_type.clone().with_prefix_if_not_core(&self.current_context));
+                let return_type = self.clean_type(function.return_type.clone().with_prefix_if_not_core(&self.current_context))?;
                 if !body_type.is_subtype_of(&return_type, &self.type_map) {
                     return Err(Box::new(PreprocessingError::ReturnTypeMismatch(return_type.codegen(0), body_type.codegen(0))));
                 }
@@ -235,7 +235,7 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ident(ident) => {
                 let (assigned_exp, assigned_type, mut statements) = self.check_exp(initial_value, typ.clone())?;
                 let type_of_var = if let Some(mut declared_type) = typ {
-                    declared_type = self.clean_type(declared_type.with_prefix_if_not_core(&self.current_context));
+                    declared_type = self.clean_type(declared_type.with_prefix_if_not_core(&self.current_context))?;
                     if !assigned_type.is_subtype_of(&declared_type, &self.type_map) {
                         return Err(
                             Box::new(
@@ -514,7 +514,8 @@ impl CortexPreprocessor {
                 let (atom_exp, atom_type, mut statements) = self.check_exp(*inner, None)?;
                 match &atom_type {
                     CortexType::BasicType(_) |
-                    CortexType::RefType(_) => {
+                    CortexType::RefType(_) | 
+                    CortexType::GenericType(_) => {
                         if atom_type.is_non_composite() {
                             return Err(Box::new(PreprocessingError::CannotAccessMemberOfNonComposite));
                         }
@@ -632,7 +633,7 @@ impl CortexPreprocessor {
                     .into_iter()
                     .map(|(k, v)| (k, v.subtract_if_possible(&prefix)))
                     .collect::<HashMap<_, _>>()
-                );
+                )?;
             member_type = member_type.with_prefix_if_not_core(&prefix);
             member_type = member_type.forward_immutability(is_mutable);
             Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type, vec![]))
@@ -679,7 +680,7 @@ impl CortexPreprocessor {
                 .get(&fname)
                 .map(|t| t.clone());
             if let Some(typ) = opt_typ {
-                let field_type = TypeEnvironment::fill_type(typ, &bindings)
+                let field_type = TypeEnvironment::fill_type(typ, &bindings)?
                     .with_prefix_if_not_core(&self.current_context)
                     .with_prefix_if_not_core(&name.without_last());
                 let (exp, assigned_type, st) = self.check_exp(fvalue, Some(field_type.clone()))?;
@@ -908,8 +909,8 @@ impl CortexPreprocessor {
     }
 
     // "Cleans" type, for example replacing type arguments
-    pub(super) fn clean_type(&self, typ: CortexType) -> CortexType {
-        self.current_type_env.as_ref().unwrap().fill_in(typ)
+    pub(super) fn clean_type(&self, typ: CortexType) -> Result<CortexType, CortexError> {
+        Ok(self.current_type_env.as_ref().unwrap().fill_in(typ)?)
     }
 
     fn get_variable_type(&self, path: &PathIdent) -> Result<CortexType, CortexError> {

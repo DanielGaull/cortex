@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, preprocessing::type_env::TypeEnvironment};
 
-use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, statement::PStatement, r#type::{CortexType, FollowsClause, TypeParam, TypeArg}};
+use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, statement::PStatement, r#type::{CortexType, FollowsClause, TypeArg, TypeError, TypeParam}};
 
 pub struct ImportEntry {
     pub(crate) path: PathIdent,
@@ -181,20 +181,20 @@ impl MemberFunctionSignature {
         }
     }
 
-    pub fn fill_all(self, bindings: &HashMap<TypeParam, TypeArg>) -> Self {
-        Self::new(
+    pub fn fill_all(self, bindings: &HashMap<TypeParam, TypeArg>) -> Result<Self, TypeError> {
+        Ok(Self::new(
             self.name,
             self.params
                 .into_iter()
-                .map(|p| Parameter {
+                .map(|p| Ok(Parameter {
                     name: p.name,
-                    typ: TypeEnvironment::fill_type(p.typ, bindings)
-                })
-                .collect(),
-            TypeEnvironment::fill_type(self.return_type, bindings),
+                    typ: TypeEnvironment::fill_type(p.typ, bindings)?
+                }))
+                .collect::<Result<Vec<_>, _>>()?,
+            TypeEnvironment::fill_type(self.return_type, bindings)?,
             self.this_arg,
             self.type_params,
-        )
+        ))
     }
 }
 impl SimpleCodeGen for MemberFunctionSignature {

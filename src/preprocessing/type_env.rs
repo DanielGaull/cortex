@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::env::EnvError, parsing::ast::r#type::{BasicType, CortexType, FollowsClause, FollowsEntry, FollowsType, RefType, TupleType, TypeParam, TypeArg}};
+use crate::{interpreting::env::EnvError, parsing::ast::r#type::{BasicType, CortexType, FollowsClause, FollowsEntry, FollowsType, RefType, TupleType, TypeArg, TypeError, TypeParam}};
 
 pub struct TypeEnvironment {
     bindings: HashMap<TypeParam, TypeArg>,
@@ -25,7 +25,7 @@ impl TypeEnvironment {
         self.bindings.insert(param, value);
     }
 
-    pub fn fill_in(&self, typ: CortexType) -> CortexType {
+    pub fn fill_in(&self, typ: CortexType) -> Result<CortexType, TypeError> {
         Self::fill_type(typ, &self.bindings)
     }
 
@@ -51,50 +51,57 @@ impl TypeEnvironment {
         }
     }
 
-    pub fn fill(arg: TypeArg, bindings: &HashMap<TypeParam, TypeArg>) -> TypeArg {
+    pub fn fill(arg: TypeArg, bindings: &HashMap<TypeParam, TypeArg>) -> Result<TypeArg, TypeError> {
         match arg {
-            TypeArg::Ty(ty) => TypeArg::Ty(Self::fill_type(ty, bindings)),
-            other => other,
+            TypeArg::Ty(ty) => Ok(TypeArg::Ty(Self::fill_type(ty, bindings)?)),
+            other => Ok(other),
         }
     }
 
-    pub fn fill_type(typ: CortexType, bindings: &HashMap<TypeParam, TypeArg>) -> CortexType {
+    pub fn fill_type(typ: CortexType, bindings: &HashMap<TypeParam, TypeArg>) -> Result<CortexType, TypeError> {
         match typ {
             CortexType::BasicType(b) => {
                 if !b.name.is_empty() {
                     let ident = b.name.get_back().unwrap();
                     if let Some(result) = bindings.get(&TypeParam::ty(ident)) {
                         if let TypeArg::Ty(ty) = result {
-                            return ty.clone();
+                            return Ok(ty.clone());
                         }
                     }
                 }
-                CortexType::BasicType(BasicType { name: b.name, type_args: b.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect() })
+                Ok(CortexType::BasicType(BasicType { name: b.name, type_args: b.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect::<Result<Vec<_>, _>>()? }))
             },
             CortexType::RefType(r) => {
-                let new_contained = Self::fill_type(*r.contained, bindings);
-                CortexType::RefType(RefType { contained: Box::new(new_contained), mutable: r.mutable })
+                let new_contained = Self::fill_type(*r.contained, bindings)?;
+                Ok(CortexType::RefType(RefType { contained: Box::new(new_contained), mutable: r.mutable }))
             },
             CortexType::TupleType(t) => {
-                let new_types = t.types.into_iter().map(|t| Self::fill_type(t, bindings)).collect();
-                CortexType::TupleType(TupleType {
-                    types: new_types,
-                })
+                let new_types = t.types.into_iter().map(|t| Self::fill_type(t, bindings))
+                    .collect::<Result<Vec<_>,_>>()?;
+                Ok(CortexType::TupleType(TupleType { types: new_types }))
             },
             CortexType::FollowsType(f) => {
-                CortexType::FollowsType(FollowsType {
+                Ok(CortexType::FollowsType(FollowsType {
                     clause: FollowsClause {
-                        contracts: f.clause.contracts.into_iter().map(|c| FollowsEntry {
+                        contracts: f.clause.contracts.into_iter().map(|c| Ok(FollowsEntry {
                             name: c.name,
-                            type_args: c.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect()
-                        }).collect(),
+                            type_args: c.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect::<Result<Vec<_>, _>>()?
+                        })).collect::<Result<Vec<_>, _>>()?,
                     },
-                })
+                }))
             },
             CortexType::OptionalType(t) => {
-                CortexType::OptionalType(Box::new(Self::fill_type(*t, bindings)))
+                Ok(CortexType::OptionalType(Box::new(Self::fill_type(*t, bindings)?)))
             },
-            CortexType::NoneType => CortexType::NoneType,
+            CortexType::NoneType => Ok(CortexType::NoneType),
+            CortexType::GenericType(name) => {
+                if let Some(value) = bindings.get(&TypeParam::ty(&name)) {
+                    if let TypeArg::Ty(ty) = value {
+                        return Ok(ty.clone());
+                    }
+                }
+                Err(TypeError::GenericNotDefined(name))
+            }
         }
     }
 
@@ -105,19 +112,19 @@ impl TypeEnvironment {
     // For example, going from Iterator<D> where Wrapper<D> follows Iterator<D> when we have a Wrapper<number>
     // to an Iterator<number>
     // Returns a list (in the same order as in the typedef) of all follows entries, filled in
-    pub(crate) fn fill_in_follows_entry_from_typedef(concrete_type: BasicType, type_params: Vec<TypeParam>, followed_contracts: Vec<FollowsEntry>) -> Vec<FollowsEntry> {
+    pub(crate) fn fill_in_follows_entry_from_typedef(concrete_type: BasicType, type_params: Vec<TypeParam>, followed_contracts: Vec<FollowsEntry>) -> Result<Vec<FollowsEntry>, TypeError> {
         let type_arg_map: HashMap<_, _> = type_params.into_iter().zip(concrete_type.type_args).collect();
         let mut result = Vec::new();
         for init_entry in followed_contracts {
             let mut args = Vec::new();
             for arg in init_entry.type_args {
-                args.push(TypeEnvironment::fill(arg, &type_arg_map));
+                args.push(TypeEnvironment::fill(arg, &type_arg_map)?);
             }
             result.push(FollowsEntry {
                 name: init_entry.name,
                 type_args: args,
             });
         }
-        result
+        Ok(result)
     }
 }

@@ -306,7 +306,7 @@ impl CortexPreprocessor {
                     }
                     method_names.insert(name);
                 }
-                methods_to_contain.push(func.clone().fill_all(&type_bindings));
+                methods_to_contain.push(func.clone().fill_all(&type_bindings)?);
             }
         }
 
@@ -440,7 +440,7 @@ impl CortexPreprocessor {
                 }
 
                 // Enqueue all fields of this type
-                let typ_name = typ.name()?;
+                let typ_name = &typ.name()?;
 
                 // It's ok if the struct doesn't exist yet
                 // If it has loops, then they will be caught when we visit this function upon registering it

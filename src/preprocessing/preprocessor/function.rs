@@ -90,7 +90,7 @@ impl CortexPreprocessor {
         args.insert(0, *callee);
         let true_type_args;
         if let Some(mut type_args) = type_args {
-            let typedef = self.lookup_type(caller_type)?;
+            let typedef = self.lookup_type(&caller_type)?;
             let mut bindings = HashMap::new();
             self.infer_arg_type(&CortexType::reference(
                 CortexType::basic(caller_type.clone(), forwarded_type_args(&typedef.type_params)),
@@ -197,8 +197,8 @@ impl CortexPreprocessor {
 
         let mut final_args = Vec::new();
         for (i, arg_type) in arg_types.into_iter().enumerate() {
-            let arg_type = self.clean_type(arg_type);
-            let param_type = self.clean_type(param_types.get(i).unwrap().clone());
+            let arg_type = self.clean_type(arg_type)?;
+            let param_type = self.clean_type(param_types.get(i).unwrap().clone())?;
             if !arg_type.is_subtype_of(&param_type, &self.type_map) {
                 return Err(
                     Box::new(
@@ -218,7 +218,7 @@ impl CortexPreprocessor {
             statements.extend(st);
         }
         
-        return_type = self.clean_type(return_type);
+        return_type = self.clean_type(return_type)?;
         if let None = TypeEnvironment::does_arg_list_contain(&sig.type_params, &return_type) {
             return_type = return_type.with_prefix_if_not_core(&extended_prefix);
         }
@@ -240,7 +240,7 @@ impl CortexPreprocessor {
         while !type_args_handled {
             if let CortexType::BasicType(b) = &typ {
                 bindings = TypeEnvironment::create_bindings(type_params, &b.type_args);
-                typ = TypeEnvironment::fill_type(typ, &bindings);
+                typ = TypeEnvironment::fill_type(typ, &bindings)?;
                 type_args_handled = true;
             } else if let CortexType::RefType(r) = typ {
                 typ = *r.contained;
@@ -370,7 +370,7 @@ impl CortexPreprocessor {
                 let mut true_correct = true;
                 if let Some(typedef) = self.type_map.get(&basic.name) {
                     let follows_entries = 
-                        TypeEnvironment::fill_in_follows_entry_from_typedef(basic.clone(), typedef.type_params.clone(), typedef.followed_contracts.clone());
+                        TypeEnvironment::fill_in_follows_entry_from_typedef(basic.clone(), typedef.type_params.clone(), typedef.followed_contracts.clone())?;
                     'top: for entry in &follows.clause.contracts {
                         let mut found = false;
                         for def_entry in &follows_entries {

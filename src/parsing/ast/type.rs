@@ -24,6 +24,8 @@ pub enum TypeError {
     TupleTypeNotValid,
     #[error("Follows clause type: not valid in this context")]
     FollowsTypeNotValid,
+    #[error("Generic type {0} is not defined")]
+    GenericNotDefined(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -61,6 +63,8 @@ pub enum CortexType {
     OptionalType(Box<CortexType>),
     // Represents the unique `none` type
     NoneType,
+    // Represents a generic type
+    GenericType(String),
 }
 
 impl SimpleCodeGen for CortexType {
@@ -98,6 +102,7 @@ impl SimpleCodeGen for CortexType {
                 format!("{}?", inner.codegen_wrap_if_needed())
             },
             CortexType::NoneType => String::from("none"),
+            CortexType::GenericType(name) => name.clone(),
         }
     }
 }
@@ -121,6 +126,7 @@ impl CortexType {
             CortexType::FollowsType(_) => true,
             CortexType::OptionalType(_) => true,
             CortexType::NoneType => false,
+            CortexType::GenericType(_) => false,
         }
     }
 }
@@ -214,6 +220,7 @@ impl CortexType {
                 CortexType::OptionalType(Box::new(t.with_prefix(path)))
             },
             CortexType::NoneType => CortexType::NoneType,
+            CortexType::GenericType(name) => CortexType::GenericType(name.clone()),
         }
     }
     pub fn with_prefix_if_not_core(self, prefix: &PathIdent) -> Self {
@@ -264,6 +271,7 @@ impl CortexType {
                 CortexType::OptionalType(Box::new(t.subtract_if_possible(prefix)))
             },
             CortexType::NoneType => CortexType::NoneType,
+            CortexType::GenericType(name) => CortexType::GenericType(name),
         }
     }
     // Forwards immutability if mutable is false. If mutable is true, returns self
@@ -289,14 +297,15 @@ impl CortexType {
             CortexType::RefType(r) => {
                 r.contained.prefix()
             },
-            CortexType::TupleType(_) | CortexType::FollowsType(_) | CortexType::NoneType => PathIdent::empty(),
+            CortexType::TupleType(_) | CortexType::FollowsType(_) | 
+            CortexType::NoneType | CortexType::GenericType(_) => PathIdent::empty(),
             CortexType::OptionalType(t) => t.prefix(),
         }
     }
     pub fn optional(&self) -> bool {
         match self {
             CortexType::BasicType(_) | CortexType::RefType(_) | CortexType::TupleType(_) | 
-            CortexType::FollowsType(_) => {
+            CortexType::FollowsType(_) | CortexType::GenericType(_) => {
                 false
             },
             CortexType::OptionalType(_) => true,
@@ -317,6 +326,7 @@ impl CortexType {
             CortexType::FollowsType(_) => false,
             CortexType::OptionalType(t) => t.is_core(),
             CortexType::NoneType => true,
+            CortexType::GenericType(_) => false,
         }
     }
     pub fn is_non_composite(&self) -> bool {
@@ -332,6 +342,7 @@ impl CortexType {
             CortexType::FollowsType(_) => true,
             CortexType::OptionalType(t) => t.is_non_composite(),
             CortexType::NoneType => true,
+            CortexType::GenericType(_) => false,
         }
     }
 
@@ -367,14 +378,15 @@ impl CortexType {
         }
     }
 
-    pub fn name(&self) -> Result<&PathIdent, TypeError> {
+    pub fn name(&self) -> Result<PathIdent, TypeError> {
         match self {
-            CortexType::BasicType(b) => Ok(&b.name),
+            CortexType::BasicType(b) => Ok(b.name.clone()),
             CortexType::RefType(r) => r.contained.name(),
             CortexType::TupleType(_) => Err(TypeError::TupleTypeNotValid),
             CortexType::FollowsType(_) => Err(TypeError::FollowsTypeNotValid),
             CortexType::OptionalType(t) => t.name(),
-            CortexType::NoneType => Ok(&*NONE_NAME),
+            CortexType::NoneType => Ok(NONE_NAME.clone()),
+            CortexType::GenericType(name) => Ok(PathIdent::new(vec![name])),
         }
     }
 
@@ -545,8 +557,17 @@ impl CortexType {
             },
             (CortexType::BasicType(b), CortexType::FollowsType(f)) => {
                 if let Some(type_def) = type_defs.get(&b.name) {
-                    let entries = 
-                        TypeEnvironment::fill_in_follows_entry_from_typedef(b.clone(), type_def.type_params.clone(), type_def.followed_contracts.clone());
+                    let entries_tentative = 
+                        TypeEnvironment::fill_in_follows_entry_from_typedef(
+                            b.clone(), 
+                            type_def.type_params.clone(), 
+                            type_def.followed_contracts.clone()
+                        );
+                    if entries_tentative.is_err() {
+                        return false;
+                    }
+                    let entries = entries_tentative.unwrap();
+                    
                     // have to be no contracts in f that aren't in b
                     for c in &f.clause.contracts {
                         if !entries.contains(c) {
