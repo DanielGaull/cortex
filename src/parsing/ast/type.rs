@@ -503,6 +503,13 @@ impl CortexType {
             (CortexType::NoneType, CortexType::NoneType) => {
                 Some(CortexType::NoneType)
             },
+            (CortexType::GenericType(n1), CortexType::GenericType(n2)) => {
+                if n1 == n2 {
+                    Some(CortexType::GenericType(n1))
+                } else {
+                    None
+                }
+            },
             _ => None
         }
     }
@@ -590,6 +597,9 @@ impl CortexType {
             },
             (CortexType::NoneType, CortexType::NoneType) => {
                 true
+            },
+            (CortexType::GenericType(n1), CortexType::GenericType(n2)) => {
+                n1 == n2
             },
             _ => false,
         }
