@@ -37,19 +37,19 @@ impl TypeEnvironment {
         }
     }
 
-    pub fn does_arg_list_contain<'a>(type_params: &'a Vec<TypeParam>, typ: &CortexType) -> Option<&'a TypeParam> {
-        let typ_name = typ.name().ok()?;
-        if typ_name.is_final() {
-            let name = typ_name.get_back().ok()?;
-            if let Some(entry) = type_params.iter().find(|p| &p.name == name) {
-                Some(entry)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
+    // pub fn does_arg_list_contain<'a>(type_params: &'a Vec<TypeParam>, typ: &CortexType) -> Option<&'a TypeParam> {
+    //     let typ_name = typ.name().ok()?;
+    //     if typ_name.is_final() {
+    //         let name = typ_name.get_back().ok()?;
+    //         if let Some(entry) = type_params.iter().find(|p| &p.name == name) {
+    //             Some(entry)
+    //         } else {
+    //             None
+    //         }
+    //     } else {
+    //         None
+    //     }
+    // }
 
     pub fn fill(arg: TypeArg, bindings: &HashMap<TypeParam, TypeArg>) -> Result<TypeArg, TypeError> {
         match arg {
@@ -61,14 +61,14 @@ impl TypeEnvironment {
     pub fn fill_type(typ: CortexType, bindings: &HashMap<TypeParam, TypeArg>) -> Result<CortexType, TypeError> {
         match typ {
             CortexType::BasicType(b) => {
-                if !b.name.is_empty() {
-                    let ident = b.name.get_back().unwrap();
-                    if let Some(result) = bindings.get(&TypeParam::ty(ident)) {
-                        if let TypeArg::Ty(ty) = result {
-                            return Ok(ty.clone());
-                        }
-                    }
-                }
+                // if !b.name.is_empty() {
+                //     let ident = b.name.get_back().unwrap();
+                //     if let Some(result) = bindings.get(&TypeParam::ty(ident)) {
+                //         if let TypeArg::Ty(ty) = result {
+                //             return Ok(ty.clone());
+                //         }
+                //     }
+                // }
                 Ok(CortexType::BasicType(BasicType { name: b.name, type_args: b.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect::<Result<Vec<_>, _>>()? }))
             },
             CortexType::RefType(r) => {
@@ -100,7 +100,10 @@ impl TypeEnvironment {
                         return Ok(ty.clone());
                     }
                 }
-                Err(TypeError::GenericNotDefined(name))
+                // Ex. in preprocessing a function, we need to fill in parameter types *before*
+                // we attempt to infer them, so there are cases where we want to return back
+                // what we read in here
+                Ok(CortexType::GenericType(name))
             }
         }
     }

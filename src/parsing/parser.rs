@@ -787,6 +787,8 @@ impl CortexParser {
                 }
                 if ident.is_final() && ident.get_back().unwrap() == "none" && type_args.len() == 0 {
                     Ok(CortexType::none())
+                } else if ident.is_final() && type_args.len() == 0 && active_generics.contains(ident.get_back().unwrap()) {
+                    Ok(CortexType::GenericType(ident.get_back().unwrap().clone()))
                 } else {
                     Ok(CortexType::basic(ident, type_args))
                 }
@@ -922,19 +924,23 @@ impl CortexParser {
         if let Some(next) = next {
             if matches!(next.as_rule(), Rule::typeParamList) {
                 type_params = Self::parse_type_param_list(next)?;
-                let active_generics = Self::convert_to_active_generics(&type_params);
+                let mut active_generics = Self::convert_to_active_generics(&type_params);
                 
                 let mut sigs = Vec::new();
                 while let Some(p) = pairs.next() {
-                    sigs.push(Self::parse_member_function_signature(p, active_generics.clone())?);
+                    sigs.push(Self::parse_member_function_signature(p, &mut active_generics)?);
                 }
                 functions = sigs;
             } else {
                 let mut sigs = Vec::new();
-                sigs.push(Self::parse_member_function_signature(next, vec![])?);
+                let mut active_generics = Vec::new();
+                sigs.push(Self::parse_member_function_signature(next, &mut active_generics)?);
                 
                 while let Some(p) = pairs.next() {
-                    sigs.push(Self::parse_member_function_signature(p, vec![])?);
+                    // Recreate-every time, since we don't want the active generics from one member function
+                    // to carry on to the next
+                    let mut active_generics = Vec::new();
+                    sigs.push(Self::parse_member_function_signature(p, &mut active_generics)?);
                 }
                 functions = sigs;
             }
@@ -978,7 +984,7 @@ impl CortexParser {
         )
     }
 
-    fn parse_func_pair(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PFunction, ParseError> {
+    fn parse_func_pair(pair: Pair<Rule>, mut active_generics: Vec<String>) -> Result<PFunction, ParseError> {
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
 
@@ -987,6 +993,7 @@ impl CortexParser {
         let params;
         if matches!(next.as_rule(), Rule::typeParamList) {
             type_params = Self::parse_type_param_list(next)?;
+            active_generics.extend(type_params.iter().map(|t| t.name.clone()));
             params = Self::parse_param_list(pairs.next().unwrap(), active_generics.clone())?;
         } else {
             params = Self::parse_param_list(next, active_generics.clone())?;
@@ -1006,17 +1013,17 @@ impl CortexParser {
             type_params,
         })
     }
-    fn parse_member_function(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<MemberFunction, ParseError> {
+    fn parse_member_function(pair: Pair<Rule>, mut active_generics: Vec<String>) -> Result<MemberFunction, ParseError> {
         let mut pairs = pair.into_inner().peekable();
 
-        let signature = Self::parse_member_function_signature(pairs.next().unwrap(), active_generics.clone())?;
+        let signature = Self::parse_member_function_signature(pairs.next().unwrap(), &mut active_generics)?;
         let body = Self::parse_body(pairs.next().unwrap(), active_generics)?;
         Ok(MemberFunction {
             signature,
             body: Body::Basic(body),
         })
     }
-    fn parse_member_function_signature(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<MemberFunctionSignature, ParseError> {
+    fn parse_member_function_signature(pair: Pair<Rule>, active_generics: &mut Vec<String>) -> Result<MemberFunctionSignature, ParseError> {
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
 
@@ -1025,6 +1032,7 @@ impl CortexParser {
         let this_arg;
         if matches!(next.as_rule(), Rule::typeParamList) {
             type_params = Self::parse_type_param_list(next)?;
+            active_generics.extend(type_params.iter().map(|t| t.name.clone()));
             this_arg = Self::parse_this_arg(pairs.next().unwrap())?;
         } else {
             this_arg = Self::parse_this_arg(next)?;
@@ -1033,7 +1041,7 @@ impl CortexParser {
         let params = Self::parse_param_list(pairs.next().unwrap(), active_generics.clone())?;
         
         let return_type = if matches!(pairs.peek(), Some(_)) && matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
-            Self::parse_type_pair(pairs.next().unwrap(), active_generics)?
+            Self::parse_type_pair(pairs.next().unwrap(), active_generics.clone())?
         } else {
             CortexType::void()
         };

@@ -140,7 +140,6 @@ impl CortexPreprocessor {
         }
         self.current_env = Some(Box::new(new_env));
 
-        // Do check body
         let final_fn_body;
         match function.body {
             Body::Basic(body) => {

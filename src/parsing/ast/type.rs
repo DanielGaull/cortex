@@ -621,7 +621,7 @@ fn are_type_args_equal(a: &Vec<TypeArg>, b: &Vec<TypeArg>) -> bool {
 pub fn forwarded_type_args(params: &Vec<TypeParam>) -> Vec<TypeArg> {
     let mut type_args = Vec::new();
     for p in params {
-        type_args.push(TypeArg::Ty(CortexType::basic_simple(&p.name.clone(), vec![])));
+        type_args.push(TypeArg::Ty(CortexType::GenericType(p.name.clone())));
     }
     type_args
 }

@@ -50,7 +50,7 @@ impl CortexPreprocessor {
                         name: PathIdent::simple(contract_to_use.name.clone()),
                         type_args: contract_to_use.type_params
                             .iter()
-                            .map(|t| TypeArg::Ty(CortexType::basic_simple(&t.name.clone(), vec![])))
+                            .map(|t| TypeArg::Ty(CortexType::GenericType(t.name.clone())))
                             .collect(),
                     }
                 ]
@@ -174,11 +174,7 @@ impl CortexPreprocessor {
         let mut param_types = Vec::<CortexType>::with_capacity(sig.params.len());
         for param in &sig.params {
             param_names.push(param.name.clone());
-            if let Some(_) = TypeEnvironment::does_arg_list_contain(&sig.type_params, &param.typ) {
-                param_types.push(param.typ.clone());
-            } else {
-                param_types.push(param.typ.clone().with_prefix_if_not_core(&extended_prefix));
-            }
+            param_types.push(param.typ.clone().with_prefix_if_not_core(&extended_prefix));
         }
 
         let bindings;
@@ -218,10 +214,7 @@ impl CortexPreprocessor {
             statements.extend(st);
         }
         
-        return_type = self.clean_type(return_type)?;
-        if let None = TypeEnvironment::does_arg_list_contain(&sig.type_params, &return_type) {
-            return_type = return_type.with_prefix_if_not_core(&extended_prefix);
-        }
+        return_type = self.clean_type(return_type)?.with_prefix_if_not_core(&extended_prefix);
 
         self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
 
@@ -292,42 +285,17 @@ impl CortexPreprocessor {
         let correct;
         match (&param_type, arg_type) {
             (CortexType::BasicType(b), arg_type) => {
-                if let Some(name) = TypeEnvironment::does_arg_list_contain(type_params, &param_type) {
-                    let bound_type = arg_type.clone();
-                    if b.type_args.len() > 0 {
-                        return Err(Box::new(PreprocessingError::CannotHaveTypeArgsOnGeneric(param_type.codegen(0))));
-                    }
-                    if let Some(existing_binding) = bindings.get(name) {
-                        if let TypeArg::Ty(ty) = existing_binding {
-                            let combined = bound_type.combine_with(ty.clone(), &self.type_map);
-                            if let Some(result) = combined {
-                                bindings.insert(name.clone(), TypeArg::Ty(result));
-                                correct = true;
-                            } else {
-                                correct = false;
-                            }
-                        } else {
-                            correct = false;
+                if let CortexType::BasicType(b2) = arg_type {
+                    if b.type_args.len() == b2.type_args.len() {
+                        for (type_param, type_arg) in b.type_args.iter().zip(&b2.type_args) {
+                            self.infer_arg(type_param, type_arg, type_params, bindings, param_name, st_str)?;
                         }
-                    } else {
-                        bindings.insert(name.clone(), TypeArg::Ty(bound_type));
                         correct = true;
+                    } else {
+                        correct = false;
                     }
                 } else {
-                    // Try to match up type args (ex. list<T> to list<number>)
-                    // If both are not BasicType, then we just ignore this
-                    if let CortexType::BasicType(b2) = arg_type {
-                        if b.type_args.len() == b2.type_args.len() {
-                            for (type_param, type_arg) in b.type_args.iter().zip(&b2.type_args) {
-                                self.infer_arg(type_param, type_arg, type_params, bindings, param_name, st_str)?;
-                            }
-                            correct = true;
-                        } else {
-                            correct = false;
-                        }
-                    } else {
-                        correct = true;
-                    }
+                    correct = false;
                 }
             },
             (CortexType::RefType(r), CortexType::RefType(r2)) => {
@@ -406,6 +374,10 @@ impl CortexPreprocessor {
             },
             (CortexType::OptionalType(o), other) => {
                 self.infer_arg_type(o, other, type_params, bindings, param_name, st_str)?;
+                correct = true;
+            },
+            (CortexType::GenericType(name1), other) => {
+                bindings.insert(TypeParam::ty(name1), TypeArg::Ty(other.clone()));
                 correct = true;
             },
             (_, _) => {
