@@ -48,7 +48,7 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
     ));
     type_map.insert(PathIdent::new(vec!["Box"]), TypeDefinition::new(
         HashMap::new(), vec![TypeParam::ty("T")], vec![
-            FollowsEntry::new(PathIdent::new(vec!["Container"]), vec![TypeArg::Ty(CortexType::simple("T"))]),
+            FollowsEntry::new(PathIdent::new(vec!["Container"]), vec![TypeArg::Ty(CortexType::generic("T"))]),
         ]
     ));
 
@@ -118,13 +118,13 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_struct(Struct::new(
         "Box",
         vec![
-            ("item", CortexType::basic(PathIdent::simple(String::from("T")), vec![]))
+            ("item", CortexType::generic("T"))
         ],
         vec![
             MemberFunction::new(
                 OptionalIdentifier::Ident(String::from("get")), 
                 vec![],
-                CortexType::basic(PathIdent::simple(String::from("T")), vec![]),
+                CortexType::generic("T"),
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.item")?))),
                 cortex_lang::parsing::ast::top_level::ThisArg::RefThis,
                 vec![],
@@ -136,9 +136,9 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_function(PFunction::new(
         OptionalIdentifier::Ident(String::from("generic")),
         vec![
-            Parameter::named("t", CortexType::OptionalType(Box::new(CortexType::simple("T"))))
+            Parameter::named("t", CortexType::OptionalType(Box::new(CortexType::generic("T"))))
         ],
-        CortexType::OptionalType(Box::new(CortexType::simple("T"))),
+        CortexType::OptionalType(Box::new(CortexType::generic("T"))),
         Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
         vec![TypeParam::ty("T")],
     ))?;

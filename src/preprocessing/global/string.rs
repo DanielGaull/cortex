@@ -8,7 +8,7 @@ impl CortexPreprocessor {
     pub(crate) fn add_string_funcs(global: &mut Module) -> Result<(), Box<dyn Error>> {
         global.add_function(PFunction::new(
             OptionalIdentifier::Ident(String::from("toString")),
-            vec![Parameter::named("item", CortexType::simple("T"))],
+            vec![Parameter::named("item", CortexType::generic("T"))],
             CortexType::string(),
             Body::Native(Box::new(move |env, heap| {
                 let item = env.get_value("item")?;

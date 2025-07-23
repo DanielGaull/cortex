@@ -16,7 +16,7 @@ impl CortexPreprocessor {
                     vec![
                         Parameter::named("index", CortexType::number())
                     ], 
-                    CortexType::simple("T"), 
+                    CortexType::generic("T"),
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
@@ -45,7 +45,7 @@ impl CortexPreprocessor {
                     String::from(INDEX_SET_FN_NAME)), 
                     vec![
                         Parameter::named("index", CortexType::number()),
-                        Parameter::named("value", CortexType::simple("T")),
+                        Parameter::named("value", CortexType::generic("T"),),
                     ], 
                     CortexType::void(), 
                     Body::Native(Box::new(move |env, rheap| {
@@ -95,7 +95,7 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("find")), 
                     vec![
-                        Parameter::named("item", CortexType::simple("T")),
+                        Parameter::named("item", CortexType::generic("T")),
                     ], 
                     CortexType::number(),
                     Body::Native(Box::new(move |env, rheap| {
@@ -122,7 +122,7 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("contains")), 
                     vec![
-                        Parameter::named("item", CortexType::simple("T")),
+                        Parameter::named("item", CortexType::generic("T")),
                     ], 
                     CortexType::boolean(),
                     Body::Native(Box::new(move |env, rheap| {
@@ -144,7 +144,7 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("add")), 
                     vec![
-                        Parameter::named("item", CortexType::simple("T")),
+                        Parameter::named("item", CortexType::generic("T")),
                     ], 
                     CortexType::void(),
                     Body::Native(Box::new(move |env, rheap| {
@@ -168,7 +168,7 @@ impl CortexPreprocessor {
                     String::from("insert")), 
                     vec![
                         Parameter::named("index", CortexType::number()),
-                        Parameter::named("item", CortexType::simple("T")),
+                        Parameter::named("item", CortexType::generic("T")),
                     ], 
                     CortexType::void(),
                     Body::Native(Box::new(move |env, rheap| {

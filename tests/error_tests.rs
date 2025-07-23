@@ -243,9 +243,9 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let generic_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("generic")),
         vec![
-            Parameter::named("t", CortexType::simple("T"))
+            Parameter::named("t", CortexType::generic("T"))
         ],
-        CortexType::OptionalType(Box::new(CortexType::simple("T"))),
+        CortexType::OptionalType(Box::new(CortexType::generic("T"))),
         Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
         vec![TypeParam::ty("T")],
     );

@@ -189,6 +189,9 @@ impl CortexType {
     pub fn range() -> Self {
         Self::simple("range")
     }
+    pub fn generic(name: &str) -> Self {
+        Self::GenericType(String::from(name))
+    }
     pub fn with_prefix(&self, path: &PathIdent) -> Self {
         match self {
             CortexType::BasicType(b) => {
