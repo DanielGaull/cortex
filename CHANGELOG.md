@@ -6,11 +6,12 @@
   - As per [SemVer](https://semver.org/), upgrading from version 0.X.0 to 0.Y.0 can have breaking changes
 
 ## Future Plans:
-* Features implemented via contracts:
+* Implementing import
+  - Prerequisite for "contracts part 2"
+* Features implemented via contracts ("contracts part 2"):
   - For loops and iterators
   - Operator overloading
   - Lambda functions
 * Function "forwarding" in composites
 * Break/continue/early-return
-* Implementing import
 * Plenty of other fixes and enhancements
