@@ -34,7 +34,6 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn subtype_tests() -> Result<(), Box<dyn Error>> {
-    // TODO: update these tests
     let mut preprocessor = CortexPreprocessor::new()?;
     let mut module = Module::new();
     module.add_contract(Contract::new("Iterable", vec![], vec![]))?;
