@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{top_level::Struct, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::top_level::Struct, parser::CortexParser}, preprocessing::module::Module, r#type::r#type::CortexType};
 
 #[test]
 fn gc_test_simple() -> Result<(), Box<dyn Error>> {

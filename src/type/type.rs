@@ -3,9 +3,9 @@ use std::collections::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
-use crate::{interpreting::error::CortexError, parsing::codegen::r#trait::SimpleCodeGen, preprocessing::{module::TypeDefinition, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::module::TypeDefinition};
 
-use super::expression::PathIdent;
+use super::type_env::TypeEnvironment;
 
 macro_rules! core_types {
     () => {

@@ -1,9 +1,9 @@
 use thiserror::Error;
 use std::error::Error;
 
-use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::ast::function_address::FunctionAddress};
+use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::ast::function_address::FunctionAddress, r#type::r#type::{CortexType, TypeArg}};
 
-use super::{top_level::BasicBody, r#type::{CortexType, TypeArg}};
+use super::top_level::BasicBody;
 
 #[derive(Clone)]
 pub struct PConditionBody {

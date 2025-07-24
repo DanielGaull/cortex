@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error};
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, MemberFunction, PFunction, Struct}, r#type::{CortexType, FollowsEntry, TypeArg, TypeParam}}, parser::CortexParser}, preprocessing::module::{Module, TypeDefinition}};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, MemberFunction, PFunction, Struct}}, parser::CortexParser}, preprocessing::module::{Module, TypeDefinition}, r#type::r#type::{CortexType, FollowsEntry, TypeArg, TypeParam}};
 
 fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;

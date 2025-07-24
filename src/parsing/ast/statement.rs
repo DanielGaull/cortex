@@ -1,6 +1,6 @@
-use crate::parsing::codegen::r#trait::SimpleCodeGen;
+use crate::{parsing::codegen::r#trait::SimpleCodeGen, r#type::r#type::CortexType};
 
-use super::{expression::{PConditionBody, PExpression, IdentExpression, OptionalIdentifier}, r#type::CortexType};
+use super::expression::{PConditionBody, PExpression, IdentExpression, OptionalIdentifier};
 
 #[derive(Clone)]
 pub enum AssignmentName {

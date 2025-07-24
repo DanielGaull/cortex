@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::env::EnvError, parsing::ast::r#type::{BasicType, CortexType, FollowsClause, FollowsEntry, FollowsType, RefType, TupleType, TypeArg, TypeError, TypeParam}};
+use crate::interpreting::env::EnvError;
+
+use super::r#type::{BasicType, CortexType, FollowsClause, FollowsEntry, FollowsType, RefType, TupleType, TypeArg, TypeError, TypeParam};
 
 pub struct TypeEnvironment {
     bindings: HashMap<TypeParam, TypeArg>,
@@ -37,20 +39,6 @@ impl TypeEnvironment {
         }
     }
 
-    // pub fn does_arg_list_contain<'a>(type_params: &'a Vec<TypeParam>, typ: &CortexType) -> Option<&'a TypeParam> {
-    //     let typ_name = typ.name().ok()?;
-    //     if typ_name.is_final() {
-    //         let name = typ_name.get_back().ok()?;
-    //         if let Some(entry) = type_params.iter().find(|p| &p.name == name) {
-    //             Some(entry)
-    //         } else {
-    //             None
-    //         }
-    //     } else {
-    //         None
-    //     }
-    // }
-
     pub fn fill(arg: TypeArg, bindings: &HashMap<TypeParam, TypeArg>) -> Result<TypeArg, TypeError> {
         match arg {
             TypeArg::Ty(ty) => Ok(TypeArg::Ty(Self::fill_type(ty, bindings)?)),
@@ -61,14 +49,6 @@ impl TypeEnvironment {
     pub fn fill_type(typ: CortexType, bindings: &HashMap<TypeParam, TypeArg>) -> Result<CortexType, TypeError> {
         match typ {
             CortexType::BasicType(b) => {
-                // if !b.name.is_empty() {
-                //     let ident = b.name.get_back().unwrap();
-                //     if let Some(result) = bindings.get(&TypeParam::ty(ident)) {
-                //         if let TypeArg::Ty(ty) = result {
-                //             return Ok(ty.clone());
-                //         }
-                //     }
-                // }
                 Ok(CortexType::BasicType(BasicType { name: b.name, type_args: b.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect::<Result<Vec<_>, _>>()? }))
             },
             CortexType::RefType(r) => {

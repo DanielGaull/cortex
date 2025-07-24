@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, preprocessing::type_env::TypeEnvironment};
+use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, r#type::{r#type::{CortexType, FollowsClause, TypeArg, TypeError, TypeParam, TypeParamType}, type_env::TypeEnvironment}};
 
-use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, statement::PStatement, r#type::{CortexType, FollowsClause, TypeArg, TypeError, TypeParam}};
+use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, statement::PStatement};
 
 pub struct ImportEntry {
     pub(crate) path: PathIdent,
@@ -392,7 +392,7 @@ impl Struct {
             name: String::from(name),
             fields: map,
             functions: funcs,
-            type_params: type_arg_names.into_iter().map(|s| TypeParam::new(s, super::r#type::TypeParamType::Ty)).collect(),
+            type_params: type_arg_names.into_iter().map(|s| TypeParam::new(s, TypeParamType::Ty)).collect(),
             follows_clause,
         }
     }

@@ -1,4 +1,4 @@
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, PFunction}, r#type::CortexType}, parser::CortexParser}, preprocessing::module::Module};
+use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, PFunction}}, parser::CortexParser}, preprocessing::module::Module, r#type::r#type::CortexType};
 use thiserror::Error;
 use std::error::Error;
 

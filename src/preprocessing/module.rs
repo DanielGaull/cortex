@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Contract, Extension, PFunction, Struct}, r#type::{CortexType, FollowsEntry, TypeParam}};
+use crate::{parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Contract, Extension, PFunction, Struct}}, r#type::r#type::{CortexType, FollowsEntry, TypeParam}};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
