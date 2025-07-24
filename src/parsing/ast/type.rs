@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
-use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::{module::TypeDefinition, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::codegen::r#trait::SimpleCodeGen, preprocessing::{module::TypeDefinition, type_env::TypeEnvironment}};
 
 use super::expression::PathIdent;
 
@@ -517,50 +517,50 @@ impl CortexType {
         }
     }
 
-    pub fn is_subtype_of(&self, other: &CortexType, type_defs: &HashMap<PathIdent, TypeDefinition>) -> bool {
+    pub fn is_subtype_of(&self, other: &CortexType, type_defs: &HashMap<PathIdent, TypeDefinition>) -> Result<bool, CortexError> {
         if other.optional() && self == &CortexType::none() {
-            return true;
+            return Ok(true);
         }
 
         match (self, other) {
             (CortexType::BasicType(b1), CortexType::BasicType(b2)) => {
                 if b1.name == b2.name {
-                    are_type_args_equal(&b1.type_args, &b2.type_args)
+                    Ok(are_type_args_equal(&b1.type_args, &b2.type_args))
                 } else {
-                    false
+                    Ok(false)
                 }
             },
             (CortexType::RefType(r1), CortexType::RefType(r2)) => {
-                if r1.contained.is_subtype_of(&*r2.contained, type_defs) {
+                if r1.contained.is_subtype_of(&*r2.contained, type_defs)? {
                     if !r1.mutable && r2.mutable {
-                        false
+                        Ok(false)
                     } else {
-                        true
+                        Ok(true)
                     }
                 } else {
-                    false
+                    Ok(false)
                 }
             },
             (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
                 if t1.types.len() == t2.types.len() {
                     for (t1, t2) in t1.types.iter().zip(&t2.types) {
-                        if !t1.is_subtype_of(t2, type_defs) {
-                            return false;
+                        if !t1.is_subtype_of(t2, type_defs)? {
+                            return Ok(false);
                         }
                     }
-                    true
+                    Ok(true)
                 } else {
-                    false
+                    Ok(false)
                 }
             },
             (CortexType::FollowsType(t1), CortexType::FollowsType(t2)) => {
                 // have to be no contracts in t2 that aren't in t1
                 for c in &t2.clause.contracts {
                     if !t1.clause.contracts.contains(c) {
-                        return false;
+                        return Ok(false);
                     }
                 }
-                true
+                Ok(true)
             },
             (CortexType::RefType(r), CortexType::FollowsType(_)) => {
                 r.contained.is_subtype_of(other, type_defs)
@@ -574,37 +574,37 @@ impl CortexType {
                             type_def.followed_contracts.clone()
                         );
                     if entries_tentative.is_err() {
-                        return false;
+                        return Ok(false);
                     }
                     let entries = entries_tentative.unwrap();
                     
                     // have to be no contracts in f that aren't in b
                     for c in &f.clause.contracts {
                         if !entries.contains(c) {
-                            return false;
+                            return Ok(false);
                         }
                     }
-                    true
+                    Ok(true)
                 } else {
-                    false
+                    Ok(false)
                 }
             },
             (CortexType::OptionalType(o1), CortexType::OptionalType(o2)) => {
                 o1.is_subtype_of(o2, type_defs)
             },
             (CortexType::NoneType, CortexType::OptionalType(_)) => {
-                true
+                Ok(true)
             },
             (other, CortexType::OptionalType(o)) => {
                 other.is_subtype_of(&*o, type_defs)
             },
             (CortexType::NoneType, CortexType::NoneType) => {
-                true
+                Ok(true)
             },
             (CortexType::GenericType(n1), CortexType::GenericType(n2)) => {
-                n1 == n2
+                Ok(n1 == n2)
             },
-            _ => false,
+            _ => Ok(false),
         }
     }
 }

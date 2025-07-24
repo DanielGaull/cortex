@@ -195,7 +195,7 @@ impl CortexPreprocessor {
         for (i, arg_type) in arg_types.into_iter().enumerate() {
             let arg_type = self.clean_type(arg_type)?;
             let param_type = self.clean_type(param_types.get(i).unwrap().clone())?;
-            if !arg_type.is_subtype_of(&param_type, &self.type_map) {
+            if !arg_type.is_subtype_of(&param_type, &self.type_map)? {
                 return Err(
                     Box::new(
                         PreprocessingError::MismatchedType(

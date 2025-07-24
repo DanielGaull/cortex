@@ -184,12 +184,12 @@ fn run_inference_type_tests() -> Result<(), Box<dyn Error>> {
 fn assert_subtype(first: &str, second: &str, type_map: &HashMap<PathIdent, TypeDefinition>) -> Result<(), Box<dyn Error>> {
     let t1 = CortexParser::parse_type(first)?;
     let t2 = CortexParser::parse_type(second)?;
-    assert!(t1.is_subtype_of(&t2, type_map), "'{}' is not a subtype of '{}'", first, second);
+    assert!(t1.is_subtype_of(&t2, type_map)?, "'{}' is not a subtype of '{}'", first, second);
     Ok(())
 }
 fn assert_not_subtype(first: &str, second: &str, type_map: &HashMap<PathIdent, TypeDefinition>) -> Result<(), Box<dyn Error>> {
     let t1 = CortexParser::parse_type(first)?;
     let t2 = CortexParser::parse_type(second)?;
-    assert!(!t1.is_subtype_of(&t2, type_map), "'{}' is mistakenly a subtype of '{}'", first, second);
+    assert!(!t1.is_subtype_of(&t2, type_map)?, "'{}' is mistakenly a subtype of '{}'", first, second);
     Ok(())
 }

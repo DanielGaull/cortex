@@ -1,8 +1,8 @@
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!"\n" ~ ANY)*) }
 WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
 
-// program = { SOI ~ import* ~ topLevel* ~ EOI }
-program = { SOI ~ topLevel* ~ EOI }
+program = { SOI ~ import* ~ topLevel* ~ EOI }
+//program = { SOI ~ topLevel* ~ EOI }
 
 // Top-level
 topLevel = { import | function | struct | extension | contract | module }
