@@ -6,6 +6,11 @@ use super::preprocessor::CortexPreprocessor;
 
 impl CortexPreprocessor {
     pub(super) fn lookup_type(&self, path: &PathIdent) -> Result<&TypeDefinition, CortexError> {
+        if path.is_final() {
+            if let Some(resolved) = self.imported_aliases.get(path.get_back()?) {
+                return self.lookup_type(resolved);
+            }
+        }
         let res = self.lookup_type_with(path, &self.current_context);
         match res {
             Ok(r) => Ok(r),
@@ -34,6 +39,11 @@ impl CortexPreprocessor {
     }
 
     pub(super) fn lookup_contract(&self, path: &PathIdent) -> Result<&Contract, CortexError> {
+        if path.is_final() {
+            if let Some(resolved) = self.imported_aliases.get(path.get_back()?) {
+                return self.lookup_contract(resolved);
+            }
+        }
         let res = self.lookup_contract_with(path, &self.current_context);
         match res {
             Ok(r) => Ok(r),
@@ -59,6 +69,25 @@ impl CortexPreprocessor {
     }
 
     pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<(&FunctionSignature, &PathIdent), CortexError> {
+        if path.own_module_path.is_final() {
+            if let Some(resolved) = self.imported_aliases.get(path.own_module_path.get_back()?) {
+                return self.lookup_signature(&FunctionAddress {
+                    own_module_path: resolved.clone(),
+                    target: path.target.clone(),
+                });
+            }
+        }
+        if let Some(target) = &path.target {
+            if target.is_final() {
+                if let Some(resolved) = self.imported_aliases.get(target.get_back()?) {
+                    return self.lookup_signature(&FunctionAddress {
+                        own_module_path: path.own_module_path.clone(),
+                        target: Some(resolved.clone()),
+                    });
+                }
+            }
+        }
+        
         let res = self.lookup_signature_with(path, &self.current_context);
         match res {
             Ok(r) => Ok((r, &self.current_context)),

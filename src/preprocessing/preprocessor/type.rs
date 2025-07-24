@@ -25,29 +25,33 @@ pub fn forwarded_type_args(params: &Vec<TypeParam>) -> Vec<TypeArg> {
 }
 
 impl CortexPreprocessor {
-    fn combine_type_args(&self, first: TypeArg, second: TypeArg) -> Option<TypeArg> {
+    fn combine_type_args(&self, first: TypeArg, second: TypeArg) -> Result<Option<TypeArg>, CortexError> {
         match (first, second) {
             (TypeArg::Ty(t1), TypeArg::Ty(t2)) => {
-                Some(TypeArg::Ty(self.combine_types(t1, t2)?))
+                if let Some(result) = self.combine_types(t1, t2)? {
+                    Ok(Some(TypeArg::Ty(result)))
+                } else {
+                    Ok(None)
+                }
             },
             (TypeArg::Int(i1), TypeArg::Int(i2)) => {
                 if i1 == i2 {
-                    Some(TypeArg::Int(i1))
+                    Ok(Some(TypeArg::Int(i1)))
                 } else {
-                    None
+                    Ok(None)
                 }
             },
-            (_, _) => None,
+            (_, _) => Ok(None),
         }
     }
 
-    pub fn combine_types(&self, first: CortexType, second: CortexType) -> Option<CortexType> {
+    pub fn combine_types(&self, first: CortexType, second: CortexType) -> Result<Option<CortexType>, CortexError> {
         let is_first_none_type = first == CortexType::none();
         let is_second_none_type = second == CortexType::none();
         if is_first_none_type {
-            return Some(second.to_optional());
+            return Ok(Some(second.to_optional()));
         } else if is_second_none_type {
-            return Some(first.to_optional());
+            return Ok(Some(first.to_optional()));
         } 
 
         match (first, second) {
@@ -56,42 +60,42 @@ impl CortexPreprocessor {
                     if !are_type_args_equal(&b1.type_args, &b2.type_args) {
                         // When there's only 1 type argument, we can try to combine it (ex. a list<number?> with a list<number>)
                         if b1.type_args.len() == 1 && b2.type_args.len() == 1 {
-                            if let Some(inner) = self.combine_type_args(b1.type_args.get(0).unwrap().clone(), b2.type_args.get(0).unwrap().clone()) {
-                                Some(CortexType::basic(b1.name.clone(), vec![inner]))
+                            if let Some(inner) = self.combine_type_args(b1.type_args.get(0).unwrap().clone(), b2.type_args.get(0).unwrap().clone())? {
+                                Ok(Some(CortexType::basic(b1.name.clone(), vec![inner])))
                             } else {
-                                None
+                                Ok(None)
                             }
                         } else {
-                            None
+                            Ok(None)
                         }
                     } else {
-                        Some(CortexType::basic(b1.name.clone(), b1.type_args.clone()))
+                        Ok(Some(CortexType::basic(b1.name.clone(), b1.type_args.clone())))
                     }
                 } else {
-                    None
+                    Ok(None)
                 }
             },
             (CortexType::RefType(r1), CortexType::RefType(r2)) => {
-                if let Some(res) = self.combine_types(*r1.contained.clone(), *r2.contained.clone()) {
-                    Some(CortexType::reference(res, r1.mutable || r2.mutable))
+                if let Some(res) = self.combine_types(*r1.contained.clone(), *r2.contained.clone())? {
+                    Ok(Some(CortexType::reference(res, r1.mutable || r2.mutable)))
                 } else {
-                    None
+                    Ok(None)
                 }
             },
             (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
                 if t1.types.len() == t2.types.len() {
                     let mut types = Vec::new();
                     for (t1, t2) in t1.types.into_iter().zip(t2.types) {
-                        let new = self.combine_types(t1, t2);
+                        let new = self.combine_types(t1, t2)?;
                         if let Some(t) = new {
                             types.push(t);
                         } else {
-                            return None;
+                            return Ok(None);
                         }
                     }
-                    Some(CortexType::TupleType(TupleType { types }))
+                    Ok(Some(CortexType::TupleType(TupleType { types })))
                 } else {
-                    None
+                    Ok(None)
                 }
             },
             (CortexType::FollowsType(t1), CortexType::FollowsType(t2)) => {
@@ -104,64 +108,61 @@ impl CortexPreprocessor {
                     }
                 }
                 if common_contracts.is_empty() {
-                    None
+                    Ok(None)
                 } else {
-                    Some(CortexType::FollowsType(FollowsType {
+                    Ok(Some(CortexType::FollowsType(FollowsType {
                         clause: FollowsClause {
                             contracts: common_contracts.into_iter().collect(),
                         },
-                    }))
+                    })))
                 }
             },
             (CortexType::FollowsType(f), CortexType::RefType(r)) => {
                 self.combine_types(CortexType::FollowsType(f), *r.contained)
             },
             (CortexType::FollowsType(f), CortexType::BasicType(b)) => {
-                if let Some(type_def) = self.type_map.get(&b.name) {
-                    let mut common_contracts = HashSet::new();
-                    for c1 in &f.clause.contracts {
-                        for c2 in &type_def.followed_contracts {
-                            if c1 == c2 {
-                                common_contracts.insert(c1.clone());
-                            }
+                let type_def = self.lookup_type(&b.name)?;
+                let mut common_contracts = HashSet::new();
+                for c1 in &f.clause.contracts {
+                    for c2 in &type_def.followed_contracts {
+                        if c1 == c2 {
+                            common_contracts.insert(c1.clone());
                         }
                     }
-                    if common_contracts.is_empty() {
-                        None
-                    } else {
-                        Some(CortexType::FollowsType(FollowsType {
-                            clause: FollowsClause {
-                                contracts: common_contracts.into_iter().collect(),
-                            },
-                        }))
-                    }
+                }
+                if common_contracts.is_empty() {
+                    Ok(None)
                 } else {
-                    None
+                    Ok(Some(CortexType::FollowsType(FollowsType {
+                        clause: FollowsClause {
+                            contracts: common_contracts.into_iter().collect(),
+                        },
+                    })))
                 }
             },
             (CortexType::NoneType, CortexType::OptionalType(o)) | 
-            (CortexType::OptionalType(o), CortexType::NoneType)=> {
-                Some(CortexType::OptionalType(o))
+            (CortexType::OptionalType(o), CortexType::NoneType) => {
+                Ok(Some(CortexType::OptionalType(o)))
             },
             (CortexType::OptionalType(t1), other) | 
             (other, CortexType::OptionalType(t1)) => {
-                if let Some(result) = self.combine_types(*t1, other) {
-                    Some(CortexType::OptionalType(Box::new(result)))
+                if let Some(result) = self.combine_types(*t1, other)? {
+                    Ok(Some(CortexType::OptionalType(Box::new(result))))
                 } else {
-                    None
+                    Ok(None)
                 }
             },
             (CortexType::NoneType, CortexType::NoneType) => {
-                Some(CortexType::NoneType)
+                Ok(Some(CortexType::NoneType))
             },
             (CortexType::GenericType(n1), CortexType::GenericType(n2)) => {
                 if n1 == n2 {
-                    Some(CortexType::GenericType(n1))
+                    Ok(Some(CortexType::GenericType(n1)))
                 } else {
-                    None
+                    Ok(None)
                 }
             },
-            _ => None
+            _ => Ok(None)
         }
     }
 
@@ -214,28 +215,25 @@ impl CortexPreprocessor {
                 self.is_subtype(&*r.contained, second)
             },
             (CortexType::BasicType(b), CortexType::FollowsType(f)) => {
-                if let Some(type_def) = self.type_map.get(&b.name) {
-                    let entries_tentative = 
-                        TypeEnvironment::fill_in_follows_entry_from_typedef(
-                            b.clone(), 
-                            type_def.type_params.clone(), 
-                            type_def.followed_contracts.clone()
-                        );
-                    if entries_tentative.is_err() {
+                let type_def = self.lookup_type(&b.name)?;
+                let entries_tentative = 
+                    TypeEnvironment::fill_in_follows_entry_from_typedef(
+                        b.clone(), 
+                        type_def.type_params.clone(), 
+                        type_def.followed_contracts.clone()
+                    );
+                if entries_tentative.is_err() {
+                    return Ok(false);
+                }
+                let entries = entries_tentative.unwrap();
+                
+                // have to be no contracts in f that aren't in b
+                for c in &f.clause.contracts {
+                    if !entries.contains(c) {
                         return Ok(false);
                     }
-                    let entries = entries_tentative.unwrap();
-                    
-                    // have to be no contracts in f that aren't in b
-                    for c in &f.clause.contracts {
-                        if !entries.contains(c) {
-                            return Ok(false);
-                        }
-                    }
-                    Ok(true)
-                } else {
-                    Ok(false)
                 }
+                Ok(true)
             },
             (CortexType::OptionalType(o1), CortexType::OptionalType(o2)) => {
                 self.is_subtype(o1, o2)

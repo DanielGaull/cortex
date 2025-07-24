@@ -478,7 +478,7 @@ impl CortexPreprocessor {
                     } else if let Some(typ) = contained_type {
                         let typ_str = typ.codegen(0);
                         contained_type = Some(
-                            self.combine_types(typ, item_type)
+                            self.combine_types(typ, item_type)?
                                 .ok_or(PreprocessingError::CannotDetermineListLiteralType(typ_str, item_type_str))?
                             );
                     }
@@ -753,7 +753,7 @@ impl CortexPreprocessor {
             let (body, typ) = self.check_body_and_handle_env(c.body, Some(the_type.clone()))?;
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
-            let next = self.combine_types(the_type, typ);
+            let next = self.combine_types(the_type, typ)?;
             if let Some(t) = next {
                 the_type = t;
                 condition_bodies.push(RConditionBody::new(cond, body));
@@ -767,7 +767,7 @@ impl CortexPreprocessor {
             final_body = Some(Box::new(body));
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
-            let next = self.combine_types(the_type, typ);
+            let next = self.combine_types(the_type, typ)?;
             if let Some(t) = next {
                 the_type = t;
             } else {
