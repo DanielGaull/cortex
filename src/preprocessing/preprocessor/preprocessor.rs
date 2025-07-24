@@ -145,7 +145,7 @@ impl CortexPreprocessor {
             Body::Basic(body) => {
                 let (new_body, body_type) = self.check_body(body, Some(function.return_type.clone()))?;
                 let return_type = self.clean_type(function.return_type.clone().with_prefix_if_not_core(&self.current_context))?;
-                if !body_type.is_subtype_of(&return_type, &self.type_map)? {
+                if !self.is_subtype(&body_type, &return_type)? {
                     return Err(Box::new(PreprocessingError::ReturnTypeMismatch(return_type.codegen(0), body_type.codegen(0))));
                 }
                 final_fn_body = RBody::Interpreted(new_body);
@@ -185,7 +185,7 @@ impl CortexPreprocessor {
             },
             PStatement::WhileLoop(condition_body) => {
                 let (cond, cond_type, mut cond_statements) = self.check_exp(condition_body.condition, Some(CortexType::boolean()))?;
-                if !cond_type.is_subtype_of(&CortexType::boolean(), &self.type_map)? {
+                if !self.is_subtype(&cond_type, &CortexType::boolean())? {
                     return Err(
                         Box::new(
                             PreprocessingError::MismatchedType(
@@ -200,7 +200,7 @@ impl CortexPreprocessor {
 
                 self.loop_depth += 1;
                 let (body, body_type) = self.check_body_and_handle_env(condition_body.body, Some(CortexType::void()))?;
-                if !body_type.is_subtype_of(&CortexType::void(), &self.type_map)? {
+                if !self.is_subtype(&body_type, &CortexType::void())? {
                     return Err(
                         Box::new(
                             PreprocessingError::LoopCannotHaveReturnValue
@@ -235,7 +235,7 @@ impl CortexPreprocessor {
                 let (assigned_exp, assigned_type, mut statements) = self.check_exp(initial_value, typ.clone())?;
                 let type_of_var = if let Some(mut declared_type) = typ {
                     declared_type = self.clean_type(declared_type.with_prefix_if_not_core(&self.current_context))?;
-                    if !assigned_type.is_subtype_of(&declared_type, &self.type_map)? {
+                    if !self.is_subtype(&assigned_type, &declared_type)? {
                         return Err(
                             Box::new(
                                 PreprocessingError::MismatchedType(
@@ -306,7 +306,7 @@ impl CortexPreprocessor {
             assigned_exp = aassigned_exp;
             assigned_type = aassigned_type;
             statements = astatements;
-            if !assigned_type.is_subtype_of(var_type, &self.type_map)? {
+            if !self.is_subtype(&assigned_type, var_type)? {
                 return Err(
                     Box::new(
                         PreprocessingError::MismatchedType(
@@ -346,7 +346,7 @@ impl CortexPreprocessor {
             assigned_exp = aassigned_exp;
             assigned_type = aassigned_type;
             statements = astatements;
-            if !assigned_type.is_subtype_of(&var_type, &self.type_map)? {
+            if !self.is_subtype(&assigned_type, &var_type)? {
                 return Err(
                     Box::new(
                         PreprocessingError::MismatchedType(
@@ -478,8 +478,7 @@ impl CortexPreprocessor {
                     } else if let Some(typ) = contained_type {
                         let typ_str = typ.codegen(0);
                         contained_type = Some(
-                            typ
-                                .combine_with(item_type, &self.type_map)
+                            self.combine_types(typ, item_type)
                                 .ok_or(PreprocessingError::CannotDetermineListLiteralType(typ_str, item_type_str))?
                             );
                     }
@@ -487,7 +486,7 @@ impl CortexPreprocessor {
                 }
                 if let Some(expected) = expected_internal {
                     if let Some(contained) = contained_type {
-                        if contained.is_subtype_of(&expected, &self.type_map)? {
+                        if self.is_subtype(&contained, &expected)? {
                             let true_type = CortexType::reference(CortexType::list(expected), true);
                             Ok((RExpression::ListLiteral(new_items), true_type, statements))
                         } else {
@@ -684,7 +683,7 @@ impl CortexPreprocessor {
                     .with_prefix_if_not_core(&name.without_last());
                 let (exp, assigned_type, st) = self.check_exp(fvalue, Some(field_type.clone()))?;
                 statements.extend(st);
-                if !assigned_type.is_subtype_of(&field_type, &self.type_map)? {
+                if !self.is_subtype(&assigned_type, &field_type)? {
                     return Err(
                         Box::new(
                             PreprocessingError::MismatchedType(
@@ -739,7 +738,7 @@ impl CortexPreprocessor {
         for c in conds {
             let (cond, cond_typ, cond_st) = self.check_exp(c.condition, Some(CortexType::boolean()))?;
             pre_statements.extend(cond_st);
-            if !cond_typ.is_subtype_of(&CortexType::boolean(), &self.type_map)? {
+            if !self.is_subtype(&cond_typ, &CortexType::boolean())? {
                 return Err(
                     Box::new(
                         PreprocessingError::MismatchedType(
@@ -754,7 +753,7 @@ impl CortexPreprocessor {
             let (body, typ) = self.check_body_and_handle_env(c.body, Some(the_type.clone()))?;
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
-            let next = the_type.combine_with(typ, &self.type_map);
+            let next = self.combine_types(the_type, typ);
             if let Some(t) = next {
                 the_type = t;
                 condition_bodies.push(RConditionBody::new(cond, body));
@@ -768,7 +767,7 @@ impl CortexPreprocessor {
             final_body = Some(Box::new(body));
             let the_type_str = the_type.codegen(0);
             let typ_str = typ.codegen(0);
-            let next = the_type.combine_with(typ, &self.type_map);
+            let next = self.combine_types(the_type, typ);
             if let Some(t) = next {
                 the_type = t;
             } else {

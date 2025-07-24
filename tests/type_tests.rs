@@ -1,6 +1,6 @@
-use std::{collections::HashMap, error::Error};
+use std::error::Error;
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, MemberFunction, PFunction, Struct}}, parser::CortexParser}, preprocessing::module::{Module, TypeDefinition}, r#type::r#type::{CortexType, FollowsEntry, TypeArg, TypeParam}};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, Contract, MemberFunction, PFunction, Struct}}, parser::CortexParser}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::{CortexType, FollowsClause, FollowsEntry, TypeArg, TypeParam, TypeParamType}};
 
 fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
@@ -34,40 +34,60 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn subtype_tests() -> Result<(), Box<dyn Error>> {
-    let mut type_map = HashMap::new();
-    type_map.insert(PathIdent::new(vec!["TestType"]), TypeDefinition::new(
-        HashMap::new(), Vec::new(), vec![
-            FollowsEntry::new(PathIdent::new(vec!["Iterable"]), vec![])
-        ]
-    ));
-    type_map.insert(PathIdent::new(vec!["OtherTestType"]), TypeDefinition::new(
-        HashMap::new(), Vec::new(), vec![
+    // TODO: update these tests
+    let mut preprocessor = CortexPreprocessor::new()?;
+    let mut module = Module::new();
+    module.add_contract(Contract::new("Iterable", vec![], vec![]))?;
+    module.add_contract(Contract::new("X", vec![], vec![]))?;
+    module.add_contract(Contract::new("Container", vec![TypeParam::new("T", TypeParamType::Ty)], vec![]))?;
+
+    module.add_struct(Struct::new(
+        "TestType", 
+        vec![], 
+        vec![], 
+        vec![], 
+        Some(FollowsClause::new(vec![
             FollowsEntry::new(PathIdent::new(vec!["Iterable"]), vec![]),
-            FollowsEntry::new(PathIdent::new(vec!["X"]), vec![])
-        ]
-    ));
-    type_map.insert(PathIdent::new(vec!["Box"]), TypeDefinition::new(
-        HashMap::new(), vec![TypeParam::ty("T")], vec![
+        ]))
+    ))?;
+    module.add_struct(Struct::new(
+        "OtherTestType", 
+        vec![], 
+        vec![], 
+        vec![], 
+        Some(FollowsClause::new(vec![
+            FollowsEntry::new(PathIdent::new(vec!["Iterable"]), vec![]),
+            FollowsEntry::new(PathIdent::new(vec!["X"]), vec![]),
+        ]))
+    ))?;
+    module.add_struct(Struct::new(
+        "Box",
+        vec![],
+        vec![],
+        vec!["T"],
+        Some(FollowsClause::new(vec![
             FollowsEntry::new(PathIdent::new(vec!["Container"]), vec![TypeArg::Ty(CortexType::generic("T"))]),
-        ]
-    ));
+        ]))
+    ))?;
 
-    assert_subtype("none", "number?", &type_map)?;
-    assert_subtype("&mut number", "&number", &type_map)?;
-    assert_not_subtype("&number", "&mut number", &type_map)?;
-    assert_subtype("(&mut number, none)", "(&number, bool?)", &type_map)?;
-    assert_not_subtype("(number, number)", "(number, number, number)", &type_map)?;
+    preprocessor.register_module(&PathIdent::empty(), module)?;
 
-    assert_subtype("follows X + Y + Z", "follows X", &type_map)?;
-    assert_subtype("&TestType", "follows Iterable", &type_map)?;
-    assert_not_subtype("&TestType", "follows Iterable + X", &type_map)?;
-    assert_subtype("&OtherTestType", "follows Iterable", &type_map)?;
-    assert_subtype("TestType", "follows Iterable", &type_map)?;
-    assert_not_subtype("TestType", "follows Iterable + X", &type_map)?;
-    assert_subtype("OtherTestType", "follows Iterable", &type_map)?;
-    assert_subtype("&mut Box<number>", "follows Container<number>", &type_map)?;
+    assert_subtype("none", "number?", &preprocessor)?;
+    assert_subtype("&mut number", "&number", &preprocessor)?;
+    assert_not_subtype("&number", "&mut number", &preprocessor)?;
+    assert_subtype("(&mut number, none)", "(&number, bool?)", &preprocessor)?;
+    assert_not_subtype("(number, number)", "(number, number, number)", &preprocessor)?;
 
-    assert_not_subtype("Box<TestType>", "Box<follows Iterable>", &type_map)?;
+    assert_subtype("follows X + Y + Z", "follows X", &preprocessor)?;
+    assert_subtype("&TestType", "follows Iterable", &preprocessor)?;
+    assert_not_subtype("&TestType", "follows Iterable + X", &preprocessor)?;
+    assert_subtype("&OtherTestType", "follows Iterable", &preprocessor)?;
+    assert_subtype("TestType", "follows Iterable", &preprocessor)?;
+    assert_not_subtype("TestType", "follows Iterable + X", &preprocessor)?;
+    assert_subtype("OtherTestType", "follows Iterable", &preprocessor)?;
+    assert_subtype("&mut Box<number>", "follows Container<number>", &preprocessor)?;
+
+    assert_not_subtype("Box<TestType>", "Box<follows Iterable>", &preprocessor)?;
     Ok(())
 }
 
@@ -181,15 +201,15 @@ fn run_inference_type_tests() -> Result<(), Box<dyn Error>> {
 //     Ok(())
 // }
 
-fn assert_subtype(first: &str, second: &str, type_map: &HashMap<PathIdent, TypeDefinition>) -> Result<(), Box<dyn Error>> {
+fn assert_subtype(first: &str, second: &str, preprocessor: &CortexPreprocessor) -> Result<(), Box<dyn Error>> {
     let t1 = CortexParser::parse_type(first)?;
     let t2 = CortexParser::parse_type(second)?;
-    assert!(t1.is_subtype_of(&t2, type_map)?, "'{}' is not a subtype of '{}'", first, second);
+    assert!(preprocessor.is_subtype(&t1, &t2)?, "'{}' is not a subtype of '{}'", first, second);
     Ok(())
 }
-fn assert_not_subtype(first: &str, second: &str, type_map: &HashMap<PathIdent, TypeDefinition>) -> Result<(), Box<dyn Error>> {
+fn assert_not_subtype(first: &str, second: &str, preprocessor: &CortexPreprocessor) -> Result<(), Box<dyn Error>> {
     let t1 = CortexParser::parse_type(first)?;
     let t2 = CortexParser::parse_type(second)?;
-    assert!(!t1.is_subtype_of(&t2, type_map)?, "'{}' is mistakenly a subtype of '{}'", first, second);
+    assert!(!preprocessor.is_subtype(&t1, &t2)?, "'{}' is mistakenly a subtype of '{}'", first, second);
     Ok(())
 }

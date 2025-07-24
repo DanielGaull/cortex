@@ -479,3 +479,12 @@ impl SimpleCodeGen for Contract {
         s
     }
 }
+impl Contract {
+    pub fn new(name: &str, type_params: Vec<TypeParam>, function_sigs: Vec<MemberFunctionSignature>) -> Self {
+        Self {
+            name: String::from(name),
+            type_params,
+            function_sigs
+        }
+    }
+}
