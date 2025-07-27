@@ -7,6 +7,11 @@ fn doBox(v: number): number {
     box.get()
 }
 
+fn doBox2(v: number): number {
+    let box: &mylib::LibBox<number> = getBox(v);
+    readBox(box)
+}
+
 fn hello(): string {
     "hello".stringIdentity()
 }

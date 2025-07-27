@@ -84,7 +84,10 @@ impl SimpleCodeGen for PExpression {
             PExpression::PathIdent(path) => path.codegen(indent),
             PExpression::Call{ name, args, type_args } => {
                 let mut s = String::new();
-                s.push_str(&name.codegen(indent));
+                if let Some(target) = &name.target {
+                    s.push_str(&format!("{}::", target.codegen(indent)));
+                }
+                s.push_str(&name.own_module_path.codegen(indent));
                 if let Some(type_args) = type_args {
                     s.push_str("<");
                     s.push_str(&type_args.iter().map(|t| t.codegen(indent)).collect::<Vec<_>>().join(", "));

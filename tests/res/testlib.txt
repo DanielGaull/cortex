@@ -17,6 +17,10 @@ module mylib {
         }
     }
 
+    fn readBox<T>(box: &LibBox<T>): T {
+        box.get()
+    }
+
     extend string {
         fn stringIdentity(this): string {
             this

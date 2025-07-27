@@ -68,7 +68,7 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<(&FunctionSignature, &PathIdent), CortexError> {
+    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<(&FunctionSignature, PathIdent), CortexError> {
         if path.own_module_path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.own_module_path.get_back()?) {
                 return self.lookup_signature(&FunctionAddress {
@@ -80,22 +80,37 @@ impl CortexPreprocessor {
         if let Some(target) = &path.target {
             if target.is_final() {
                 if let Some(resolved) = self.imported_aliases.get(target.get_back()?) {
-                    return self.lookup_signature(&FunctionAddress {
-                        own_module_path: path.own_module_path.clone(),
+                    // Need to check both the path where own_module_path is extended, and where it isn't
+                    // For example, may `import drawing::Point as Point` but then `Point::getX` could be under
+                    // either `drawing::getX (on type drawing::Point)` - if a regular member function,
+                    // or under any other prefix that's imported (`_::getX (on type drawing::Point)`)
+                    // if it's an extension function
+                    // So, we check both cases - the basic one of it being a member function first since it's more common
+                    let resolved_prefix = resolved.without_last();
+                    let first_attempt = self.lookup_signature(&FunctionAddress {
+                        own_module_path: PathIdent::concat(&resolved_prefix, &path.own_module_path),
                         target: Some(resolved.clone()),
                     });
+                    if let Ok(result) = first_attempt {
+                        return Ok((result.0, resolved_prefix));
+                    } else {
+                        return self.lookup_signature(&FunctionAddress {
+                            own_module_path: path.own_module_path.clone(),
+                            target: Some(resolved.clone()),
+                        });
+                    }
                 }
             }
         }
         
         let res = self.lookup_signature_with(path, &self.current_context);
         match res {
-            Ok(r) => Ok((r, &self.current_context)),
+            Ok(r) => Ok((r, self.current_context.clone())),
             Err(e) => {
                 for prefix in &self.imported_paths {
                     let res = self.lookup_signature_with(path, prefix);
                     if let Ok(r) = res {
-                        return Ok((r, prefix));
+                        return Ok((r, prefix.clone()));
                     }
                 }
     
