@@ -1,6 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::function_address::FunctionAddress, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function_address::FunctionAddress, r#type::RType}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -450,24 +450,24 @@ impl CortexPreprocessor {
         Ok(())
     }
 
-    fn this_arg_to_type(this_arg: ThisArg, item_name: &String, type_params: &Vec<TypeParam>) -> CortexType {
+    fn this_arg_to_type(this_arg: ThisArg, item_name: &String, type_params: &Vec<TypeParam>) -> RType {
         match this_arg {
             ThisArg::RefThis => 
-                CortexType::reference(
-                    CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
+                RType::reference(
+                    RType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
                     false,
                 ),
             ThisArg::RefMutThis => 
-                CortexType::reference(
-                    CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
+            RType::reference(
+                RType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
                     true,
                 ),
-            ThisArg::DirectThis => CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
+            ThisArg::DirectThis => RType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
         }
     }
 
     fn search_struct_for_loops(&self, s: &Struct) -> Result<bool, CortexError> {
-        let stype = CortexType::basic(PathIdent::simple(s.name.clone()), forwarded_type_args(&s.type_params));
+        let stype = RType::basic(PathIdent::simple(s.name.clone()), forwarded_type_args(&s.type_params));
         let mut q = VecDeque::new();
         for field in &s.fields {
             q.push_back(field.1.clone());

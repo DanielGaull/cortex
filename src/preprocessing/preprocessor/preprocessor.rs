@@ -1,14 +1,14 @@
 use std::{collections::HashMap, error::Error, rc::Rc};
 
-use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, FunctionSignature, PFunction}}, codegen::r#trait::SimpleCodeGen}, r#type::{r#type::{CortexType, TupleType, TypeArg}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
+use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, FunctionSignature, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::r#type::{RBasicType, RFollowsClause, RFollowsEntry, RFollowsType, RRefType, RTupleType, RType, RTypeArg}, r#type::{r#type::{CortexType, TupleType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
 
 use super::super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program};
 
 type CortexError = Box<dyn Error>;
-pub type CheckResult<T> = Result<(T, CortexType, Vec<RStatement>), CortexError>;
+pub type CheckResult<T> = Result<(T, RType, Vec<RStatement>), CortexError>;
 
 pub struct CortexPreprocessor {
-    pub(super) current_env: Option<Box<TypeCheckingEnvironment>>,
+    pub(super) current_env: Option<Box<TypeCheckingEnvironment<RType>>>,
     pub(super) current_context: PathIdent,
     pub(super) current_type_env: Option<Box<TypeEnvironment>>,
     pub(super) function_dict: FunctionDict,
@@ -63,16 +63,16 @@ impl CortexPreprocessor {
         self.function_dict.get(id)
     }
 
-    pub(crate) fn determine_type(&mut self, expr: PExpression) -> Result<CortexType, CortexError> {
+    pub(crate) fn determine_type(&mut self, expr: PExpression) -> Result<RType, CortexError> {
         let (_, typ, _) = self.check_exp(expr, None)?;
         Ok(typ)
     }
 
     // When a value is assigned to a certain type, sometimes transformations are needed
     // (ex vtables); this is the function that takes care of that
-    pub(super) fn assign_to(&mut self, base: RExpression, base_type: CortexType, typ: CortexType) -> Result<(RExpression, Vec<RStatement>), CortexError> {
+    pub(super) fn assign_to(&mut self, base: RExpression, base_type: RType, typ: RType) -> Result<(RExpression, Vec<RStatement>), CortexError> {
         match (typ, base_type) {
-            (CortexType::FollowsType(follows), ref other) if !matches!(other, CortexType::FollowsType(_)) => {
+            (RType::FollowsType(follows), ref other) if !matches!(other, RType::FollowsType(_)) => {
                 let prefix = other.prefix();
                 let mut func_addresses = Vec::new();
                 for entry in follows.clause.contracts {
@@ -398,12 +398,12 @@ impl CortexPreprocessor {
     pub(super) fn check_exp(&mut self, exp: PExpression, expected_type: Option<CortexType>) -> CheckResult<RExpression> {
         let st_str = exp.codegen(0);
         match exp {
-            PExpression::Number(v) => Ok((RExpression::Number(v), CortexType::number(), vec![])),
-            PExpression::Boolean(v) => Ok((RExpression::Boolean(v), CortexType::boolean(), vec![])),
-            PExpression::Void => Ok((RExpression::Void, CortexType::void(), vec![])),
-            PExpression::None => Ok((RExpression::None, CortexType::none(), vec![])),
-            PExpression::String(v) => Ok((RExpression::String(v), CortexType::string(), vec![])),
-            PExpression::Char(v) => Ok((RExpression::Char(v), CortexType::char(), vec![])),
+            PExpression::Number(v) => Ok((RExpression::Number(v), RType::number(), vec![])),
+            PExpression::Boolean(v) => Ok((RExpression::Boolean(v), RType::boolean(), vec![])),
+            PExpression::Void => Ok((RExpression::Void, RType::void(), vec![])),
+            PExpression::None => Ok((RExpression::None, RType::none(), vec![])),
+            PExpression::String(v) => Ok((RExpression::String(v), RType::string(), vec![])),
+            PExpression::Char(v) => Ok((RExpression::Char(v), RType::char(), vec![])),
             PExpression::PathIdent(path_ident) => Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.get_variable_type(&path_ident)?, vec![])),
             PExpression::Call { name: addr, args: arg_exps, type_args } => {
                 let prefix = addr.without_last();
@@ -911,7 +911,7 @@ impl CortexPreprocessor {
         Ok(self.current_type_env.as_ref().unwrap().fill_in(typ)?)
     }
 
-    fn get_variable_type(&self, path: &PathIdent) -> Result<CortexType, CortexError> {
+    fn get_variable_type(&self, path: &PathIdent) -> Result<RType, CortexError> {
         if path.is_final() {
             // Search in our environment for it
             let front = path.get_front()?;
@@ -925,6 +925,73 @@ impl CortexPreprocessor {
         let res = format!("$temp{}", self.temp_num);
         self.temp_num += 1;
         res
+    }
+
+    pub(crate) fn validate_type(&self, typ: CortexType) -> Result<RType, CortexError> {
+        match typ {
+            CortexType::BasicType(b) => {
+                let def = self.lookup_type(&b.name)?;
+                if def.type_params.len() != b.type_args.len() {
+                    return Err(Box::new(PreprocessingError::MismatchedTypeArgCount(b.name.codegen(0), def.type_params.len(), b.type_args.len())));
+                }
+
+                let mut type_args = self.validate_type_args(&def.type_params, b.type_args)?;
+
+                Ok(RType::BasicType(RBasicType {
+                    name: b.name,
+                    type_args,
+                }))
+            },
+            CortexType::RefType(r) => Ok(RType::RefType(RRefType {
+                contained: Box::new(self.validate_type(*r.contained)?),
+                mutable: r.mutable,
+            })),
+            CortexType::TupleType(t) => {
+                let mut types = Vec::new();
+                for ty in t.types {
+                    types.push(self.validate_type(ty)?);
+                }
+                Ok(RType::TupleType(RTupleType {
+                    types
+                }))
+            },
+            CortexType::FollowsType(f) => {
+                let mut entries = Vec::new();
+                for entry in f.clause.contracts {
+                    let contract = self.lookup_contract(&entry.name)?;
+                    let type_args = self.validate_type_args(&contract.type_params, entry.type_args)?;
+                    entries.push(RFollowsEntry {
+                        name: entry.name,
+                        type_args,
+                    })
+                }
+                Ok(RType::FollowsType(RFollowsType {
+                    clause: RFollowsClause {
+                        contracts: entries,
+                    }
+                }))
+            },
+            CortexType::OptionalType(inner) => Ok(RType::OptionalType(Box::new(self.validate_type(*inner)?))),
+            CortexType::NoneType => Ok(RType::NoneType),
+            CortexType::GenericType(name) => Ok(RType::GenericType(name)),
+        }
+    }
+    fn validate_type_args(&self, type_params: &Vec<TypeParam>, type_args: Vec<TypeArg>) -> Result<Vec<RTypeArg>, CortexError> {
+        let mut result = Vec::new();
+        for (tparam, targ) in type_params.iter().zip(type_args) {
+            match (&tparam.typ, targ) {
+                (crate::r#type::r#type::TypeParamType::Ty, TypeArg::Ty(t)) => {
+                    result.push(RTypeArg::Ty(self.validate_type(t)?));
+                },
+                (crate::r#type::r#type::TypeParamType::Int, TypeArg::Int(v)) => {
+                    result.push(RTypeArg::Int(v));
+                },
+                (first, second) => {
+                    return Err(Box::new(PreprocessingError::MismatchedTypeArgument(second.codegen(0), first.codegen(0))));
+                },
+            }
+        }
+        Ok(result)
     }
 }
 

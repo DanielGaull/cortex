@@ -82,4 +82,6 @@ pub enum PreprocessingError {
     DuplicateAliasImport(String),
     #[error("Duplicate import: {0} has already been imported")]
     DuplicatePathImport(String),
+    #[error("Mismatched type argument: value {0} cannot be assigned to {1}")]
+    MismatchedTypeArgument(String, String),
 }

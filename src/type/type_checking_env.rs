@@ -2,15 +2,13 @@ use std::collections::HashMap;
 
 use crate::interpreting::env::EnvError;
 
-use super::r#type::CortexType;
-
-pub struct TypeCheckingEnvironment {
-    vars: HashMap<String, Var>,
-    parent: Option<Box<TypeCheckingEnvironment>>,
+pub struct TypeCheckingEnvironment<T> {
+    vars: HashMap<String, Var<T>>,
+    parent: Option<Box<TypeCheckingEnvironment<T>>>,
 }
 
-impl TypeCheckingEnvironment {
-    pub fn new(parent: TypeCheckingEnvironment) -> Self {
+impl<T> TypeCheckingEnvironment<T> {
+    pub fn new(parent: TypeCheckingEnvironment<T>) -> Self {
         TypeCheckingEnvironment {
             vars: HashMap::new(),
             parent: Some(Box::new(parent)),
@@ -23,7 +21,7 @@ impl TypeCheckingEnvironment {
         }
     }
 
-    pub fn add(&mut self, name: String, typ: CortexType, is_const: bool) -> Result<(), EnvError> {
+    pub fn add(&mut self, name: String, typ: T, is_const: bool) -> Result<(), EnvError> {
         if self.vars.contains_key(&name) {
             Err(EnvError::VariableAlreadyExists(name))
         } else {
@@ -32,7 +30,7 @@ impl TypeCheckingEnvironment {
         }
     }
 
-    pub fn get(&self, name: &String) -> Result<&CortexType, EnvError> {
+    pub fn get(&self, name: &String) -> Result<&T, EnvError> {
         if let Some(result) = self.vars.get(name) {
             Ok(&result.typ)
         } else if let Some(parent) = &self.parent {
@@ -52,7 +50,7 @@ impl TypeCheckingEnvironment {
         }
     }
 
-    pub fn exit(self) -> Result<TypeCheckingEnvironment, EnvError> {
+    pub fn exit(self) -> Result<TypeCheckingEnvironment<T>, EnvError> {
         if let Some(parent) = self.parent {
             Ok(*parent)
         } else {
@@ -61,7 +59,7 @@ impl TypeCheckingEnvironment {
     }
 }
 
-struct Var {
-    typ: CortexType,
+struct Var<T> {
+    typ: T,
     is_const: bool,
 }

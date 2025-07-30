@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{FunctionSignature, ThisArg}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress, statement::RStatement}, error::PreprocessingError}, r#type::{r#type::{forwarded_type_args, CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{FunctionSignature, ThisArg}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress, statement::RStatement, r#type::{RType, RTypeArg}}, error::PreprocessingError}, r#type::{r#type::{forwarded_type_args, CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::{CheckResult, CortexPreprocessor};
 
 struct ProcessedCall {
     args: Vec<RExpression>,
-    return_type: CortexType,
+    return_type: RType,
     statements: Vec<RStatement>,
 }
 
@@ -83,7 +83,7 @@ impl CortexPreprocessor {
             args: call.args,
         }, call.return_type, statements))
     }
-    pub(super) fn check_direct_member_call(&mut self, atom_type: CortexType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<TypeArg>>, st_str: String, expected_type: Option<CortexType>) -> CheckResult<RExpression> {
+    pub(super) fn check_direct_member_call(&mut self, atom_type: RType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<TypeArg>>, st_str: String, expected_type: Option<CortexType>) -> CheckResult<RExpression> {
         let caller_type = atom_type.name()?;
         let actual_func_addr = self.get_member_function_address(&atom_type, &member)?;
 
@@ -92,8 +92,8 @@ impl CortexPreprocessor {
         if let Some(mut type_args) = type_args {
             let typedef = self.lookup_type(&caller_type)?;
             let mut bindings = HashMap::new();
-            self.infer_arg_type(&CortexType::reference(
-                CortexType::basic(caller_type.clone(), forwarded_type_args(&typedef.type_params)),
+            self.infer_arg_type(&RType::RefType(
+                Box::new(RType::BasicType(caller_type.clone(), forwarded_type_args(&typedef.type_params))),
                 true,
             ), &atom_type, &typedef.type_params, &mut bindings, &String::from("this"), &st_str)?;
             let mut beginning_type_args = Vec::new();
@@ -115,7 +115,7 @@ impl CortexPreprocessor {
         Ok(result)
     }
 
-    pub(super) fn get_member_function_address(&self, callee_type: &CortexType, member: &String) -> Result<FunctionAddress, CortexError> {
+    pub(super) fn get_member_function_address(&self, callee_type: &RType, member: &String) -> Result<FunctionAddress, CortexError> {
         let caller_type = callee_type.name()?;
         let caller_type_prefix = caller_type.without_last();
         let non_extension_func_addr = FunctionAddress::member_func(
@@ -239,9 +239,9 @@ impl CortexPreprocessor {
         }
         Ok(bindings)
     }
-    fn infer_type_args(&self, param_names: &Vec<String>, param_types: &Vec<CortexType>, 
-            type_params: &Vec<TypeParam>, args: &Vec<CortexType>, 
-            name: String, st_str: &String) -> Result<HashMap<TypeParam, TypeArg>, CortexError> {
+    fn infer_type_args(&self, param_names: &Vec<String>, param_types: &Vec<RType>, 
+            type_params: &Vec<TypeParam>, args: &Vec<RType>, 
+            name: String, st_str: &String) -> Result<HashMap<TypeParam, RTypeArg>, CortexError> {
         let mut bindings = HashMap::new();
         for (arg, param) in args.iter().zip(param_names.iter().zip(param_types)) {
             self.infer_arg_type(&param.1, &arg, type_params, &mut bindings, param.0, st_str)?;
@@ -253,11 +253,11 @@ impl CortexPreprocessor {
             Ok(bindings)
         }
     }
-    fn infer_arg(&self, param_type: &TypeArg, arg_type: &TypeArg, type_params: &Vec<TypeParam>, 
-        bindings: &mut HashMap<TypeParam, TypeArg>, param_name: &String, st_str: &String)
+    fn infer_arg(&self, param_type: &RTypeArg, arg_type: &RTypeArg, type_params: &Vec<TypeParam>, 
+        bindings: &mut HashMap<TypeParam, RTypeArg>, param_name: &String, st_str: &String)
          -> Result<(), CortexError> {
         match (param_type, arg_type) {
-            (TypeArg::Ty(t1), TypeArg::Ty(t2)) => {
+            (RTypeArg::Ty(t1), RTypeArg::Ty(t2)) => {
                 self.infer_arg_type(
                     t1,
                     t2,
@@ -268,24 +268,24 @@ impl CortexPreprocessor {
                 )?;
                 Ok(())
             },
-            (TypeArg::Ty(ty), TypeArg::Int(_)) => {
+            (RTypeArg::Ty(ty), RTypeArg::Int(_)) => {
                 bindings.insert(TypeParam::int(ty.name()?.get_back()?), arg_type.clone());
                 Ok(())
             },
             (_, _) => {
-                Err(Box::new(PreprocessingError::CouldNotInferTypeBinding(param_type.codegen(0))))
+                Err(Box::new(PreprocessingError::CouldNotInferTypeBinding(())))
             },
         }
     }
-    fn infer_arg_type(&self, param_type: &CortexType, arg_type: &CortexType, type_params: &Vec<TypeParam>, 
-        bindings: &mut HashMap<TypeParam, TypeArg>, param_name: &String, st_str: &String) 
+    fn infer_arg_type(&self, param_type: &RType, arg_type: &RType, type_params: &Vec<TypeParam>, 
+        bindings: &mut HashMap<TypeParam, RTypeArg>, param_name: &String, st_str: &String) 
         -> Result<(), CortexError> {
         let correct;
         match (&param_type, arg_type) {
-            (CortexType::BasicType(b), arg_type) => {
-                if let CortexType::BasicType(b2) = arg_type {
-                    if b.type_args.len() == b2.type_args.len() {
-                        for (type_param, type_arg) in b.type_args.iter().zip(&b2.type_args) {
+            (RType::BasicType(name, type_args), arg_type) => {
+                if let RType::BasicType(name2, type_args2) = arg_type {
+                    if type_args.len() == type_args2.len() {
+                        for (type_param, type_arg) in type_args.iter().zip(type_args2) {
                             self.infer_arg(type_param, type_arg, type_params, bindings, param_name, st_str)?;
                         }
                         correct = true;

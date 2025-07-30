@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
-use crate::parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen};
+use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::r#type::{RType, RTypeArg}};
 
 macro_rules! core_types {
     () => {
@@ -390,10 +390,10 @@ impl CortexType {
     }
 }
 
-pub fn forwarded_type_args(params: &Vec<TypeParam>) -> Vec<TypeArg> {
+pub fn forwarded_type_args(params: &Vec<TypeParam>) -> Vec<RTypeArg> {
     let mut type_args = Vec::new();
     for p in params {
-        type_args.push(TypeArg::Ty(CortexType::GenericType(p.name.clone())));
+        type_args.push(RTypeArg::Ty(RType::GenericType(p.name.clone())));
     }
     type_args
 }
