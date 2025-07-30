@@ -141,7 +141,7 @@ impl CortexPreprocessor {
         let (sig, sig_prefix_used) = self.lookup_signature(&FunctionAddress::concat(&prefix, &addr))?;
         let extended_prefix = PathIdent::concat(&sig_prefix_used, &prefix);
         let full_path = FunctionAddress::concat(&extended_prefix, &addr);
-        let call = self.check_call_base(sig.clone(), full_path.codegen(0), arg_exps, type_args, sig_prefix_used, st_str)?;
+        let call = self.check_call_base(sig.clone(), full_path.codegen(0), arg_exps, type_args, prefix, st_str)?;
         let func_id = self.function_dict.add_call(full_path)?;
         Ok((RExpression::Call { addr: func_id, args: call.args }, call.return_type, call.statements))
     }
@@ -152,10 +152,6 @@ impl CortexPreprocessor {
             return Err(Box::new(
                 PreprocessingError::MismatchedArgumentCount(name, sig.params.len(), provided_arg_count)
             ));
-        }
-
-        if name.contains("readBox") {
-            println!("");
         }
 
         let mut processed_args = Vec::new();

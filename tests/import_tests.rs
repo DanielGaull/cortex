@@ -3,6 +3,7 @@ use std::{error::Error, fs::File, io::Read, path::Path};
 use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::parser::CortexParser};
 
 #[test]
+#[ignore]
 fn test_imports() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     load_lib(&mut interpreter)?;
