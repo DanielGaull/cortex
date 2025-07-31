@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error, rc::Rc};
 
-use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, FunctionSignature, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::r#type::{RBasicType, RFollowsClause, RFollowsEntry, RFollowsType, RRefType, RTupleType, RType, RTypeArg}, r#type::{r#type::{CortexType, TupleType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
+use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{CortexType, TupleType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
 
 use super::super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program};
 
@@ -12,11 +12,11 @@ pub struct CortexPreprocessor {
     pub(super) current_context: PathIdent,
     pub(super) current_type_env: Option<Box<TypeEnvironment>>,
     pub(super) function_dict: FunctionDict,
-    pub(super) function_signature_map: HashMap<FunctionAddress, FunctionSignature>,
+    pub(super) function_signature_map: HashMap<FunctionAddress, RFunctionSignature>,
     pub(super) type_map: HashMap<PathIdent, TypeDefinition>,
     loop_depth: u32,
     temp_num: usize,
-    pub(super) contract_map: HashMap<PathIdent, Contract>,
+    pub(super) contract_map: HashMap<PathIdent, RContract>,
     pub(super) imported_paths: Vec<PathIdent>,
     pub(super) imported_aliases: HashMap<String, PathIdent>,
 }
@@ -75,7 +75,7 @@ impl CortexPreprocessor {
             (RType::FollowsType(follows), ref other) if !matches!(other, RType::FollowsType(_)) => {
                 let prefix = other.prefix();
                 let mut func_addresses = Vec::new();
-                for entry in follows.clause.contracts {
+                for entry in follows.entries {
                     let contract = self.lookup_contract(&entry.name)?;
                     for sig in &contract.function_sigs {
                         if let OptionalIdentifier::Ident(fname) = &sig.name {
@@ -395,7 +395,7 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(super) fn check_exp(&mut self, exp: PExpression, expected_type: Option<CortexType>) -> CheckResult<RExpression> {
+    pub(super) fn check_exp(&mut self, exp: PExpression, expected_type: Option<RType>) -> CheckResult<RExpression> {
         let st_str = exp.codegen(0);
         match exp {
             PExpression::Number(v) => Ok((RExpression::Number(v), RType::number(), vec![])),
@@ -907,7 +907,7 @@ impl CortexPreprocessor {
     }
 
     // "Cleans" type, for example replacing type arguments
-    pub(super) fn clean_type(&self, typ: CortexType) -> Result<CortexType, CortexError> {
+    pub(super) fn clean_type(&self, typ: RType) -> Result<RType, CortexError> {
         Ok(self.current_type_env.as_ref().unwrap().fill_in(typ)?)
     }
 
@@ -935,25 +935,23 @@ impl CortexPreprocessor {
                     return Err(Box::new(PreprocessingError::MismatchedTypeArgCount(b.name.codegen(0), def.type_params.len(), b.type_args.len())));
                 }
 
-                let mut type_args = self.validate_type_args(&def.type_params, b.type_args)?;
+                let type_args = self.validate_type_args(&def.type_params, b.type_args)?;
 
-                Ok(RType::BasicType(RBasicType {
-                    name: b.name,
+                Ok(RType::BasicType(
+                    b.name,
                     type_args,
-                }))
+                ))
             },
-            CortexType::RefType(r) => Ok(RType::RefType(RRefType {
-                contained: Box::new(self.validate_type(*r.contained)?),
-                mutable: r.mutable,
-            })),
+            CortexType::RefType(r) => Ok(RType::RefType(
+                Box::new(self.validate_type(*r.contained)?),
+                r.mutable,
+            )),
             CortexType::TupleType(t) => {
                 let mut types = Vec::new();
                 for ty in t.types {
                     types.push(self.validate_type(ty)?);
                 }
-                Ok(RType::TupleType(RTupleType {
-                    types
-                }))
+                Ok(RType::TupleType(types))
             },
             CortexType::FollowsType(f) => {
                 let mut entries = Vec::new();
@@ -965,10 +963,8 @@ impl CortexPreprocessor {
                         type_args,
                     })
                 }
-                Ok(RType::FollowsType(RFollowsType {
-                    clause: RFollowsClause {
-                        contracts: entries,
-                    }
+                Ok(RType::FollowsType(RFollowsClause {
+                    entries,
                 }))
             },
             CortexType::OptionalType(inner) => Ok(RType::OptionalType(Box::new(self.validate_type(*inner)?))),
@@ -976,7 +972,7 @@ impl CortexPreprocessor {
             CortexType::GenericType(name) => Ok(RType::GenericType(name)),
         }
     }
-    fn validate_type_args(&self, type_params: &Vec<TypeParam>, type_args: Vec<TypeArg>) -> Result<Vec<RTypeArg>, CortexError> {
+    pub(crate) fn validate_type_args(&self, type_params: &Vec<TypeParam>, type_args: Vec<TypeArg>) -> Result<Vec<RTypeArg>, CortexError> {
         let mut result = Vec::new();
         for (tparam, targ) in type_params.iter().zip(type_args) {
             match (&tparam.typ, targ) {

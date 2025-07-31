@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{FunctionSignature, ThisArg}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function_address::FunctionAddress, statement::RStatement, r#type::{RType, RTypeArg}}, error::PreprocessingError}, r#type::{r#type::{forwarded_type_args, CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{PExpression, PathIdent}, top_level::ThisArg}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function::RFunctionSignature, function_address::FunctionAddress, statement::RStatement, top_level::RParameter, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError}, r#type::{r#type::{forwarded_type_args, CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::{CheckResult, CortexPreprocessor};
 
@@ -11,14 +11,14 @@ struct ProcessedCall {
 }
 
 impl CortexPreprocessor {
-    pub(super) fn check_fat_member_call(&mut self, atom_type: FollowsType, callee: Box<PExpression>, member: String, mut args: Vec<PExpression>, type_args: Option<Vec<TypeArg>>, st_str: String) -> CheckResult<RExpression> {
+    pub(super) fn check_fat_member_call(&mut self, atom_type: FollowsType, callee: Box<PExpression>, member: String, mut args: Vec<PExpression>, type_args: Option<Vec<RTypeArg>>, st_str: String) -> CheckResult<RExpression> {
         let mut function_sig = None;
         let mut contract_to_use = None;
         let mut full_prefix = None;
         for entry in &atom_type.clause.contracts {
             let contract = self.lookup_contract(&entry.name)?;
             for sig in &contract.function_sigs {
-                if sig.name == OptionalIdentifier::Ident(member.clone()) {
+                if sig.name == member.clone() {
                     function_sig = Some(sig);
                     contract_to_use = Some(contract);
                     full_prefix = Some(PathIdent::concat(&self.current_context, &entry.name).without_last());
@@ -43,20 +43,18 @@ impl CortexPreprocessor {
         let index = index.unwrap();
 
         function_sig.type_params.extend(contract_to_use.type_params.clone());
-        let this_type = CortexType::FollowsType(FollowsType {
-            clause: FollowsClause {
-                contracts: vec![
-                    FollowsEntry {
-                        name: PathIdent::simple(contract_to_use.name.clone()),
-                        type_args: contract_to_use.type_params
-                            .iter()
-                            .map(|t| TypeArg::Ty(CortexType::GenericType(t.name.clone())))
-                            .collect(),
-                    }
-                ]
-            }
+        let this_type = RType::FollowsType(RFollowsClause {
+            entries: vec![
+                RFollowsEntry {
+                    name: PathIdent::simple(contract_to_use.name.clone()),
+                    type_args: contract_to_use.type_params
+                        .iter()
+                        .map(|t| RTypeArg::Ty(RType::GenericType(t.name.clone())))
+                        .collect(),
+                }
+            ]
         });
-        function_sig.params.insert(0, Parameter::named("this", this_type));
+        function_sig.params.insert(0, RParameter::named("this", this_type));
 
         let (callee_processed, _, callee_st) = self.check_exp(*callee.clone(), None)?;
         let wrap_this_in_deref = function_sig.this_arg == ThisArg::DirectThis;
@@ -66,7 +64,7 @@ impl CortexPreprocessor {
             args.insert(0, *callee.clone());
         }
 
-        let pure_sig = FunctionSignature {
+        let pure_sig = RFunctionSignature {
             params: function_sig.params,
             return_type: function_sig.return_type,
             type_params: function_sig.type_params,
@@ -83,7 +81,7 @@ impl CortexPreprocessor {
             args: call.args,
         }, call.return_type, statements))
     }
-    pub(super) fn check_direct_member_call(&mut self, atom_type: RType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<TypeArg>>, st_str: String, expected_type: Option<CortexType>) -> CheckResult<RExpression> {
+    pub(super) fn check_direct_member_call(&mut self, atom_type: RType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<RTypeArg>>, st_str: String, expected_type: Option<RType>) -> CheckResult<RExpression> {
         let caller_type = atom_type.name()?;
         let actual_func_addr = self.get_member_function_address(&atom_type, &member)?;
 
@@ -137,7 +135,7 @@ impl CortexPreprocessor {
         Ok(actual_func_addr)
     }
 
-    pub(super) fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<PExpression>, type_args: Option<Vec<TypeArg>>, prefix: PathIdent, st_str: &String) -> CheckResult<RExpression> {
+    pub(super) fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<PExpression>, type_args: Option<Vec<RTypeArg>>, prefix: PathIdent, st_str: &String) -> CheckResult<RExpression> {
         let (sig, sig_prefix_used) = self.lookup_signature(&FunctionAddress::concat(&prefix, &addr))?;
         let extended_prefix = PathIdent::concat(&sig_prefix_used, &prefix);
         let full_path = FunctionAddress::concat(&extended_prefix, &addr);
@@ -146,7 +144,7 @@ impl CortexPreprocessor {
         Ok((RExpression::Call { addr: func_id, args: call.args }, call.return_type, call.statements))
     }
 
-    fn check_call_base(&mut self, sig: FunctionSignature, name: String, arg_exps: Vec<PExpression>, type_args: Option<Vec<TypeArg>>, prefix: PathIdent, st_str: &String) -> Result<ProcessedCall, CortexError> {
+    fn check_call_base(&mut self, sig: RFunctionSignature, name: String, arg_exps: Vec<PExpression>, type_args: Option<Vec<RTypeArg>>, prefix: PathIdent, st_str: &String) -> Result<ProcessedCall, CortexError> {
         let provided_arg_count = arg_exps.len();
         if provided_arg_count != sig.params.len() {
             return Err(Box::new(
@@ -158,7 +156,7 @@ impl CortexPreprocessor {
         let mut arg_types = Vec::new();
         let mut statements = Vec::new();
         for (i, a) in arg_exps.into_iter().enumerate() {
-            let (arg, typ, st) = self.check_exp(a, Some(sig.params.get(i).unwrap().param_type().clone()))?;
+            let (arg, typ, st) = self.check_exp(a, Some(sig.params.get(i).unwrap().typ.clone()))?;
             statements.extend(st);
             arg_types.push(typ);
             processed_args.push(arg);
@@ -169,7 +167,7 @@ impl CortexPreprocessor {
         let mut return_type = sig.return_type.clone();
 
         let mut param_names = Vec::<String>::with_capacity(sig.params.len());
-        let mut param_types = Vec::<CortexType>::with_capacity(sig.params.len());
+        let mut param_types = Vec::<RType>::with_capacity(sig.params.len());
         for param in &sig.params {
             param_names.push(param.name.clone());
             param_types.push(param.typ.clone().with_prefix_if_not_core(&extended_prefix));

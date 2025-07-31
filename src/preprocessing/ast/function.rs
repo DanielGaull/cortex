@@ -1,12 +1,19 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, preprocessing::module::ModuleError};
+use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, preprocessing::module::ModuleError, r#type::r#type::TypeParam};
 
-use super::{expression::RExpression, function_address::FunctionAddress, statement::RStatement};
+use super::{expression::RExpression, function_address::FunctionAddress, statement::RStatement, top_level::RParameter, r#type::RType};
 
 pub enum RBody {
     Native(Box<dyn Fn(&Environment, &mut Heap) -> Result<CortexValue, CortexError>>),
     Interpreted(RInterpretedBody),
+}
+
+#[derive(Clone)]
+pub(crate) struct RFunctionSignature {
+    pub(crate) params: Vec<RParameter>,
+    pub(crate) return_type: RType,
+    pub(crate) type_params: Vec<TypeParam>,
 }
 
 pub struct RInterpretedBody {

@@ -1,6 +1,6 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, MemberFunction, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function_address::FunctionAddress, r#type::RType}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunction, RMemberFunctionSignature, RParameter}, r#type::{RFollowsClause, RFollowsEntry, RType}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, CortexType, FollowsClause, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -38,7 +38,7 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(super) fn lookup_contract(&self, path: &PathIdent) -> Result<&Contract, CortexError> {
+    pub(super) fn lookup_contract(&self, path: &PathIdent) -> Result<&RContract, CortexError> {
         if path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.get_back()?) {
                 return self.lookup_contract(resolved);
@@ -59,7 +59,7 @@ impl CortexPreprocessor {
             },
         }
     }
-    fn lookup_contract_with(&self, path: &PathIdent, prefix: &PathIdent) -> Result<&Contract, CortexError> {
+    fn lookup_contract_with(&self, path: &PathIdent, prefix: &PathIdent) -> Result<&RContract, CortexError> {
         let full_path = PathIdent::concat(&prefix, &path);
         if let Some(c) = self.contract_map.get(&full_path) {
             Ok(c)
@@ -68,7 +68,7 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<(&FunctionSignature, PathIdent), CortexError> {
+    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<(&RFunctionSignature, PathIdent), CortexError> {
         if path.own_module_path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.own_module_path.get_back()?) {
                 return self.lookup_signature(&FunctionAddress {
@@ -118,7 +118,7 @@ impl CortexPreprocessor {
             },
         }
     }
-    fn lookup_signature_with(&self, path: &FunctionAddress, prefix: &PathIdent) -> Result<&FunctionSignature, CortexError> {
+    fn lookup_signature_with(&self, path: &FunctionAddress, prefix: &PathIdent) -> Result<&RFunctionSignature, CortexError> {
         let full_path: FunctionAddress = FunctionAddress::concat(prefix, &path);
         if let Some(sig) = self.function_signature_map.get(&full_path) {
             Ok(sig)
@@ -274,7 +274,7 @@ impl CortexPreprocessor {
             }
             seen_type_param_names.insert(t);
         }
-        self.function_signature_map.insert(addr.clone(), sig);
+        self.function_signature_map.insert(addr.clone(), self.validate_function_signature(sig)?);
         Ok(())
     }
     fn add_function(&mut self, addr: FunctionAddress, f: PFunction) -> Result<(), CortexError> {
@@ -293,7 +293,16 @@ impl CortexPreprocessor {
         if self.contract_map.contains_key(&full_path) {
             Err(Box::new(ModuleError::ContractAlreadyExists(full_path.codegen(0))))
         } else {
-            self.contract_map.insert(full_path, item);
+            let mut members = Vec::new();
+            for m in item.function_sigs {
+                members.push(self.validate_member_function_signature(m)?);
+            }
+
+            self.contract_map.insert(full_path, RContract {
+                name: item.name,
+                type_params: item.type_params,
+                function_sigs: members,
+            });
             Ok(())
         }
     }
@@ -303,11 +312,18 @@ impl CortexPreprocessor {
         if self.has_type(&full_path) {
             Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
         } else {
-            let has_loop = self.search_struct_for_loops(&item)?;
+            let mut fields = HashMap::new();
+            for f in &item.fields {
+                fields.insert(f.0.clone(), self.validate_type(f.1.clone())?);
+            }
+            let has_loop = self.search_struct_for_loops(&item.name, &item.type_params, fields.values().cloned().into_iter().collect())?;
             if has_loop {
                 return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
             }
 
+            let validated_clause = item.follows_clause.map(|f| RFollowsClause {
+                    entries: self.validate_follows_entries(f.contracts)?
+            });
             if let Some(clause) = &item.follows_clause {
                 self.check_contract_follows(&item.functions, &clause.contracts)?;
             }
@@ -322,7 +338,7 @@ impl CortexPreprocessor {
             }
 
             self.type_map.insert(full_path, TypeDefinition {
-                fields: item.fields,
+                fields: fields,
                 type_params: item.type_params,
                 followed_contracts: item.follows_clause
                     .map(|f| f.contracts.clone())
@@ -331,7 +347,7 @@ impl CortexPreprocessor {
             Ok(())
         }
     }
-    fn check_contract_follows(&self, functions: &Vec<MemberFunction>, contracts: &Vec<FollowsEntry>) -> Result<(), CortexError> {
+    fn check_contract_follows(&self, functions: &Vec<RMemberFunction>, contracts: &Vec<RFollowsEntry>) -> Result<(), CortexError> {
         let mut methods_to_contain = Vec::new();
         let mut method_names = HashSet::new();
         let mut contract_paths = HashSet::new();
@@ -344,12 +360,10 @@ impl CortexPreprocessor {
             let contract = self.lookup_contract(&entry.name)?;
             let type_bindings = TypeEnvironment::create_bindings(&contract.type_params, &entry.type_args);
             for func in &contract.function_sigs {
-                if let OptionalIdentifier::Ident(name) = func.name.clone() {
-                    if method_names.contains(&name) {
-                        return Err(Box::new(PreprocessingError::AmbiguousFunctionFromMultipleContracts(name.clone())));
-                    }
-                    method_names.insert(name);
+                if method_names.contains(&func.name) {
+                    return Err(Box::new(PreprocessingError::AmbiguousFunctionFromMultipleContracts(func.name.clone())));
                 }
+                method_names.insert(func.name.clone());
                 methods_to_contain.push(func.clone().fill_all(&type_bindings)?);
             }
         }
@@ -361,10 +375,7 @@ impl CortexPreprocessor {
         if methods_to_contain.len() > 0 {
             let joint = methods_to_contain
                 .iter()
-                .filter_map(|m| match &m.name {
-                    OptionalIdentifier::Ident(n) => Some(n.clone()),
-                    OptionalIdentifier::Ignore => None,
-                })
+                .map(|m| m.name.clone())
                 .collect::<Vec<_>>()
                 .join(", ");
             return Err(Box::new(PreprocessingError::ContractFunctionsMissing(joint)));
@@ -376,7 +387,7 @@ impl CortexPreprocessor {
         for func in functions {
             match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, item_type_params));
+                    let new_param = Parameter::named("this", Self::this_arg_to_type_unvalidated(func.signature.this_arg, item_name, item_type_params));
                     let mut param_list = vec![new_param];
                     param_list.extend(func.signature.params);
                     let mut type_param_names = func.signature.type_params;
@@ -414,7 +425,7 @@ impl CortexPreprocessor {
         for func in item.functions {
             match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, &item.type_params).with_prefix(&item_prefix));
+                    let new_param = Parameter::named("this", Self::this_arg_to_type_unvalidated(func.signature.this_arg, item_name, &item.type_params).with_prefix(&item_prefix));
                     let mut param_list = vec![new_param];
                     param_list.extend(func.signature.params);
                     let mut type_param_names = func.signature.type_params;
@@ -440,9 +451,10 @@ impl CortexPreprocessor {
             }
         }
 
-        let followed_contracts = item.follows_clause
+        let followed_contracts = self.validate_follows_entries(item.follows_clause
             .map(|f| f.contracts.clone())
-            .unwrap_or(vec![]);
+            .unwrap_or(vec![])
+        )?;
         self.type_map
             .get_mut(&PathIdent::concat(&n, &item.name))
             .map(|t| t.followed_contracts.extend(followed_contracts));
@@ -458,19 +470,34 @@ impl CortexPreprocessor {
                     false,
                 ),
             ThisArg::RefMutThis => 
-            RType::reference(
+                RType::reference(
                 RType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
                     true,
                 ),
             ThisArg::DirectThis => RType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
         }
     }
+    fn this_arg_to_type_unvalidated(this_arg: ThisArg, item_name: &String, type_params: &Vec<TypeParam>) -> CortexType {
+        match this_arg {
+            ThisArg::RefThis => 
+            CortexType::reference(
+                CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
+                    false,
+                ),
+            ThisArg::RefMutThis => 
+            CortexType::reference(
+                CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
+                    true,
+                ),
+            ThisArg::DirectThis => CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
+        }
+    }
 
-    fn search_struct_for_loops(&self, s: &Struct) -> Result<bool, CortexError> {
-        let stype = RType::basic(PathIdent::simple(s.name.clone()), forwarded_type_args(&s.type_params));
+    fn search_struct_for_loops(&self, name: &String, type_params: &Vec<TypeParam>, fields: Vec<RType>) -> Result<bool, CortexError> {
+        let stype = RType::basic(PathIdent::simple(name.clone()), forwarded_type_args(type_params));
         let mut q = VecDeque::new();
-        for field in &s.fields {
-            q.push_back(field.1.clone());
+        for field in fields {
+            q.push_back(field);
         }
         // Only need to search for references to this struct, everything else should be fine
         while !q.is_empty() {
@@ -479,7 +506,7 @@ impl CortexPreprocessor {
                 return Ok(true);
             }
             if !typ.is_core() {
-                if !matches!(typ, CortexType::BasicType(_)) {
+                if !matches!(typ, RType::BasicType(..)) {
                     continue;
                 }
 
@@ -498,5 +525,55 @@ impl CortexPreprocessor {
             }
         }
         Ok(false)
+    }
+
+    fn validate_function_signature(&self, sig: FunctionSignature) -> Result<RFunctionSignature, CortexError> {
+        let mut params = Vec::new();
+        for p in sig.params {
+            params.push(RParameter {
+                name: p.name,
+                typ: self.validate_type(p.typ)?
+            });
+        }
+        let return_type = self.validate_type(sig.return_type)?;
+        let sig = RFunctionSignature {
+            params,
+            return_type,
+            type_params: sig.type_params,
+        };
+        Ok(sig)
+    }
+    fn validate_member_function_signature(&self, sig: MemberFunctionSignature) -> Result<RMemberFunctionSignature, CortexError> {
+        let mut params = Vec::new();
+        for p in sig.params {
+            params.push(RParameter {
+                name: p.name,
+                typ: self.validate_type(p.typ)?
+            });
+        }
+        let return_type = self.validate_type(sig.return_type)?;
+        let sig = RMemberFunctionSignature {
+            params,
+            return_type,
+            type_params: sig.type_params,
+            name: match sig.name {
+                OptionalIdentifier::Ident(n) => n,
+                OptionalIdentifier::Ignore => String::from("~"),
+            },
+            this_arg: sig.this_arg,
+        };
+        Ok(sig)
+    }
+
+    fn validate_follows_entries(&self, clause: Vec<FollowsEntry>) -> Result<Vec<RFollowsEntry>, CortexError> {
+        let mut entries = Vec::new();
+        for entry in clause {
+            let contract = self.lookup_contract(&entry.name)?;
+            entries.push(RFollowsEntry {
+                name: entry.name,
+                type_args: self.validate_type_args(&contract.type_params, entry.type_args)?,
+            });
+        }
+        Ok(entries)
     }
 }

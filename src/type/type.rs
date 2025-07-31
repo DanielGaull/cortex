@@ -3,11 +3,6 @@ use thiserror::Error;
 
 use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::r#type::{RType, RTypeArg}};
 
-macro_rules! core_types {
-    () => {
-        "number" | "bool" | "string" | "void" | "none" | "list" | "char" | "range"
-    }
-}
 macro_rules! non_composite_types {
     () => {
         "number" | "bool" | "string" | "void" | "none" | "char"
@@ -222,25 +217,6 @@ impl CortexType {
             CortexType::GenericType(name) => CortexType::GenericType(name.clone()),
         }
     }
-    pub fn with_prefix_if_not_core(self, prefix: &PathIdent) -> Self {
-        match self {
-            CortexType::TupleType(t) => {
-                CortexType::TupleType(TupleType {
-                    types: t.types
-                        .into_iter()
-                        .map(|t| t.with_prefix_if_not_core(prefix))
-                        .collect(),
-                })
-            },
-            other => {
-                if !other.is_core() {
-                    other.with_prefix(prefix)
-                } else {
-                    other
-                }
-            }
-        }
-    }
     pub fn subtract_if_possible(self, prefix: &PathIdent) -> Self {
         match self {
             CortexType::BasicType(b) => {
@@ -312,22 +288,6 @@ impl CortexType {
         }
     }
 
-    pub fn is_core(&self) -> bool {
-        match self {
-            CortexType::BasicType(b) => {
-                b.name.is_final() && 
-                    matches!(b.name.get_back().unwrap().as_str(), core_types!())
-            },
-            CortexType::RefType(r) => {
-                r.contained.is_core()
-            },
-            CortexType::TupleType(_) => false,
-            CortexType::FollowsType(_) => false,
-            CortexType::OptionalType(t) => t.is_core(),
-            CortexType::NoneType => true,
-            CortexType::GenericType(_) => false,
-        }
-    }
     pub fn is_non_composite(&self) -> bool {
         match self {
             CortexType::BasicType(b) => {
@@ -394,6 +354,13 @@ pub fn forwarded_type_args(params: &Vec<TypeParam>) -> Vec<RTypeArg> {
     let mut type_args = Vec::new();
     for p in params {
         type_args.push(RTypeArg::Ty(RType::GenericType(p.name.clone())));
+    }
+    type_args
+}
+pub fn forwarded_type_args_unvalidated(params: &Vec<TypeParam>) -> Vec<TypeArg> {
+    let mut type_args = Vec::new();
+    for p in params {
+        type_args.push(TypeArg::Ty(CortexType::GenericType(p.name.clone())));
     }
     type_args
 }

@@ -2,7 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::{parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Contract, Extension, PFunction, Struct}}, r#type::r#type::{CortexType, FollowsEntry, TypeParam}};
+use crate::{parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Contract, Extension, PFunction, Struct}}, r#type::r#type::TypeParam};
+
+use super::ast::r#type::{RFollowsEntry, RType};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ModuleError {
@@ -25,12 +27,12 @@ pub enum ModuleError {
 }
 
 pub struct TypeDefinition {
-    pub(crate) fields: HashMap<String, CortexType>,
+    pub(crate) fields: HashMap<String, RType>,
     pub(crate) type_params: Vec<TypeParam>,
-    pub(crate) followed_contracts: Vec<FollowsEntry>,
+    pub(crate) followed_contracts: Vec<RFollowsEntry>,
 }
 impl TypeDefinition {
-    pub fn new(fields: HashMap<String, CortexType>, type_params: Vec<TypeParam>, followed_contracts: Vec<FollowsEntry>) -> Self {
+    pub fn new(fields: HashMap<String, RType>, type_params: Vec<TypeParam>, followed_contracts: Vec<RFollowsEntry>) -> Self {
         TypeDefinition {
             fields,
             type_params,
