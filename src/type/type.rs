@@ -1,4 +1,3 @@
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::r#type::{RType, RTypeArg}};
@@ -91,8 +90,6 @@ impl SimpleCodeGen for CortexType {
         }
     }
 }
-
-static NONE_NAME: Lazy<PathIdent> = Lazy::new(|| PathIdent::new(vec!["none"]));
 
 impl CortexType {
     fn codegen_wrap_if_needed(&self) -> String {
@@ -211,118 +208,16 @@ impl CortexType {
             CortexType::GenericType(name) => CortexType::GenericType(name.clone()),
         }
     }
-    pub fn subtract_if_possible(self, prefix: &PathIdent) -> Self {
-        match self {
-            CortexType::BasicType(b) => {
-                if b.name.is_prefixed_by(prefix) {
-                    CortexType::BasicType(BasicType { name: b.name.subtract(prefix).unwrap(), type_args: b.type_args })
-                } else {
-                    CortexType::BasicType(b)
-                }
-            },
-            CortexType::RefType(r) => {
-                CortexType::RefType(RefType { contained: Box::new(r.contained.subtract_if_possible(prefix)), mutable: r.mutable })
-            },
-            CortexType::TupleType(t) => {
-                CortexType::TupleType(TupleType { types: t.types.iter().map(|t| t.clone().subtract_if_possible(prefix)).collect() })
-            },
-            CortexType::FollowsType(f) => {
-                CortexType::FollowsType(FollowsType {
-                    clause: FollowsClause {
-                        contracts: f.clause.contracts.into_iter().map(|c| FollowsEntry {
-                            name: c.name.subtract_if_possible(prefix),
-                            type_args: c.type_args.into_iter().map(|t| t.subtract_if_possible(prefix)).collect(),
-                        }).collect()
-                    },
-                })
-            },
-            CortexType::OptionalType(t) => {
-                CortexType::OptionalType(Box::new(t.subtract_if_possible(prefix)))
-            },
-            CortexType::NoneType => CortexType::NoneType,
-            CortexType::GenericType(name) => CortexType::GenericType(name),
-        }
-    }
-    // Forwards immutability if mutable is false. If mutable is true, returns self
-    // Only forwards it if this is a reference type
-    pub fn forward_immutability(self, mutable: bool) -> Self {
-        if mutable {
-            self
-        } else {
-            match self {
-                CortexType::RefType(r) => {
-                    CortexType::RefType(RefType { contained: r.contained, mutable: false })
-                },
-                other => other
-            }
-        }
-    }
-
-    pub fn prefix(&self) -> PathIdent {
-        match self {
-            CortexType::BasicType(b) => {
-                b.name.without_last()
-            },
-            CortexType::RefType(r) => {
-                r.contained.prefix()
-            },
-            CortexType::TupleType(_) | CortexType::FollowsType(_) | 
-            CortexType::NoneType | CortexType::GenericType(_) => PathIdent::empty(),
-            CortexType::OptionalType(t) => t.prefix(),
-        }
-    }
-    pub fn optional(&self) -> bool {
-        match self {
-            CortexType::BasicType(_) | CortexType::RefType(_) | CortexType::TupleType(_) | 
-            CortexType::FollowsType(_) | CortexType::GenericType(_) => {
-                false
-            },
-            CortexType::OptionalType(_) => true,
-            CortexType::NoneType => true,
-        }
-    }
-
-    pub fn to_optional(self) -> Self {
-        self.to_optional_value(true)
-    }
-    pub fn to_non_optional(self) -> Self {
-        self.to_optional_value(false)
-    }
-    pub fn to_optional_value(self, value: bool) -> Self {
-        match self {
-            CortexType::OptionalType(inner) => {
-                if value {
-                    CortexType::OptionalType(inner)
-                } else {
-                    *inner
-                }
-            },
-            other => {
-                if value {
-                    CortexType::OptionalType(Box::new(other))
-                } else {
-                    other
-                }
-            },
-        }
-    }
-    pub fn to_optional_if_true(self, value: bool) -> Self {
-        if value {
-            self.to_optional()
-        } else {
-            self
-        }
-    }
 
     pub fn name(&self) -> Result<PathIdent, TypeError> {
-        match self {
+        match &self {
             CortexType::BasicType(b) => Ok(b.name.clone()),
             CortexType::RefType(r) => r.contained.name(),
             CortexType::TupleType(_) => Err(TypeError::TupleTypeNotValid),
             CortexType::FollowsType(_) => Err(TypeError::FollowsTypeNotValid),
             CortexType::OptionalType(t) => t.name(),
-            CortexType::NoneType => Ok(NONE_NAME.clone()),
-            CortexType::GenericType(name) => Ok(PathIdent::new(vec![name])),
+            CortexType::NoneType => Ok(PathIdent::new(vec!["none"])),
+            CortexType::GenericType(g) => Ok(PathIdent::new(vec![g])),
         }
     }
 }
@@ -442,13 +337,6 @@ impl TypeArg {
         match self {
             TypeArg::Ty(typ) => TypeArg::Ty(typ.with_prefix(prefix)),
             other => other.clone(),
-        }
-    }
-
-    pub(crate) fn subtract_if_possible(self, prefix: &PathIdent) -> Self {
-        match self {
-            TypeArg::Ty(typ) => TypeArg::Ty(typ.subtract_if_possible(prefix)),
-            other => other,
         }
     }
 }

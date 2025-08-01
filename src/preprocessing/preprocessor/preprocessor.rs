@@ -1012,7 +1012,7 @@ impl CortexPreprocessor {
             RType::FollowsType(follows) => CortexType::FollowsType(FollowsType {
                 clause: self.devalidate_follows_clause(follows)
             }),
-            RType::OptionalType(inner) => self.devalidate_type(*inner).to_optional(),
+            RType::OptionalType(inner) => self.devalidate_type(inner.to_optional()),
             RType::NoneType => CortexType::NoneType,
             RType::GenericType(name) => CortexType::GenericType(name),
         }
