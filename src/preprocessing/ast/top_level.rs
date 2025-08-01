@@ -1,15 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{parsing::ast::{expression::PathIdent, top_level::ThisArg}, r#type::{r#type::{TypeError, TypeParam}, type_env::TypeEnvironment}};
+use crate::{parsing::ast::top_level::ThisArg, r#type::{r#type::{TypeError, TypeParam}, type_env::TypeEnvironment}};
 
-use super::{function::RBody, r#type::{RFollowsClause, RType, RTypeArg}};
+use super::r#type::{RType, RTypeArg};
 
-pub struct RExtension {
-    pub(crate) name: PathIdent,
-    pub(crate) type_params: Vec<TypeParam>,
-    pub(crate) functions: Vec<RMemberFunction>,
-    pub(crate) follows_clause: Option<RFollowsClause>,
-}
 
 pub struct RContract {
     pub(crate) name: String,
@@ -51,11 +45,6 @@ impl RMemberFunctionSignature {
             self.type_params,
         ))
     }
-}
-
-pub struct RMemberFunction {
-    pub(crate) signature: RMemberFunctionSignature,
-    pub(crate) body: RBody,
 }
 
 #[derive(Clone, PartialEq)]

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, r#type::{r#type::{CortexType, FollowsClause, TypeArg, TypeError, TypeParam, TypeParamType}, type_env::TypeEnvironment}};
+use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, r#type::r#type::{CortexType, FollowsClause, TypeParam, TypeParamType}};
 
 use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, statement::PStatement};
 
@@ -179,22 +179,6 @@ impl MemberFunctionSignature {
             this_arg: this_arg,
             type_params,
         }
-    }
-
-    pub fn fill_all(self, bindings: &HashMap<TypeParam, TypeArg>) -> Result<Self, TypeError> {
-        Ok(Self::new(
-            self.name,
-            self.params
-                .into_iter()
-                .map(|p| Ok(Parameter {
-                    name: p.name,
-                    typ: TypeEnvironment::fill_type(p.typ, bindings)?
-                }))
-                .collect::<Result<Vec<_>, _>>()?,
-            TypeEnvironment::fill_type(self.return_type, bindings)?,
-            self.this_arg,
-            self.type_params,
-        ))
     }
 }
 impl SimpleCodeGen for MemberFunctionSignature {

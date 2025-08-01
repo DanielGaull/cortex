@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error, rc::Rc};
 
-use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType, TupleType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
+use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
 
 use super::super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program};
 
@@ -132,7 +132,8 @@ impl CortexPreprocessor {
         let mut new_env = TypeCheckingEnvironment::new(*parent_env);
         let mut params = Vec::new();
         for p in function.params {
-            let param_type = self.clean_type(p.typ.clone().with_prefix_if_not_core(&self.current_context))?;
+            let validated_type = self.validate_type(p.typ.clone())?;
+            let param_type = self.clean_type(validated_type.with_prefix_if_not_core(&self.current_context))?;
             new_env.add(p.name.clone(), param_type, false)?;
             params.push(p.name);
         }
@@ -141,8 +142,9 @@ impl CortexPreprocessor {
         let final_fn_body;
         match function.body {
             Body::Basic(body) => {
-                let (new_body, body_type) = self.check_body(body, Some(function.return_type.clone()))?;
-                let return_type = self.clean_type(function.return_type.clone().with_prefix_if_not_core(&self.current_context))?;
+                let return_type = self.validate_type(function.return_type.clone())?;
+                let (new_body, body_type) = self.check_body(body, Some(return_type.clone()))?;
+                let return_type = self.clean_type(return_type.with_prefix_if_not_core(&self.current_context))?;
                 if !self.is_subtype(&body_type, &return_type)? {
                     return Err(Box::new(PreprocessingError::ReturnTypeMismatch(return_type.codegen(0), body_type.codegen(0))));
                 }
@@ -931,7 +933,7 @@ impl CortexPreprocessor {
         res
     }
 
-    pub(crate) fn validate_type(&self, typ: CortexType) -> Result<RType, CortexError> {
+    pub fn validate_type(&self, typ: CortexType) -> Result<RType, CortexError> {
         match typ {
             CortexType::BasicType(b) => {
                 let def = self.lookup_type(&b.name)?;

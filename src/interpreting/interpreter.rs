@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::{parsing::{ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, statement::PStatement, top_level::{BasicBody, Import, PFunction, TopLevel}}, parser::CortexParser}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement, r#type::RType}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}};
+use crate::{parsing::{ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, statement::PStatement, top_level::{BasicBody, Import, PFunction, TopLevel}}, parser::CortexParser}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement, r#type::RType}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}, r#type::r#type::CortexType};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
 
 const STDLIB: &str = include_str!("..\\..\\res\\stdlib.txt");
@@ -48,6 +48,9 @@ impl CortexInterpreter {
 
     pub fn preprocess_function(&mut self, function: PFunction) -> Result<RFunction, CortexError> {
         Ok(self.preprocessor.preprocess_function(function)?)
+    }
+    pub fn validate_type(&self, ty: CortexType) -> Result<RType, CortexError> {
+        self.preprocessor.validate_type(ty)
     }
 
     pub fn execute(&mut self, program: Program) -> Result<CortexValue, CortexError> {

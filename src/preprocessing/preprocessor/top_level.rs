@@ -391,7 +391,7 @@ impl CortexPreprocessor {
         for func in functions {
             match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named("this", Self::this_arg_to_type_unvalidated(func.signature.this_arg, item_name, item_type_params));
+                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, item_type_params));
                     let mut param_list = vec![new_param];
                     param_list.extend(func.signature.params);
                     let mut type_param_names = func.signature.type_params;
@@ -432,7 +432,7 @@ impl CortexPreprocessor {
         for func in item.functions {
             match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named("this", Self::this_arg_to_type_unvalidated(func.signature.this_arg, item_name, &item.type_params).with_prefix(&item_prefix));
+                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, &item.type_params).with_prefix(&item_prefix));
                     let mut param_list = vec![new_param];
                     param_list.extend(func.signature.params);
                     let mut type_param_names = func.signature.type_params;
@@ -469,22 +469,7 @@ impl CortexPreprocessor {
         Ok(())
     }
 
-    fn this_arg_to_type(this_arg: ThisArg, item_name: &String, type_params: &Vec<TypeParam>) -> RType {
-        match this_arg {
-            ThisArg::RefThis => 
-                RType::reference(
-                    RType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
-                    false,
-                ),
-            ThisArg::RefMutThis => 
-                RType::reference(
-                RType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
-                    true,
-                ),
-            ThisArg::DirectThis => RType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args(type_params)),
-        }
-    }
-    fn this_arg_to_type_unvalidated(this_arg: ThisArg, item_name: &String, type_params: &Vec<TypeParam>) -> CortexType {
+    fn this_arg_to_type(this_arg: ThisArg, item_name: &String, type_params: &Vec<TypeParam>) -> CortexType {
         match this_arg {
             ThisArg::RefThis => 
             CortexType::reference(

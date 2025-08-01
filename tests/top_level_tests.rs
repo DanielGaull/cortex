@@ -112,7 +112,7 @@ fn run_statement(input: &str, interpreter: &mut CortexInterpreter) -> Result<(),
 fn assert_type(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
     let eval_typ = interpreter.determine_type(ast)?;
-    let typ = CortexParser::parse_type(type_str)?;
+    let typ = interpreter.validate_type(CortexParser::parse_type(type_str)?)?;
     assert_eq!(typ, eval_typ);
     Ok(())
 }

@@ -5,7 +5,7 @@ use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{
 fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
     let eval_typ = interpreter.determine_type(ast)?;
-    let typ = CortexParser::parse_type(type_str)?;
+    let typ = interpreter.validate_type(CortexParser::parse_type(type_str)?)?;
     assert_eq!(typ, eval_typ);
     Ok(())
 }
@@ -201,14 +201,14 @@ fn run_inference_type_tests() -> Result<(), Box<dyn Error>> {
 // }
 
 fn assert_subtype(first: &str, second: &str, preprocessor: &CortexPreprocessor) -> Result<(), Box<dyn Error>> {
-    let t1 = CortexParser::parse_type(first)?;
-    let t2 = CortexParser::parse_type(second)?;
+    let t1 = preprocessor.validate_type(CortexParser::parse_type(first)?)?;
+    let t2 = preprocessor.validate_type(CortexParser::parse_type(second)?)?;
     assert!(preprocessor.is_subtype(&t1, &t2)?, "'{}' is not a subtype of '{}'", first, second);
     Ok(())
 }
 fn assert_not_subtype(first: &str, second: &str, preprocessor: &CortexPreprocessor) -> Result<(), Box<dyn Error>> {
-    let t1 = CortexParser::parse_type(first)?;
-    let t2 = CortexParser::parse_type(second)?;
+    let t1 = preprocessor.validate_type(CortexParser::parse_type(first)?)?;
+    let t2 = preprocessor.validate_type(CortexParser::parse_type(second)?)?;
     assert!(!preprocessor.is_subtype(&t1, &t2)?, "'{}' is mistakenly a subtype of '{}'", first, second);
     Ok(())
 }
