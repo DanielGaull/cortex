@@ -324,6 +324,10 @@ impl CortexPreprocessor {
         } else {
             let mut fields = HashMap::new();
             for f in &item.fields {
+                // This struct hasn't been added yet - so if this struct appears anywhere, we can easily error out
+                if f.1.name()? == full_path {
+                    return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
+                }
                 fields.insert(f.0.clone(), self.validate_type(f.1.clone())?);
             }
             let has_loop = self.search_struct_for_loops(&item.name, &item.type_params, fields.values().cloned().into_iter().collect())?;
