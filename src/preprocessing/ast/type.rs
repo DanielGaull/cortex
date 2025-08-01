@@ -48,6 +48,11 @@ macro_rules! core_types {
         "number" | "bool" | "string" | "void" | "none" | "list" | "char" | "range"
     }
 }
+macro_rules! non_composite_types {
+    () => {
+        "number" | "bool" | "string" | "void" | "none" | "char"
+    }
+}
 
 impl RType {
     pub fn number() -> Self {
@@ -70,6 +75,9 @@ impl RType {
     }
     pub fn none() -> Self {
         Self::simple("none")
+    }
+    pub fn list(inner: RType) -> Self {
+        Self::basic(PathIdent::new(vec!["none"]), vec![RTypeArg::Ty(inner)])
     }
 
     pub fn basic(name: PathIdent, args: Vec<RTypeArg>) -> Self {
@@ -262,6 +270,38 @@ impl RType {
             Self::OptionalType(..) => true,
             Self::NoneType => false,
             Self::GenericType(..) => false,
+        }
+    }
+
+    // Forwards immutability if mutable is false. If mutable is true, returns self
+    // Only forwards it if this is a reference type
+    pub fn forward_immutability(self, mutable: bool) -> Self {
+        if mutable {
+            self
+        } else {
+            match self {
+                RType::RefType(r, _) => {
+                    RType::RefType(r, false)
+                },
+                other => other
+            }
+        }
+    }
+
+    pub fn is_non_composite(&self) -> bool {
+        match self {
+            RType::BasicType(name, ..) => {
+                name.is_final() && 
+                    matches!(name.get_back().unwrap().as_str(), non_composite_types!())
+            },
+            RType::RefType(r, ..) => {
+                r.is_non_composite()
+            },
+            RType::TupleType(..) => true,
+            RType::FollowsType(..) => true,
+            RType::OptionalType(t) => t.is_non_composite(),
+            RType::NoneType => true,
+            RType::GenericType(..) => false,
         }
     }
 }

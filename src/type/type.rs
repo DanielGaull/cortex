@@ -3,12 +3,6 @@ use thiserror::Error;
 
 use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::r#type::{RType, RTypeArg}};
 
-macro_rules! non_composite_types {
-    () => {
-        "number" | "bool" | "string" | "void" | "none" | "char"
-    }
-}
-
 #[derive(Error, Debug, PartialEq)]
 pub enum TypeError {
     #[error("Tuple type: not valid in this context")]
@@ -285,23 +279,6 @@ impl CortexType {
             },
             CortexType::OptionalType(_) => true,
             CortexType::NoneType => true,
-        }
-    }
-
-    pub fn is_non_composite(&self) -> bool {
-        match self {
-            CortexType::BasicType(b) => {
-                b.name.is_final() && 
-                    matches!(b.name.get_back().unwrap().as_str(), non_composite_types!())
-            },
-            CortexType::RefType(r) => {
-                r.contained.is_non_composite()
-            },
-            CortexType::TupleType(_) => true,
-            CortexType::FollowsType(_) => true,
-            CortexType::OptionalType(t) => t.is_non_composite(),
-            CortexType::NoneType => true,
-            CortexType::GenericType(_) => false,
         }
     }
 

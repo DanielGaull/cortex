@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{PExpression, PathIdent}, top_level::ThisArg}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function::RFunctionSignature, function_address::FunctionAddress, statement::RStatement, top_level::RParameter, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError}, r#type::{r#type::{forwarded_type_args, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{PExpression, PathIdent}, top_level::ThisArg}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function::RFunctionSignature, function_address::FunctionAddress, statement::RStatement, top_level::RParameter, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError}, r#type::{r#type::{forwarded_type_args, TypeArg, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::{CheckResult, CortexPreprocessor};
 
@@ -11,7 +11,7 @@ struct ProcessedCall {
 }
 
 impl CortexPreprocessor {
-    pub(super) fn check_fat_member_call(&mut self, atom_type: RFollowsClause, callee: Box<PExpression>, member: String, mut args: Vec<PExpression>, type_args: Option<Vec<RTypeArg>>, st_str: String) -> CheckResult<RExpression> {
+    pub(super) fn check_fat_member_call(&mut self, atom_type: RFollowsClause, callee: Box<PExpression>, member: String, mut args: Vec<PExpression>, type_args: Option<Vec<TypeArg>>, st_str: String) -> CheckResult<RExpression> {
         let mut function_sig = None;
         let mut contract_to_use = None;
         let mut full_prefix = None;
@@ -70,6 +70,12 @@ impl CortexPreprocessor {
             type_params: function_sig.type_params,
         };
 
+        let type_args = if let Some(ta) = type_args {
+            Some(self.validate_type_args(&pure_sig.type_params, ta)?)
+        } else {
+            None
+        };
+
         let call = self.check_call_base(pure_sig, member.clone(), args, type_args, full_prefix, &st_str)?;
         let mut statements = Vec::new();
         statements.extend(callee_st);
@@ -81,7 +87,7 @@ impl CortexPreprocessor {
             args: call.args,
         }, call.return_type, statements))
     }
-    pub(super) fn check_direct_member_call(&mut self, atom_type: RType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<RTypeArg>>, st_str: String, expected_type: Option<RType>) -> CheckResult<RExpression> {
+    pub(super) fn check_direct_member_call(&mut self, atom_type: RType, mut args: Vec<PExpression>, callee: Box<PExpression>, member: String, type_args: Option<Vec<TypeArg>>, st_str: String, expected_type: Option<RType>) -> CheckResult<RExpression> {
         let caller_type = atom_type.name()?;
         let actual_func_addr = self.get_member_function_address(&atom_type, &member)?;
 
@@ -98,7 +104,7 @@ impl CortexPreprocessor {
             for a in &typedef.type_params {
                 beginning_type_args.push(bindings.remove(a).unwrap());
             }
-            type_args.extend(beginning_type_args);
+            type_args.extend(self.devalidate_type_args(beginning_type_args));
             true_type_args = Some(type_args);
         } else {
             true_type_args = None;
@@ -107,7 +113,7 @@ impl CortexPreprocessor {
         let call_exp = PExpression::Call {
             name: actual_func_addr, 
             args,
-            type_args: true_type_args.map(|t| self.devalidate_type_args(t)),
+            type_args: true_type_args,
         };
         let result = self.check_exp(call_exp, expected_type)?;
         Ok(result)
@@ -135,8 +141,13 @@ impl CortexPreprocessor {
         Ok(actual_func_addr)
     }
 
-    pub(super) fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<PExpression>, type_args: Option<Vec<RTypeArg>>, prefix: PathIdent, st_str: &String) -> CheckResult<RExpression> {
+    pub(super) fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<PExpression>, type_args: Option<Vec<TypeArg>>, prefix: PathIdent, st_str: &String) -> CheckResult<RExpression> {
         let (sig, sig_prefix_used) = self.lookup_signature(&FunctionAddress::concat(&prefix, &addr))?;
+        let type_args = if let Some(type_args) = type_args {
+            Some(self.validate_type_args(&sig.type_params, type_args)?)
+        } else {
+            None
+        };
         let extended_prefix = PathIdent::concat(&sig_prefix_used, &prefix);
         let full_path = FunctionAddress::concat(&extended_prefix, &addr);
         let call = self.check_call_base(sig.clone(), full_path.codegen(0), arg_exps, type_args, prefix, st_str)?;
