@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{PExpression, PathIdent}, top_level::ThisArg}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function::RFunctionSignature, function_address::FunctionAddress, statement::RStatement, top_level::RParameter, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError}, r#type::{r#type::{forwarded_type_args, CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{PExpression, PathIdent}, top_level::ThisArg}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function::RFunctionSignature, function_address::FunctionAddress, statement::RStatement, top_level::RParameter, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError}, r#type::{r#type::{forwarded_type_args, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::{CheckResult, CortexPreprocessor};
 
@@ -11,11 +11,11 @@ struct ProcessedCall {
 }
 
 impl CortexPreprocessor {
-    pub(super) fn check_fat_member_call(&mut self, atom_type: FollowsType, callee: Box<PExpression>, member: String, mut args: Vec<PExpression>, type_args: Option<Vec<RTypeArg>>, st_str: String) -> CheckResult<RExpression> {
+    pub(super) fn check_fat_member_call(&mut self, atom_type: RFollowsClause, callee: Box<PExpression>, member: String, mut args: Vec<PExpression>, type_args: Option<Vec<RTypeArg>>, st_str: String) -> CheckResult<RExpression> {
         let mut function_sig = None;
         let mut contract_to_use = None;
         let mut full_prefix = None;
-        for entry in &atom_type.clause.contracts {
+        for entry in &atom_type.entries {
             let contract = self.lookup_contract(&entry.name)?;
             for sig in &contract.function_sigs {
                 if sig.name == member.clone() {
@@ -107,7 +107,7 @@ impl CortexPreprocessor {
         let call_exp = PExpression::Call {
             name: actual_func_addr, 
             args,
-            type_args: true_type_args,
+            type_args: true_type_args.map(|t| self.devalidate_type_args(t)),
         };
         let result = self.check_exp(call_exp, expected_type)?;
         Ok(result)
@@ -222,17 +222,17 @@ impl CortexPreprocessor {
     }
 
     // Used to get bindings for a type (give param names and the concrete type)
-    pub(super) fn get_bindings(type_params: &Vec<TypeParam>, typ: &CortexType) -> Result<HashMap<TypeParam, TypeArg>, CortexError> {
+    pub(super) fn get_bindings(type_params: &Vec<TypeParam>, typ: &RType) -> Result<HashMap<TypeParam, RTypeArg>, CortexError> {
         let mut type_args_handled = false;
         let mut typ = typ.clone();
         let mut bindings = HashMap::new();
         while !type_args_handled {
-            if let CortexType::BasicType(b) = &typ {
-                bindings = TypeEnvironment::create_bindings(type_params, &b.type_args);
+            if let RType::BasicType(_, type_args) = &typ {
+                bindings = TypeEnvironment::create_bindings(type_params, &type_args);
                 typ = TypeEnvironment::fill_type(typ, &bindings)?;
                 type_args_handled = true;
-            } else if let CortexType::RefType(r) = typ {
-                typ = *r.contained;
+            } else if let RType::RefType(r, _) = typ {
+                typ = *r;
             }
         }
         Ok(bindings)
@@ -271,7 +271,7 @@ impl CortexPreprocessor {
                 Ok(())
             },
             (_, _) => {
-                Err(Box::new(PreprocessingError::CouldNotInferTypeBinding(())))
+                Err(Box::new(PreprocessingError::CouldNotInferTypeBinding(param_type.codegen(0))))
             },
         }
     }
@@ -280,8 +280,8 @@ impl CortexPreprocessor {
         -> Result<(), CortexError> {
         let correct;
         match (&param_type, arg_type) {
-            (RType::BasicType(name, type_args), arg_type) => {
-                if let RType::BasicType(name2, type_args2) = arg_type {
+            (RType::BasicType(_, type_args), arg_type) => {
+                if let RType::BasicType(_, type_args2) = arg_type {
                     if type_args.len() == type_args2.len() {
                         for (type_param, type_arg) in type_args.iter().zip(type_args2) {
                             self.infer_arg(type_param, type_arg, type_params, bindings, param_name, st_str)?;
@@ -294,13 +294,13 @@ impl CortexPreprocessor {
                     correct = false;
                 }
             },
-            (CortexType::RefType(r), CortexType::RefType(r2)) => {
-                self.infer_arg_type(&*r.contained, &*r2.contained, type_params, bindings, param_name, st_str)?;
+            (RType::RefType(r1, _), RType::RefType(r2, _)) => {
+                self.infer_arg_type(&*r1, &*r2, type_params, bindings, param_name, st_str)?;
                 correct = true;
             },
-            (CortexType::TupleType(t1), CortexType::TupleType(t2)) => {
-                if t1.types.len() == t2.types.len() {
-                    for (type1, type2) in t1.types.iter().zip(&t2.types) {
+            (RType::TupleType(t1), RType::TupleType(t2)) => {
+                if t1.len() == t2.len() {
+                    for (type1, type2) in t1.iter().zip(t2) {
                         self.infer_arg_type(type1, type2, type_params, bindings, param_name, st_str)?;
                     }
                     correct = true;
@@ -308,11 +308,11 @@ impl CortexPreprocessor {
                     correct = false;
                 }
             },
-            (CortexType::FollowsType(f1), CortexType::FollowsType(f2)) => {
+            (RType::FollowsType(f1), RType::FollowsType(f2)) => {
                 // As an example, we might have something like `follows X` and `follows X+Y`
                 let mut true_correct: bool = true;
-                for entry in &f1.clause.contracts {
-                    let matching = f2.clause.contracts
+                for entry in &f1.entries {
+                    let matching = f2.entries
                         .iter()
                         .find(|x| x.name == entry.name);
                     if let Some(matching) = matching {
@@ -330,12 +330,12 @@ impl CortexPreprocessor {
                 }
                 correct = true_correct;
             },
-            (CortexType::FollowsType(follows), CortexType::BasicType(basic)) => {
+            (RType::FollowsType(follows), RType::BasicType(name, type_args)) => {
                 let mut true_correct = true;
-                if let Some(typedef) = self.type_map.get(&basic.name) {
+                if let Some(typedef) = self.type_map.get(&name) {
                     let follows_entries = 
-                        TypeEnvironment::fill_in_follows_entry_from_typedef(basic.clone(), typedef.type_params.clone(), typedef.followed_contracts.clone())?;
-                    'top: for entry in &follows.clause.contracts {
+                        TypeEnvironment::fill_in_follows_entry_from_typedef(type_args.clone(), typedef.type_params.clone(), typedef.followed_contracts.clone())?;
+                    'top: for entry in &follows.entries {
                         let mut found = false;
                         for def_entry in &follows_entries {
                             if def_entry.name == entry.name {
@@ -356,24 +356,24 @@ impl CortexPreprocessor {
                         }
                     }
                 } else {
-                    return Err(Box::new(PreprocessingError::TypeDoesNotExist(basic.name.codegen(0))));
+                    return Err(Box::new(PreprocessingError::TypeDoesNotExist(name.codegen(0))));
                 }
                 correct = true_correct;
             },
-            (CortexType::FollowsType(_), CortexType::RefType(r2)) => {
-                self.infer_arg_type(param_type, &*r2.contained, type_params, bindings, param_name, st_str)?;
+            (RType::FollowsType(..), RType::RefType(r2, ..)) => {
+                self.infer_arg_type(param_type, &*r2, type_params, bindings, param_name, st_str)?;
                 correct = true;
             },
-            (CortexType::OptionalType(_), CortexType::NoneType) |
-            (CortexType::NoneType, CortexType::NoneType) => {
+            (RType::OptionalType(..), RType::NoneType) |
+            (RType::NoneType, RType::NoneType) => {
                 correct = true;
             },
-            (CortexType::OptionalType(o), other) => {
+            (RType::OptionalType(o), other) => {
                 self.infer_arg_type(o, other, type_params, bindings, param_name, st_str)?;
                 correct = true;
             },
-            (CortexType::GenericType(name1), other) => {
-                bindings.insert(TypeParam::ty(name1), TypeArg::Ty(other.clone()));
+            (RType::GenericType(name1), other) => {
+                bindings.insert(TypeParam::ty(name1), RTypeArg::Ty(other.clone()));
                 correct = true;
             },
             (_, _) => {

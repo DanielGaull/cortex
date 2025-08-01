@@ -1,4 +1,4 @@
-use crate::{parsing::ast::expression::PathIdent, r#type::r#type::TypeError};
+use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, r#type::r#type::TypeError};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RFollowsClause {
@@ -242,6 +242,89 @@ impl RType {
             self.to_optional()
         } else {
             self
+        }
+    }
+
+    fn codegen_wrap_if_needed(&self) -> String {
+        if self.needs_to_be_wrapped() {
+            format!("({})", self.codegen(0))
+        } else {
+            self.codegen(0)
+        }
+    }
+
+    fn needs_to_be_wrapped(&self) -> bool {
+        match &self {
+            Self::BasicType(..) => false,
+            Self::RefType(..) => true,
+            Self::TupleType(..) => false,
+            Self::FollowsType(..) => true,
+            Self::OptionalType(..) => true,
+            Self::NoneType => false,
+            Self::GenericType(..) => false,
+        }
+    }
+}
+impl SimpleCodeGen for RType {
+    fn codegen(&self, _: usize) -> String {
+        match self {
+            Self::BasicType(name, type_args) => {
+                let mut s = String::new();
+                s.push_str(&name.codegen(0));
+                if type_args.len() > 0 {
+                    s.push_str("<");
+                    s.push_str(&type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(","));
+                    s.push_str(">");
+                }
+                s
+            },
+            Self::RefType(r, mutable) => {
+                let mut s = String::from("&");
+                if *mutable {
+                    s.push_str("mut ");
+                }
+                s.push_str(&r.codegen(0));
+                s
+            },
+            Self::TupleType(t) => {
+                if t.len() == 1 {
+                    format!("({},)", t.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
+                } else {
+                    format!("({})", t.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
+                }
+            },
+            Self::FollowsType(f) => {
+                format!("{}", f.codegen(0))
+            },
+            Self::OptionalType(inner) => {
+                format!("{}?", inner.codegen_wrap_if_needed())
+            },
+            Self::NoneType => String::from("none"),
+            Self::GenericType(name) => name.clone(),
+        }
+    }
+}
+
+impl SimpleCodeGen for RFollowsClause {
+    fn codegen(&self, indent: usize) -> String {
+        format!("follows {}", self.entries.iter().map(|c| c.codegen(indent)).collect::<Vec<_>>().join(" + "))
+    }
+}
+impl SimpleCodeGen for RFollowsEntry {
+    fn codegen(&self, indent: usize) -> String {
+        let mut s = String::new();
+        s.push_str(&self.name.codegen(indent));
+        if self.type_args.len() > 0 {
+            s.push_str(&format!("<{}>", self.type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
+        }
+        s
+    }
+}
+impl SimpleCodeGen for RTypeArg {
+    fn codegen(&self, indent: usize) -> String {
+        match self {
+            RTypeArg::Ty(ty) => ty.codegen(indent),
+            RTypeArg::Int(i) => format!("{}", i),
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunction, RMemberFunctionSignature, RParameter}, r#type::{RFollowsClause, RFollowsEntry, RType}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, CortexType, FollowsClause, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{RFollowsEntry, RType}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -320,12 +320,12 @@ impl CortexPreprocessor {
             if has_loop {
                 return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
             }
-
-            let validated_clause = item.follows_clause.map(|f| RFollowsClause {
-                    entries: self.validate_follows_entries(f.contracts)?
-            });
+            
             if let Some(clause) = &item.follows_clause {
-                self.check_contract_follows(&item.functions, &clause.contracts)?;
+                self.check_contract_follows(
+                    &self.validate_member_function_signatures(&item.functions)?,
+                    &self.validate_follows_entries(clause.contracts.clone())?
+                )?;
             }
             Self::handle_member_functions(item.functions, n, &item.type_params, &item.name, funcs_to_add)?;
 
@@ -337,17 +337,21 @@ impl CortexPreprocessor {
                 seen_type_param_names.insert(t);
             }
 
+            let followed_contracts = if let Some(clause) = item.follows_clause {
+                self.validate_follows_entries(clause.contracts)?
+            } else {
+                vec![]
+            };
+
             self.type_map.insert(full_path, TypeDefinition {
                 fields: fields,
                 type_params: item.type_params,
-                followed_contracts: item.follows_clause
-                    .map(|f| f.contracts.clone())
-                    .unwrap_or(vec![]),
+                followed_contracts,
             });
             Ok(())
         }
     }
-    fn check_contract_follows(&self, functions: &Vec<RMemberFunction>, contracts: &Vec<RFollowsEntry>) -> Result<(), CortexError> {
+    fn check_contract_follows(&self, functions: &Vec<RMemberFunctionSignature>, contracts: &Vec<RFollowsEntry>) -> Result<(), CortexError> {
         let mut methods_to_contain = Vec::new();
         let mut method_names = HashSet::new();
         let mut contract_paths = HashSet::new();
@@ -368,8 +372,8 @@ impl CortexPreprocessor {
             }
         }
 
-        for func in functions {
-            methods_to_contain.retain(|m| m != &func.signature);
+        for signature in functions {
+            methods_to_contain.retain(|m| m != signature);
         }
 
         if methods_to_contain.len() > 0 {
@@ -417,7 +421,10 @@ impl CortexPreprocessor {
     
     fn add_extension(&mut self, n: PathIdent, item: Extension, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         if let Some(clause) = &item.follows_clause {
-            self.check_contract_follows(&item.functions, &clause.contracts)?;
+            self.check_contract_follows(
+                &self.validate_member_function_signatures(&item.functions)?,
+                &self.validate_follows_entries(clause.contracts.clone())?
+            )?;
         }
 
         let item_name = item.name.get_back()?;
@@ -575,5 +582,13 @@ impl CortexPreprocessor {
             });
         }
         Ok(entries)
+    }
+
+    fn validate_member_function_signatures(&self, sigs: &Vec<MemberFunction>) -> Result<Vec<RMemberFunctionSignature>, CortexError> {
+        let mut result = Vec::new();
+        for item in sigs {
+            result.push(self.validate_member_function_signature(item.signature.clone())?);
+        }
+        Ok(result)
     }
 }
