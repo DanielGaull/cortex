@@ -48,6 +48,14 @@ impl CortexPreprocessor {
         add_core_type!("string");
         add_core_type!("void");
         add_core_type!("none");
+        add_core_type!("char");
+        // NOTE: range is added by Self::add_range_funcs
+
+        this.type_map.insert(PathIdent::simple(String::from("list")), TypeDefinition {
+            fields: HashMap::new(),
+            type_params: vec![TypeParam::ty("T")],
+            followed_contracts: vec![],
+        });
 
         let mut global_module = Module::new();
         Self::add_list_funcs(&mut global_module)?;

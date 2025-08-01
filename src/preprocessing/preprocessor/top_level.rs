@@ -4,6 +4,12 @@ use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{Optio
 
 use super::preprocessor::CortexPreprocessor;
 
+macro_rules! core_types {
+    () => {
+        "number" | "bool" | "string" | "void" | "none" | "list" | "char" | "range"
+    }
+}
+
 impl CortexPreprocessor {
     pub(super) fn lookup_type(&self, path: &PathIdent) -> Result<&TypeDefinition, CortexError> {
         if path.is_final() {
@@ -30,7 +36,11 @@ impl CortexPreprocessor {
         self.lookup_type(path).is_ok()
     }
     fn lookup_type_with(&self, path: &PathIdent, prefix: &PathIdent) -> Result<&TypeDefinition, CortexError> {
-        let full_path = PathIdent::concat(prefix, &path);
+        let full_path = if path.is_final() && matches!(path.get_back()?.as_str(), core_types!()) {
+            path.clone()
+        } else {
+            PathIdent::concat(prefix, &path)
+        };
         if let Some(c) = self.type_map.get(&full_path) {
             Ok(c)
         } else {
