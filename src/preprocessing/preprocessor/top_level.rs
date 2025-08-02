@@ -254,53 +254,9 @@ impl CortexPreprocessor {
     }
 
     pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {
-        match top_level {
-            TopLevel::Module { name, contents } => {
-                let module = Self::construct_module(contents)?;
-                self.register_module(&PathIdent::simple(name), module)?;
-                Ok(())
-            },
-            TopLevel::Function(function) => {
-                match &function.name {
-                    OptionalIdentifier::Ident(func_name) => {
-                        let addr = FunctionAddress {
-                            own_module_path: PathIdent::simple(func_name.clone()),
-                            target: None,
-                        };
-                        self.add_signature(&addr, &function)?;
-                        self.add_function(addr, function)?;
-                        Ok(())
-                    },
-                    OptionalIdentifier::Ignore => Ok(()),
-                }
-            },
-            TopLevel::Struct(struc) => {
-                let mut funcs = Vec::new();
-                self.add_struct(PathIdent::empty(), struc, &mut funcs)?;
-                for (addr, f) in &funcs {
-                    self.add_signature(addr, &f)?;
-                }
-                for (addr, f) in funcs {
-                    self.add_function(addr, f)?;
-                }
-                Ok(())
-            },
-            TopLevel::Extension(extension) => {
-                let mut funcs = Vec::new();
-                self.add_extension(PathIdent::empty(), extension, &mut funcs)?;
-                for (addr, f) in &funcs {
-                    self.add_signature(addr, &f)?;
-                }
-                for (addr, f) in funcs {
-                    self.add_function(addr, f)?;
-                }
-                Ok(())
-            },
-            TopLevel::Contract(contract) => {
-                self.add_contract(PathIdent::empty(), contract)?;
-                Ok(())
-            },
-        }
+        let module = Self::construct_module(vec![top_level])?;
+        self.register_module(&PathIdent::empty(), module)?;
+        Ok(())
     }
 
     pub fn register_module(&mut self, path: &PathIdent, mut module: Module) -> Result<(), CortexError> {
@@ -698,6 +654,7 @@ impl CortexPreprocessor {
         for entry in clause {
             let contract_type_params = self.get_contract_stub(&entry.name);
             if contract_type_params.is_none() {
+                println!("self.contract_stubs: {:?}", self.stubbed_contracts.keys().map(|k| k.codegen(0)).collect::<Vec<_>>().join(", "));
                 return Err(Box::new(PreprocessingError::ContractDoesNotExist(entry.name.codegen(0))));
             }
             entries.push(RFollowsEntry {
