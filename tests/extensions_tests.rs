@@ -11,9 +11,7 @@ fn test_extensions() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.run_program(program)?;
 
     assert_expression_or("toString(main())", "\"&({x: 4, y: 4})\"", "\"&({y: 4, x: 4})\"", &mut interpreter)?;
 

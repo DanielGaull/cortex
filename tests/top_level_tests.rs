@@ -25,9 +25,7 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.run_program(program)?;
 
     assert_expression("main::main(1, 2)", "3", &mut interpreter)?;
     assert_expression_or("getPoint(3, 5)", "{ x:3;y:5; }", "{ y:5;x:3; }", &mut interpreter)?;
@@ -45,9 +43,7 @@ fn test_module_pathing() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.run_program(program)?;
 
     assert_expression("testFn(0, 0, 10, 10)", "20", &mut interpreter)?;
     assert_expression("btestFn(0, 0, 10, 10)", "20", &mut interpreter)?;
@@ -63,9 +59,7 @@ fn test_multi_module_pathing() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.run_program(program)?;
 
     assert_expression("test(5)", "5", &mut interpreter)?;
     assert_expression("test2(5)", "5", &mut interpreter)?;
@@ -81,9 +75,7 @@ fn test_struct() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.run_program(program)?;
 
     run_statement("let box = getBox(5);", &mut interpreter)?;
     run_statement("incValue(box, 1);", &mut interpreter)?;

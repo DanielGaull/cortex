@@ -28,16 +28,7 @@ impl CortexInterpreter {
 
     fn execute_file(&mut self, code: &str) -> Result<(), CortexError> {
         let parsed = CortexParser::parse_program(code)?;
-        self.handle_program(parsed)?;
-        Ok(())
-    }
-    pub fn handle_program(&mut self, program: crate::parsing::ast::program::Program) -> Result<(), CortexError> {
-        for im in program.imports {
-            self.handle_import(im)?;
-        }
-        for tl in program.content {
-            self.run_top_level(tl)?;
-        }
+        self.run_program(parsed)?;
         Ok(())
     }
 
@@ -97,6 +88,30 @@ impl CortexInterpreter {
 
     pub fn register_module(&mut self, path: &PathIdent, module: Module) -> Result<(), CortexError> {
         self.preprocessor.register_module(path, module)
+    }
+
+    pub fn run_program(&mut self, program: crate::parsing::ast::program::Program) -> Result<(), CortexError> {
+        for im in program.imports {
+            self.handle_import(im)?;
+        }
+
+        let mut module = Module::new();
+        
+        for tl in program.content {
+            match tl {
+                TopLevel::Module { name, contents } => {
+                    let submodule = CortexPreprocessor::construct_module(contents)?;
+                    module.add_child(name, submodule)?;
+                },
+                TopLevel::Function(function) => module.add_function(function)?,
+                TopLevel::Struct(struc) => module.add_struct(struc)?,
+                TopLevel::Extension(extension) => module.add_extension(extension)?,
+                TopLevel::Contract(contract) => module.add_contract(contract)?,
+            }
+        }
+
+        self.preprocessor.register_module(&PathIdent::empty(), module)?;
+        Ok(())
     }
 
     pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {

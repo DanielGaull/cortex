@@ -228,7 +228,7 @@ impl CortexPreprocessor {
         self.stubbed_functions.get(&full_path)
     }
 
-    fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
+    pub(crate) fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
         let mut module = Module::new();
         for item in contents.into_iter() {
             match item {

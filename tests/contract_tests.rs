@@ -11,9 +11,7 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.run_program(program)?;
 
     run("let myList = [1, 2, 3];", &mut interpreter)?;
     run("let wrapper = heap ListWrapper<number> { items: myList, index: 0, };", &mut interpreter)?;
@@ -71,9 +69,7 @@ fn test_contracts2() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.run_program(program)?;
 
     run("let t: follows Transformer = heap IdentityTransformer {};", &mut interpreter)?;
     assert("t.transform(5)", "5", &mut interpreter)?;
@@ -91,9 +87,7 @@ fn test_contracts_modules() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.run_program(program)?;
 
     assert("5.add(5)", "10", &mut interpreter)?;
     assert("performAdd(5, 10)", "15", &mut interpreter)?;

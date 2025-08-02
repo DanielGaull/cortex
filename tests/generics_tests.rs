@@ -11,9 +11,7 @@ fn test_identity() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.run_program(program)?;
     
     assert_exp("identity(5)", "5", &mut interpreter)?;
     assert_exp("identity(none)", "none", &mut interpreter)?;
@@ -41,9 +39,7 @@ fn test_box() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    for tl in program.into_iter() {
-        interpreter.run_top_level(tl)?;
-    }
+    interpreter.run_program(program)?;
 
     run("let box = heap Box<number>{item: 5};", &mut interpreter)?;
     assert_exp("box.get()", "5", &mut interpreter)?;

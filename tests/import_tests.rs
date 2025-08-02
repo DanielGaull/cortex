@@ -14,7 +14,7 @@ fn test_imports() -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    interpreter.handle_program(program)?;
+    interpreter.run_program(program)?;
 
     assert("doBox(5)", "5", &mut interpreter)?;
     assert("doBox2(5)", "5", &mut interpreter)?;
@@ -32,7 +32,7 @@ fn load_lib(interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let _ = file.read_to_string(&mut content);
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
-    interpreter.handle_program(program)?;
+    interpreter.run_program(program)?;
     Ok(())
 }
 
