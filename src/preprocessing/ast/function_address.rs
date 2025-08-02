@@ -36,6 +36,12 @@ impl FunctionAddress {
             target: Some(target),
         }
     }
+    pub(crate) fn new(own_module_path: PathIdent, target: Option<PathIdent>) -> FunctionAddress {
+        FunctionAddress {
+            own_module_path,
+            target,
+        }
+    }
 
     pub(crate) fn without_last(&self) -> PathIdent {
         self.own_module_path.without_last()

@@ -4,7 +4,7 @@ use crate::{parsing::ast::top_level::Struct, preprocessing::{module::Module, pre
 
 
 impl CortexPreprocessor {
-    pub(crate) fn add_range_funcs(global: &mut Module) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn add_range_struct(global: &mut Module) -> Result<(), Box<dyn Error>> {
         global.add_struct(Struct::new(
             "range",
             vec![

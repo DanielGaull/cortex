@@ -18,7 +18,7 @@ pub enum ModuleError {
     #[error("Function \"{0}\" already exists")]
     FunctionAlreadyExists(String),
     #[error("Type \"{0}\" already exists")]
-    TypeAlreadyExists(String),
+    StructAlreadyExists(String),
     #[error("Contract \"{0}\" already exists")]
     ContractAlreadyExists(String),
 
@@ -151,7 +151,7 @@ impl Module {
     }
     pub fn add_struct(&mut self, item: Struct) -> Result<(), ModuleError> {
         if self.structs.contains_key(&item.name) {
-            Err(ModuleError::TypeAlreadyExists(item.name.clone()))
+            Err(ModuleError::StructAlreadyExists(item.name.clone()))
         } else {
             let mut seen_type_param_names = HashSet::new();
             for t in &item.type_params {

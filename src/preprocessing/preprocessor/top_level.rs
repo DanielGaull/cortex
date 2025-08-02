@@ -32,9 +32,6 @@ impl CortexPreprocessor {
             },
         }
     }
-    pub(super) fn has_type(&self, path: &PathIdent) -> bool {
-        self.lookup_type(path).is_ok()
-    }
     fn lookup_type_with(&self, path: &PathIdent, prefix: &PathIdent) -> Result<&TypeDefinition, CortexError> {
         let full_path = if path.is_final() && matches!(path.get_back()?.as_str(), core_types!()) {
             path.clone()
@@ -46,6 +43,37 @@ impl CortexPreprocessor {
         } else {
             Err(Box::new(PreprocessingError::TypeDoesNotExist(full_path.codegen(0))))
         }
+    }
+    
+    pub(super) fn has_struct(&self, path: &PathIdent) -> bool {
+        self.get_struct_stub(path).is_some()
+    }
+    pub(super) fn get_struct_stub(&self, path: &PathIdent) -> Option<&Vec<TypeParam>> {
+        if path.is_final() {
+            if let Some(resolved) = self.imported_aliases.get(path.get_back().unwrap()) {
+                return self.get_struct_stub(resolved);
+            }
+        }
+        let res = self.get_struct_stub_with(path, &self.current_context);
+        if let Some(res) = res {
+            Some(res)
+        } else {
+            for prefix in &self.imported_paths {
+                let res = self.get_struct_stub_with(path, prefix);
+                if let Some(res) = res {
+                    return Some(res);
+                }
+            }
+            None
+        }
+    }
+    fn get_struct_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<&Vec<TypeParam>> {
+        let full_path = if path.is_final() && matches!(path.get_back().unwrap().as_str(), core_types!()) {
+            path.clone()
+        } else {
+            PathIdent::concat(prefix, &path)
+        };
+        self.stubbed_structs.get(&full_path)
     }
 
     pub(super) fn lookup_contract(&self, path: &PathIdent) -> Result<&RContract, CortexError> {
@@ -76,6 +104,34 @@ impl CortexPreprocessor {
         } else {
             Err(Box::new(PreprocessingError::ContractDoesNotExist(full_path.codegen(0))))
         }
+    }
+
+    pub(super) fn get_contract_stub(&self, path: &PathIdent) -> Option<&Vec<TypeParam>> {
+        if path.is_final() {
+            if let Some(resolved) = self.imported_aliases.get(path.get_back().unwrap()) {
+                return self.get_contract_stub(resolved);
+            }
+        }
+        let res = self.get_contract_stub_with(path, &self.current_context);
+        if let Some(res) = res {
+            Some(res)
+        } else {
+            for prefix in &self.imported_paths {
+                let res = self.get_contract_stub_with(path, prefix);
+                if let Some(res) = res {
+                    return Some(res);
+                }
+            }
+            None
+        }
+    }
+    fn get_contract_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<&Vec<TypeParam>> {
+        let full_path = if path.is_final() && matches!(path.get_back().unwrap().as_str(), core_types!()) {
+            path.clone()
+        } else {
+            PathIdent::concat(prefix, &path)
+        };
+        self.stubbed_contracts.get(&full_path)
     }
 
     pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<(&RFunctionSignature, PathIdent), CortexError> {
@@ -138,9 +194,38 @@ impl CortexPreprocessor {
     }
 
     pub(super) fn has_function(&self, path: &FunctionAddress) -> bool {
-        self.lookup_signature(path).is_ok()
-        // let full_path: FunctionAddress = FunctionAddress::concat(&self.current_context, &path);
-        // self.function_signature_map.contains_key(&full_path)
+        self.get_function_stub(path).is_some()
+    }
+    pub(super) fn get_function_stub(&self, path: &FunctionAddress) -> Option<&Vec<TypeParam>> {
+        if path.own_module_path.is_final() {
+            if let Some(resolved) = self.imported_aliases.get(path.own_module_path.get_back().unwrap()) {
+                return self.get_function_stub(&FunctionAddress::new(resolved.clone(), path.target.clone()));
+            }
+        }
+        if let Some(target) = &path.target {
+            if target.is_final() {
+                if let Some(resolved) = self.imported_aliases.get(target.get_back().unwrap()) {
+                    return self.get_function_stub(&FunctionAddress::new(path.own_module_path.clone(), Some(resolved.clone())));
+                }
+            }
+        }
+        
+        let res = self.get_function_stub_with(path, &self.current_context);
+        if let Some(res) = res {
+            Some(res)
+        } else {
+            for prefix in &self.imported_paths {
+                let res = self.get_function_stub_with(path, prefix);
+                if let Some(res) = res {
+                    return Some(res);
+                }
+            }
+            None
+        }
+    }
+    fn get_function_stub_with(&self, path: &FunctionAddress, prefix: &PathIdent) -> Option<&Vec<TypeParam>> {
+        let full_path = FunctionAddress::concat(prefix, &path);
+        self.stubbed_functions.get(&full_path)
     }
 
     fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
@@ -245,6 +330,58 @@ impl CortexPreprocessor {
         let extensions = module.take_extensions()?;
         let contracts = module.take_contracts()?;
 
+        for s in &structs {
+            let struct_path = PathIdent::continued(path.clone(), s.name.clone());
+            if self.stubbed_structs.contains_key(&struct_path) {
+                return Err(Box::new(ModuleError::StructAlreadyExists(struct_path.codegen(0))));
+            }
+            self.stubbed_structs.insert(struct_path.clone(), s.type_params.clone());
+
+            for mf in &s.functions {
+                if let OptionalIdentifier::Ident(name) = &mf.signature.name {
+                    let function_path = FunctionAddress::member_func(
+                        PathIdent::continued(path.clone(), name.clone()),
+                        struct_path.clone()
+                    );
+                    if self.stubbed_functions.contains_key(&function_path) {
+                        return Err(Box::new(ModuleError::FunctionAlreadyExists(function_path.codegen(0))));
+                    }
+
+                    self.stubbed_functions.insert(function_path, mf.signature.type_params.clone());
+                }
+            }
+        }
+        for c in &contracts {
+            let contract_path = PathIdent::continued(path.clone(), c.name.clone());
+            if self.stubbed_contracts.contains_key(&contract_path) {
+                return Err(Box::new(ModuleError::ContractAlreadyExists(contract_path.codegen(0))));
+            }
+            self.stubbed_contracts.insert(contract_path, c.type_params.clone());
+        }
+        for (addr, f) in &functions {
+            let function_path = FunctionAddress::concat(path, addr);
+            if self.stubbed_functions.contains_key(&function_path) {
+                return Err(Box::new(ModuleError::FunctionAlreadyExists(function_path.codegen(0))));
+            }
+            self.stubbed_functions.insert(function_path, f.type_params.clone());
+        }
+        for e in &extensions {
+            let struct_path = &e.name;
+            for mf in &e.functions {
+                if let OptionalIdentifier::Ident(name) = &mf.signature.name {
+                    let function_path = FunctionAddress::member_func(
+                        PathIdent::continued(path.clone(), name.clone()),
+                        struct_path.clone()
+                    );
+                    if self.stubbed_functions.contains_key(&function_path) {
+                        return Err(Box::new(ModuleError::FunctionAlreadyExists(function_path.codegen(0))));
+                    }
+
+                    self.stubbed_functions.insert(function_path, mf.signature.type_params.clone());
+                }
+            }
+        }
+
         let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
 
         for item in contracts {
@@ -274,9 +411,6 @@ impl CortexPreprocessor {
 
     fn add_signature(&mut self, addr: &FunctionAddress, f: &PFunction) -> Result<(), CortexError> {
         let sig = f.signature();
-        if self.function_signature_map.contains_key(&addr) {
-            return Err(Box::new(ModuleError::FunctionAlreadyExists(addr.own_module_path.codegen(0))));
-        }
         let mut seen_type_param_names = HashSet::new();
         for t in &sig.type_params {
             if seen_type_param_names.contains(t) {
@@ -300,72 +434,58 @@ impl CortexPreprocessor {
     }
     fn add_contract(&mut self, n: PathIdent, item: Contract) -> Result<(), CortexError> {
         let full_path = PathIdent::continued(n, item.name.clone());
-        if self.contract_map.contains_key(&full_path) {
-            Err(Box::new(ModuleError::ContractAlreadyExists(full_path.codegen(0))))
-        } else {
-            let mut members = Vec::new();
-            for m in item.function_sigs {
-                members.push(self.validate_member_function_signature(m)?);
-            }
-
-            self.contract_map.insert(full_path, RContract {
-                name: item.name,
-                type_params: item.type_params,
-                function_sigs: members,
-            });
-            Ok(())
+        let mut members = Vec::new();
+        for m in item.function_sigs {
+            members.push(self.validate_member_function_signature(m)?);
         }
+
+        self.contract_map.insert(full_path, RContract {
+            name: item.name,
+            type_params: item.type_params,
+            function_sigs: members,
+        });
+        Ok(())
     }
     
     fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         let full_path = PathIdent::continued(n.clone(), item.name.clone());
-        if self.has_type(&full_path) {
-            Err(Box::new(ModuleError::TypeAlreadyExists(full_path.codegen(0))))
-        } else {
-            let mut fields = HashMap::new();
-            for f in &item.fields {
-                // This struct hasn't been added yet - so if this struct appears anywhere, we can easily error out
-                if let Ok(name) = f.1.name() {
-                    if name == full_path {
-                        return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
-                    }
-                }
-                fields.insert(f.0.clone(), self.validate_type(f.1.clone())?);
-            }
-            let has_loop = self.search_struct_for_loops(&item.name, &item.type_params, fields.values().cloned().into_iter().collect())?;
-            if has_loop {
-                return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
-            }
-            
-            if let Some(clause) = &item.follows_clause {
-                self.check_contract_follows(
-                    &self.validate_member_function_signatures(&item.functions)?,
-                    &self.validate_follows_entries(clause.contracts.clone())?
-                )?;
-            }
-            Self::handle_member_functions(item.functions, n, &item.type_params, &item.name, funcs_to_add)?;
-
-            let mut seen_type_param_names = HashSet::new();
-            for t in &item.type_params {
-                if seen_type_param_names.contains(t) {
-                    return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.name.clone())));
-                }
-                seen_type_param_names.insert(t);
-            }
-
-            let followed_contracts = if let Some(clause) = item.follows_clause {
-                self.validate_follows_entries(clause.contracts)?
-            } else {
-                vec![]
-            };
-
-            self.type_map.insert(full_path, TypeDefinition {
-                fields: fields,
-                type_params: item.type_params,
-                followed_contracts,
-            });
-            Ok(())
+        let mut fields = HashMap::new();
+        for f in &item.fields {
+            fields.insert(f.0.clone(), self.validate_type(f.1.clone())?);
         }
+        let has_loop = self.search_struct_for_loops(&item.name, &item.type_params, fields.values().cloned().into_iter().collect())?;
+        if has_loop {
+            return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
+        }
+        
+        if let Some(clause) = &item.follows_clause {
+            self.check_contract_follows(
+                &self.validate_member_function_signatures(&item.functions)?,
+                &self.validate_follows_entries(clause.contracts.clone())?
+            )?;
+        }
+        Self::handle_member_functions(item.functions, n, &item.type_params, &item.name, funcs_to_add)?;
+
+        let mut seen_type_param_names = HashSet::new();
+        for t in &item.type_params {
+            if seen_type_param_names.contains(t) {
+                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.name.clone())));
+            }
+            seen_type_param_names.insert(t);
+        }
+
+        let followed_contracts = if let Some(clause) = item.follows_clause {
+            self.validate_follows_entries(clause.contracts)?
+        } else {
+            vec![]
+        };
+
+        self.type_map.insert(full_path, TypeDefinition {
+            fields: fields,
+            type_params: item.type_params,
+            followed_contracts,
+        });
+        Ok(())
     }
     fn check_contract_follows(&self, functions: &Vec<RMemberFunctionSignature>, contracts: &Vec<RFollowsEntry>) -> Result<(), CortexError> {
         let mut methods_to_contain = Vec::new();
@@ -524,7 +644,7 @@ impl CortexPreprocessor {
                 // It's ok if the struct doesn't exist yet
                 // If it has loops, then they will be caught when we visit this function upon registering it
                 // Unfortunately, the order in which structs are added is not deterministic
-                if self.has_type(typ_name) {
+                if self.has_struct(typ_name) {
                     let struc = self.lookup_type(typ_name)?;
                     for field in &struc.fields {
                         q.push_back(field.1.clone());
@@ -576,10 +696,13 @@ impl CortexPreprocessor {
     fn validate_follows_entries(&self, clause: Vec<FollowsEntry>) -> Result<Vec<RFollowsEntry>, CortexError> {
         let mut entries = Vec::new();
         for entry in clause {
-            let contract = self.lookup_contract(&entry.name)?;
+            let contract_type_params = self.get_contract_stub(&entry.name);
+            if contract_type_params.is_none() {
+                return Err(Box::new(PreprocessingError::ContractDoesNotExist(entry.name.codegen(0))));
+            }
             entries.push(RFollowsEntry {
                 name: entry.name,
-                type_args: self.validate_type_args(&contract.type_params, entry.type_args)?,
+                type_args: self.validate_type_args(contract_type_params.unwrap(), entry.type_args)?,
             });
         }
         Ok(entries)

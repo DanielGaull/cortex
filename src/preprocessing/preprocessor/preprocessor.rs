@@ -19,6 +19,10 @@ pub struct CortexPreprocessor {
     pub(super) contract_map: HashMap<PathIdent, RContract>,
     pub(super) imported_paths: Vec<PathIdent>,
     pub(super) imported_aliases: HashMap<String, PathIdent>,
+
+    pub(super) stubbed_functions: HashMap<FunctionAddress, Vec<TypeParam>>,
+    pub(super) stubbed_structs: HashMap<PathIdent, Vec<TypeParam>>,
+    pub(super) stubbed_contracts: HashMap<PathIdent, Vec<TypeParam>>,
 }
 
 impl CortexPreprocessor {
@@ -35,11 +39,16 @@ impl CortexPreprocessor {
             contract_map: HashMap::new(),
             imported_paths: Vec::new(),
             imported_aliases: HashMap::new(),
+            stubbed_functions: HashMap::new(),
+            stubbed_structs: HashMap::new(),
+            stubbed_contracts: HashMap::new(),
         };
 
         macro_rules! add_core_type {
             ($name:literal) => {
-                this.type_map.insert(PathIdent::simple(String::from($name)), TypeDefinition { fields: HashMap::new(), type_params: Vec::new(), followed_contracts: vec![] });
+                let path = PathIdent::simple(String::from($name));
+                this.type_map.insert(path.clone(), TypeDefinition { fields: HashMap::new(), type_params: Vec::new(), followed_contracts: vec![] });
+                this.stubbed_structs.insert(path, vec![]);
             }
         }
 
@@ -49,18 +58,21 @@ impl CortexPreprocessor {
         add_core_type!("void");
         add_core_type!("none");
         add_core_type!("char");
-        // NOTE: range is added by Self::add_range_funcs
+        // NOTE: range is added by Self::add_range_funcs (since it can operate as a struct... maybe add to stdlib?)
 
-        this.type_map.insert(PathIdent::simple(String::from("list")), TypeDefinition {
+        let list_path = PathIdent::simple(String::from("list"));
+        let list_type_params = vec![TypeParam::ty("T")];
+        this.type_map.insert(list_path.clone(), TypeDefinition {
             fields: HashMap::new(),
-            type_params: vec![TypeParam::ty("T")],
+            type_params: list_type_params.clone(),
             followed_contracts: vec![],
         });
+        this.stubbed_structs.insert(list_path, list_type_params);
 
         let mut global_module = Module::new();
         Self::add_list_funcs(&mut global_module)?;
         Self::add_string_funcs(&mut global_module)?;
-        Self::add_range_funcs(&mut global_module)?;
+        Self::add_range_struct(&mut global_module)?;
 
         this.register_module(&PathIdent::empty(), global_module)?;
 
@@ -944,12 +956,17 @@ impl CortexPreprocessor {
     pub fn validate_type(&self, typ: CortexType) -> Result<RType, CortexError> {
         match typ {
             CortexType::BasicType(b) => {
-                let def = self.lookup_type(&b.name)?;
-                if def.type_params.len() != b.type_args.len() {
-                    return Err(Box::new(PreprocessingError::MismatchedTypeArgCount(b.name.codegen(0), def.type_params.len(), b.type_args.len())));
+                let type_params = self.get_struct_stub(&b.name);
+                if type_params.is_none() {
+                    return Err(Box::new(PreprocessingError::TypeDoesNotExist(b.name.codegen(0))));
+                }
+                let type_params = type_params.unwrap();
+
+                if type_params.len() != b.type_args.len() {
+                    return Err(Box::new(PreprocessingError::MismatchedTypeArgCount(b.name.codegen(0), type_params.len(), b.type_args.len())));
                 }
 
-                let type_args = self.validate_type_args(&def.type_params, b.type_args)?;
+                let type_args = self.validate_type_args(&type_params, b.type_args)?;
 
                 Ok(RType::BasicType(
                     b.name,
@@ -970,8 +987,11 @@ impl CortexPreprocessor {
             CortexType::FollowsType(f) => {
                 let mut entries = Vec::new();
                 for entry in f.clause.contracts {
-                    let contract = self.lookup_contract(&entry.name)?;
-                    let type_args = self.validate_type_args(&contract.type_params, entry.type_args)?;
+                    let contract_type_params = self.get_contract_stub(&entry.name);
+                    if contract_type_params.is_none() {
+                        return Err(Box::new(PreprocessingError::ContractDoesNotExist(entry.name.codegen(0))));
+                    }
+                    let type_args = self.validate_type_args(contract_type_params.unwrap(), entry.type_args)?;
                     entries.push(RFollowsEntry {
                         name: entry.name,
                         type_args,

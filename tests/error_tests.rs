@@ -157,7 +157,7 @@ fn test_other_errors() -> Result<(), Box<dyn Error>> {
     // assert_err_toplevel("struct C{b:B}", ModuleError::StructContainsCircularFields(String::from("C")), &mut interpreter)?;
 
     interpreter.run_top_level(CortexParser::parse_top_level("struct s{}")?)?;
-    assert_err_toplevel("struct s{}", ModuleError::TypeAlreadyExists(String::from("s")), &mut interpreter)?;
+    assert_err_toplevel("struct s{}", ModuleError::StructAlreadyExists(String::from("s")), &mut interpreter)?;
 
     assert_err_equal(CortexParser::parse_top_level("struct A{a:number, a:number}").map_err(|e| Box::new(e) as Box<dyn Error>), ParseError::CompositeContainsDuplicateFields(String::from("A"), String::from("a")))?;
 
