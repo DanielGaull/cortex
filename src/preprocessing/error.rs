@@ -26,8 +26,8 @@ pub enum PreprocessingError {
     IfRequiresElseBlock,
     #[error("Loop body cannot have a return value")]
     LoopCannotHaveReturnValue,
-    #[error("Type {0} requires {1} type arguments but only {2} was/were provided")]
-    MismatchedTypeArgCount(String, usize, usize),
+    #[error("{3} {0} requires {1} type arguments but only {2} was/were provided")]
+    MismatchedTypeArgCount(String, usize, usize, &'static str),
     #[error("Invalid type: {0} is not valid in this context")]
     TypeInvalidInThisContext(String),
     #[error("Cannot modify value \"{0}\" if it comes from a module")]

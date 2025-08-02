@@ -6,7 +6,6 @@ use super::r#type::{RType, RTypeArg};
 
 
 pub struct RContract {
-    pub(crate) name: String,
     pub(crate) type_params: Vec<TypeParam>,
     pub(crate) function_sigs: Vec<RMemberFunctionSignature>,
 }

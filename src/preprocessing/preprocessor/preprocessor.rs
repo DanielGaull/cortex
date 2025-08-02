@@ -678,13 +678,11 @@ impl CortexPreprocessor {
     }
 
     fn check_construction(&mut self, name: PathIdent, type_args: Vec<TypeArg>, assignments: Vec<(String, PExpression)>, st_str: &String) -> CheckResult<RExpression> {
+        let (type_params, true_path) = self.get_struct_stub(&name).ok_or(PreprocessingError::TypeDoesNotExist(name.codegen(0)))?;
+        let type_args = self.validate_type_args(&type_params, type_args, true_path.codegen(0), "Type")?;
+        let base_type = RType::basic(true_path.clone(), type_args.clone()).with_prefix_if_not_core(&self.current_context);
         let typedef = self.lookup_type(&name)?;
-        let type_args = self.validate_type_args(&typedef.type_params, type_args)?;
-        let base_type = RType::basic(name.clone(), type_args.clone()).with_prefix_if_not_core(&self.current_context);
 
-        if type_args.len() != typedef.type_params.len() {
-            return Err(Box::new(PreprocessingError::MismatchedTypeArgCount(name.codegen(0), typedef.type_params.len(), type_args.len())));
-        }
         let mut fields_to_assign = Vec::new();
         for k in typedef.fields.keys() {
             fields_to_assign.push(k.clone());
@@ -956,20 +954,15 @@ impl CortexPreprocessor {
     pub fn validate_type(&self, typ: CortexType) -> Result<RType, CortexError> {
         match typ {
             CortexType::BasicType(b) => {
-                let type_params = self.get_struct_stub(&b.name);
-                if type_params.is_none() {
+                let result = self.get_struct_stub(&b.name);
+                if result.is_none() {
                     return Err(Box::new(PreprocessingError::TypeDoesNotExist(b.name.codegen(0))));
                 }
-                let type_params = type_params.unwrap();
-
-                if type_params.len() != b.type_args.len() {
-                    return Err(Box::new(PreprocessingError::MismatchedTypeArgCount(b.name.codegen(0), type_params.len(), b.type_args.len())));
-                }
-
-                let type_args = self.validate_type_args(&type_params, b.type_args)?;
+                let (type_params, path) = result.unwrap();
+                let type_args = self.validate_type_args(&type_params, b.type_args, path.codegen(0), "Type")?;
 
                 Ok(RType::BasicType(
-                    b.name,
+                    path,
                     type_args,
                 ))
             },
@@ -987,13 +980,14 @@ impl CortexPreprocessor {
             CortexType::FollowsType(f) => {
                 let mut entries = Vec::new();
                 for entry in f.clause.contracts {
-                    let contract_type_params = self.get_contract_stub(&entry.name);
-                    if contract_type_params.is_none() {
+                    let result = self.get_contract_stub(&entry.name);
+                    if result.is_none() {
                         return Err(Box::new(PreprocessingError::ContractDoesNotExist(entry.name.codegen(0))));
                     }
-                    let type_args = self.validate_type_args(contract_type_params.unwrap(), entry.type_args)?;
+                    let (contract_type_params, path) = result.unwrap();
+                    let type_args = self.validate_type_args(contract_type_params, entry.type_args, path.codegen(0), "Contract")?;
                     entries.push(RFollowsEntry {
-                        name: entry.name,
+                        name: path,
                         type_args,
                     })
                 }
@@ -1006,7 +1000,10 @@ impl CortexPreprocessor {
             CortexType::GenericType(name) => Ok(RType::GenericType(name)),
         }
     }
-    pub(crate) fn validate_type_args(&self, type_params: &Vec<TypeParam>, type_args: Vec<TypeArg>) -> Result<Vec<RTypeArg>, CortexError> {
+    pub(crate) fn validate_type_args(&self, type_params: &Vec<TypeParam>, type_args: Vec<TypeArg>, type_name: String, object_name: &'static str) -> Result<Vec<RTypeArg>, CortexError> {
+        if type_params.len() != type_args.len() {
+            return Err(Box::new(PreprocessingError::MismatchedTypeArgCount(type_name, type_params.len(), type_args.len(), object_name)));
+        }
         let mut result = Vec::new();
         for (tparam, targ) in type_params.iter().zip(type_args) {
             match (&tparam.typ, targ) {

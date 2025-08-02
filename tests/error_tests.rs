@@ -200,7 +200,7 @@ fn test_type_argument_errors() -> Result<(), Box<dyn Error>> {
     assert_err_toplevel("struct abc<T> {\nfn x<T>(&this) {\n}\n}", ModuleError::DuplicateTypeArgumentName(String::from("T")), &mut interpreter)?;
 
     interpreter.run_top_level(CortexParser::parse_top_level("struct GenericStruct<T, R>{}")?)?;
-    assert_err("GenericStruct<number>{};", PreprocessingError::MismatchedTypeArgCount(String::from("GenericStruct"), 2, 1), &mut interpreter)?;
+    assert_err("GenericStruct<number>{};", PreprocessingError::MismatchedTypeArgCount(String::from("GenericStruct"), 2, 1, "Type"), &mut interpreter)?;
 
     Ok(())
 }

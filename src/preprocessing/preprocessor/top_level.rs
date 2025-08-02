@@ -48,7 +48,8 @@ impl CortexPreprocessor {
     pub(super) fn has_struct(&self, path: &PathIdent) -> bool {
         self.get_struct_stub(path).is_some()
     }
-    pub(super) fn get_struct_stub(&self, path: &PathIdent) -> Option<&Vec<TypeParam>> {
+    // Returns the type params for the struct, as well as the actual path to address the struct
+    pub(super) fn get_struct_stub(&self, path: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
         if path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.get_back().unwrap()) {
                 return self.get_struct_stub(resolved);
@@ -67,13 +68,13 @@ impl CortexPreprocessor {
             None
         }
     }
-    fn get_struct_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<&Vec<TypeParam>> {
+    fn get_struct_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
         let full_path = if path.is_final() && matches!(path.get_back().unwrap().as_str(), core_types!()) {
             path.clone()
         } else {
             PathIdent::concat(prefix, &path)
         };
-        self.stubbed_structs.get(&full_path)
+        self.stubbed_structs.get(&full_path).map(|p| (p, full_path))
     }
 
     pub(super) fn lookup_contract(&self, path: &PathIdent) -> Result<&RContract, CortexError> {
@@ -106,7 +107,7 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(super) fn get_contract_stub(&self, path: &PathIdent) -> Option<&Vec<TypeParam>> {
+    pub(super) fn get_contract_stub(&self, path: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
         if path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.get_back().unwrap()) {
                 return self.get_contract_stub(resolved);
@@ -125,13 +126,13 @@ impl CortexPreprocessor {
             None
         }
     }
-    fn get_contract_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<&Vec<TypeParam>> {
+    fn get_contract_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
         let full_path = if path.is_final() && matches!(path.get_back().unwrap().as_str(), core_types!()) {
             path.clone()
         } else {
             PathIdent::concat(prefix, &path)
         };
-        self.stubbed_contracts.get(&full_path)
+        self.stubbed_contracts.get(&full_path).map(|c| (c, full_path))
     }
 
     pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<(&RFunctionSignature, PathIdent), CortexError> {
@@ -196,7 +197,7 @@ impl CortexPreprocessor {
     pub(super) fn has_function(&self, path: &FunctionAddress) -> bool {
         self.get_function_stub(path).is_some()
     }
-    pub(super) fn get_function_stub(&self, path: &FunctionAddress) -> Option<&Vec<TypeParam>> {
+    pub(super) fn get_function_stub(&self, path: &FunctionAddress) -> Option<(&Vec<TypeParam>, FunctionAddress)> {
         if path.own_module_path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.own_module_path.get_back().unwrap()) {
                 return self.get_function_stub(&FunctionAddress::new(resolved.clone(), path.target.clone()));
@@ -223,9 +224,9 @@ impl CortexPreprocessor {
             None
         }
     }
-    fn get_function_stub_with(&self, path: &FunctionAddress, prefix: &PathIdent) -> Option<&Vec<TypeParam>> {
+    fn get_function_stub_with(&self, path: &FunctionAddress, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, FunctionAddress)> {
         let full_path = FunctionAddress::concat(prefix, &path);
-        self.stubbed_functions.get(&full_path)
+        self.stubbed_functions.get(&full_path).map(|f| (f, full_path))
     }
 
     pub(crate) fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
@@ -396,7 +397,6 @@ impl CortexPreprocessor {
         }
 
         self.contract_map.insert(full_path, RContract {
-            name: item.name,
             type_params: item.type_params,
             function_sigs: members,
         });
@@ -652,13 +652,15 @@ impl CortexPreprocessor {
     fn validate_follows_entries(&self, clause: Vec<FollowsEntry>) -> Result<Vec<RFollowsEntry>, CortexError> {
         let mut entries = Vec::new();
         for entry in clause {
-            let contract_type_params = self.get_contract_stub(&entry.name);
-            if contract_type_params.is_none() {
+            let result = self.get_contract_stub(&entry.name);
+            if result.is_none() {
                 return Err(Box::new(PreprocessingError::ContractDoesNotExist(entry.name.codegen(0))));
             }
+            let (contract_type_params, path) = result.unwrap();
+            let path_name = path.codegen(0);
             entries.push(RFollowsEntry {
-                name: entry.name,
-                type_args: self.validate_type_args(contract_type_params.unwrap(), entry.type_args)?,
+                name: path,
+                type_args: self.validate_type_args(contract_type_params, entry.type_args, path_name, "Contract")?,
             });
         }
         Ok(entries)

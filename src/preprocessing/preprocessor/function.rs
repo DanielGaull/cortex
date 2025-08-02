@@ -14,6 +14,7 @@ impl CortexPreprocessor {
     pub(super) fn check_fat_member_call(&mut self, atom_type: RFollowsClause, callee: Box<PExpression>, member: String, mut args: Vec<PExpression>, type_args: Option<Vec<TypeArg>>, st_str: String) -> CheckResult<RExpression> {
         let mut function_sig = None;
         let mut contract_to_use = None;
+        let mut full_name_of_contract = None;
         let mut full_prefix = None;
         for entry in &atom_type.entries {
             let contract = self.lookup_contract(&entry.name)?;
@@ -21,6 +22,7 @@ impl CortexPreprocessor {
                 if sig.name == member.clone() {
                     function_sig = Some(sig);
                     contract_to_use = Some(contract);
+                    full_name_of_contract = Some(self.get_contract_stub(&entry.name).unwrap().1);
                     full_prefix = Some(PathIdent::concat(&self.current_context, &entry.name).without_last());
                     break;
                 }
@@ -32,6 +34,7 @@ impl CortexPreprocessor {
         let mut function_sig = function_sig.unwrap().clone();
         let contract_to_use = contract_to_use.unwrap();
         let full_prefix = full_prefix.unwrap();
+        let full_name_of_contract = full_name_of_contract.unwrap();
 
         let index = contract_to_use.function_sigs
             .iter()
@@ -46,7 +49,7 @@ impl CortexPreprocessor {
         let this_type = RType::FollowsType(RFollowsClause {
             entries: vec![
                 RFollowsEntry {
-                    name: PathIdent::simple(contract_to_use.name.clone()),
+                    name: full_name_of_contract.clone(),
                     type_args: contract_to_use.type_params
                         .iter()
                         .map(|t| RTypeArg::Ty(RType::GenericType(t.name.clone())))
@@ -71,7 +74,7 @@ impl CortexPreprocessor {
         };
 
         let type_args = if let Some(ta) = type_args {
-            Some(self.validate_type_args(&pure_sig.type_params, ta)?)
+            Some(self.validate_type_args(&pure_sig.type_params, ta, format!("{}::{}", full_name_of_contract.codegen(0), member), "Function")?)
         } else {
             None
         };
@@ -144,7 +147,7 @@ impl CortexPreprocessor {
     pub(super) fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<PExpression>, type_args: Option<Vec<TypeArg>>, prefix: PathIdent, st_str: &String) -> CheckResult<RExpression> {
         let (sig, sig_prefix_used) = self.lookup_signature(&FunctionAddress::concat(&prefix, &addr))?;
         let type_args = if let Some(type_args) = type_args {
-            Some(self.validate_type_args(&sig.type_params, type_args)?)
+            Some(self.validate_type_args(&sig.type_params, type_args, addr.codegen(0), "Function")?)
         } else {
             None
         };
