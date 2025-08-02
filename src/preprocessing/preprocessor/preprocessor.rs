@@ -153,7 +153,7 @@ impl CortexPreprocessor {
         let mut params = Vec::new();
         for p in function.params {
             let validated_type = self.validate_type(p.typ.clone())?;
-            let param_type = self.clean_type(validated_type.with_prefix_if_not_core(&self.current_context))?;
+            let param_type = self.clean_type(validated_type)?;
             new_env.add(p.name.clone(), param_type, false)?;
             params.push(p.name);
         }
@@ -164,7 +164,7 @@ impl CortexPreprocessor {
             Body::Basic(body) => {
                 let return_type = self.validate_type(function.return_type.clone())?;
                 let (new_body, body_type) = self.check_body(body, Some(return_type.clone()))?;
-                let return_type = self.clean_type(return_type.with_prefix_if_not_core(&self.current_context))?;
+                let return_type = self.clean_type(return_type)?;
                 if !self.is_subtype(&body_type, &return_type)? {
                     return Err(Box::new(PreprocessingError::ReturnTypeMismatch(return_type.codegen(0), body_type.codegen(0))));
                 }
@@ -259,7 +259,7 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ident(ident) => {
                 let (assigned_exp, assigned_type, mut statements) = self.check_exp(initial_value, typ.clone())?;
                 let type_of_var = if let Some(mut declared_type) = typ {
-                    declared_type = self.clean_type(declared_type.with_prefix_if_not_core(&self.current_context))?;
+                    declared_type = self.clean_type(declared_type)?;
                     if !self.is_subtype(&assigned_type, &declared_type)? {
                         return Err(
                             Box::new(
@@ -650,14 +650,7 @@ impl CortexPreprocessor {
         } else {
             let mut member_type = typedef.fields.get(&member).unwrap().clone();
             let bindings = Self::get_bindings(&typedef.type_params, &atom_type)?;
-            let prefix = atom_type.prefix();
-            member_type = TypeEnvironment::fill_type(member_type, 
-                &bindings
-                    .into_iter()
-                    .map(|(k, v)| (k, v.subtract_if_possible(&prefix)))
-                    .collect::<HashMap<_, _>>()
-                )?;
-            member_type = member_type.with_prefix_if_not_core(&prefix);
+            member_type = TypeEnvironment::fill_type(member_type, &bindings)?;
             member_type = member_type.forward_immutability(is_mutable);
             Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type, vec![]))
         }
@@ -680,7 +673,7 @@ impl CortexPreprocessor {
     fn check_construction(&mut self, name: PathIdent, type_args: Vec<TypeArg>, assignments: Vec<(String, PExpression)>, st_str: &String) -> CheckResult<RExpression> {
         let (type_params, true_path) = self.get_struct_stub(&name).ok_or(PreprocessingError::TypeDoesNotExist(name.codegen(0)))?;
         let type_args = self.validate_type_args(&type_params, type_args, true_path.codegen(0), "Type")?;
-        let base_type = RType::basic(true_path.clone(), type_args.clone()).with_prefix_if_not_core(&self.current_context);
+        let base_type = RType::basic(true_path.clone(), type_args.clone());
         let typedef = self.lookup_type(&name)?;
 
         let mut fields_to_assign = Vec::new();
@@ -691,10 +684,6 @@ impl CortexPreprocessor {
         let fields = typedef.fields.clone();
 
         let bindings = TypeEnvironment::create_bindings(&typedef.type_params, &type_args);
-        let bindings = bindings
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone().subtract_if_possible(&name.without_last())))
-            .collect::<HashMap<_, _>>();
         let mut new_assignments = Vec::new();
         let mut statements = Vec::new();
         for (fname, fvalue) in assignments {
@@ -702,9 +691,7 @@ impl CortexPreprocessor {
                 .get(&fname)
                 .map(|t| t.clone());
             if let Some(typ) = opt_typ {
-                let field_type = TypeEnvironment::fill_type(typ, &bindings)?
-                    .with_prefix_if_not_core(&self.current_context)
-                    .with_prefix_if_not_core(&name.without_last());
+                let field_type = TypeEnvironment::fill_type(typ, &bindings)?;
                 let (exp, assigned_type, st) = self.check_exp(fvalue, Some(field_type.clone()))?;
                 statements.extend(st);
                 if !self.is_subtype(&assigned_type, &field_type)? {

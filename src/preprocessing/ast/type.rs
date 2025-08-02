@@ -23,13 +23,6 @@ impl RTypeArg {
             other => other.clone(),
         }
     }
-
-    pub(crate) fn subtract_if_possible(self, prefix: &PathIdent) -> Self {
-        match self {
-            RTypeArg::Ty(typ) => RTypeArg::Ty(typ.subtract_if_possible(prefix)),
-            other => other,
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -161,55 +154,6 @@ impl RType {
             Self::NoneType => Self::NoneType,
             Self::GenericType(name) => Self::GenericType(name.clone()),
         }
-    }
-    pub fn with_prefix_if_not_core(self, _prefix: &PathIdent) -> Self {
-        self
-        // match self {
-        //     Self::TupleType(t) => {
-        //         Self::TupleType(t
-        //             .into_iter()
-        //             .map(|t| t.with_prefix_if_not_core(prefix))
-        //             .collect())
-        //     },
-        //     other => {
-        //         if !other.is_core() {
-        //             other.with_prefix(prefix)
-        //         } else {
-        //             other
-        //         }
-        //     }
-        // }
-    }
-    pub fn subtract_if_possible(self, _prefix: &PathIdent) -> Self {
-        self
-        // match self {
-        //     Self::BasicType(name, type_args) => {
-        //         if name.is_prefixed_by(prefix) {
-        //             Self::BasicType(name.subtract(prefix).unwrap(), type_args)
-        //         } else {
-        //             Self::BasicType(name, type_args)
-        //         }
-        //     },
-        //     Self::RefType(r, m) => {
-        //         Self::RefType(Box::new(r.subtract_if_possible(prefix)), m)
-        //     },
-        //     Self::TupleType(t) => {
-        //         Self::TupleType(t.iter().map(|t| t.clone().subtract_if_possible(prefix)).collect())
-        //     },
-        //     Self::FollowsType(f) => {
-        //         Self::FollowsType(RFollowsClause {
-        //             entries: f.entries.into_iter().map(|c| RFollowsEntry {
-        //                 name: c.name.subtract_if_possible(prefix),
-        //                 type_args: c.type_args.into_iter().map(|t| t.subtract_if_possible(prefix)).collect(),
-        //             }).collect()
-        //         })
-        //     },
-        //     Self::OptionalType(t) => {
-        //         Self::OptionalType(Box::new(t.subtract_if_possible(prefix)))
-        //     },
-        //     Self::NoneType => Self::NoneType,
-        //     Self::GenericType(name) => Self::GenericType(name),
-        // }
     }
 
     pub fn optional(&self) -> bool {

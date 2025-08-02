@@ -15,7 +15,6 @@ impl CortexPreprocessor {
         let mut function_sig = None;
         let mut contract_to_use = None;
         let mut full_name_of_contract = None;
-        let mut full_prefix = None;
         for entry in &atom_type.entries {
             let contract = self.lookup_contract(&entry.name)?;
             for sig in &contract.function_sigs {
@@ -23,7 +22,6 @@ impl CortexPreprocessor {
                     function_sig = Some(sig);
                     contract_to_use = Some(contract);
                     full_name_of_contract = Some(self.get_contract_stub(&entry.name).unwrap().1);
-                    full_prefix = Some(PathIdent::concat(&self.current_context, &entry.name).without_last());
                     break;
                 }
             }
@@ -33,7 +31,6 @@ impl CortexPreprocessor {
         }
         let mut function_sig = function_sig.unwrap().clone();
         let contract_to_use = contract_to_use.unwrap();
-        let full_prefix = full_prefix.unwrap();
         let full_name_of_contract = full_name_of_contract.unwrap();
 
         let index = contract_to_use.function_sigs
@@ -79,7 +76,7 @@ impl CortexPreprocessor {
             None
         };
 
-        let call = self.check_call_base(pure_sig, member.clone(), args, type_args, full_prefix, &st_str)?;
+        let call = self.check_call_base(pure_sig, member.clone(), args, type_args, &st_str)?;
         let mut statements = Vec::new();
         statements.extend(callee_st);
         statements.extend(call.statements);
@@ -153,12 +150,12 @@ impl CortexPreprocessor {
         };
         let extended_prefix = PathIdent::concat(&sig_prefix_used, &prefix);
         let full_path = FunctionAddress::concat(&extended_prefix, &addr);
-        let call = self.check_call_base(sig.clone(), full_path.codegen(0), arg_exps, type_args, prefix, st_str)?;
+        let call = self.check_call_base(sig.clone(), full_path.codegen(0), arg_exps, type_args, st_str)?;
         let func_id = self.function_dict.add_call(full_path)?;
         Ok((RExpression::Call { addr: func_id, args: call.args }, call.return_type, call.statements))
     }
 
-    fn check_call_base(&mut self, sig: RFunctionSignature, name: String, arg_exps: Vec<PExpression>, type_args: Option<Vec<RTypeArg>>, prefix: PathIdent, st_str: &String) -> Result<ProcessedCall, CortexError> {
+    fn check_call_base(&mut self, sig: RFunctionSignature, name: String, arg_exps: Vec<PExpression>, type_args: Option<Vec<RTypeArg>>, st_str: &String) -> Result<ProcessedCall, CortexError> {
         let provided_arg_count = arg_exps.len();
         if provided_arg_count != sig.params.len() {
             return Err(Box::new(
@@ -175,8 +172,6 @@ impl CortexPreprocessor {
             arg_types.push(typ);
             processed_args.push(arg);
         }
-        
-        let extended_prefix = PathIdent::concat(&self.current_context, &prefix);
 
         let mut return_type = sig.return_type.clone();
 
@@ -184,7 +179,7 @@ impl CortexPreprocessor {
         let mut param_types = Vec::<RType>::with_capacity(sig.params.len());
         for param in &sig.params {
             param_names.push(param.name.clone());
-            param_types.push(param.typ.clone().with_prefix_if_not_core(&extended_prefix));
+            param_types.push(param.typ.clone());
         }
 
         let bindings;
@@ -224,7 +219,7 @@ impl CortexPreprocessor {
             statements.extend(st);
         }
         
-        return_type = self.clean_type(return_type)?.with_prefix_if_not_core(&extended_prefix);
+        return_type = self.clean_type(return_type)?;
 
         self.current_type_env = Some(Box::new(self.current_type_env.take().unwrap().exit()?));
 
