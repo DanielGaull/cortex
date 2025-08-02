@@ -12,15 +12,16 @@ fn doBox2(v: number): number {
     readBox(box)
 }
 
-fn hello(): string {
-    "hello".stringIdentity()
-}
-
 fn numWrapper(v: number): number {
     let a: follows AFunc = heap NumWrapper { value: 5 };
     a.a(v)
 }
 
+/*
+
+fn hello(): string {
+    "hello".stringIdentity()
+}
 
 // Again, returns what was passed into it in a roundabout way
 fn doPoint(x: number, y: number): (number, number) {
@@ -29,3 +30,5 @@ fn doPoint(x: number, y: number): (number, number) {
     };
     (p.getX(), p.getY())
 }
+
+*/
