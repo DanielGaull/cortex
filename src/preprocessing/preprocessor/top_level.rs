@@ -654,7 +654,6 @@ impl CortexPreprocessor {
         for entry in clause {
             let contract_type_params = self.get_contract_stub(&entry.name);
             if contract_type_params.is_none() {
-                println!("self.contract_stubs: {:?}", self.stubbed_contracts.keys().map(|k| k.codegen(0)).collect::<Vec<_>>().join(", "));
                 return Err(Box::new(PreprocessingError::ContractDoesNotExist(entry.name.codegen(0))));
             }
             entries.push(RFollowsEntry {

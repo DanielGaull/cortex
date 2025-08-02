@@ -74,7 +74,7 @@ impl RType {
         Self::simple("string")
     }
     pub fn none() -> Self {
-        Self::simple("none")
+        Self::NoneType
     }
     pub fn list(inner: RType) -> Self {
         Self::basic(PathIdent::new(vec!["list"]), vec![RTypeArg::Ty(inner)])

@@ -38,6 +38,8 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
     let mut module = Module::new();
     module.add_contract(Contract::new("Iterable", vec![], vec![]))?;
     module.add_contract(Contract::new("X", vec![], vec![]))?;
+    module.add_contract(Contract::new("Y", vec![], vec![]))?;
+    module.add_contract(Contract::new("Z", vec![], vec![]))?;
     module.add_contract(Contract::new("Container", vec![TypeParam::new("T", TypeParamType::Ty)], vec![]))?;
 
     module.add_struct(Struct::new(

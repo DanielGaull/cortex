@@ -55,21 +55,32 @@ fn test_contract_errors() -> Result<(), Box<dyn Error>> {
         fn next(&this): string;
     }")?)?;
 
-    assert_err_toplevel("struct NumList follows Iterator<number> {}", PreprocessingError::ContractFunctionsMissing(String::from("next")), &mut interpreter)?;
+    interpreter.run_top_level(CortexParser::parse_top_level("struct NumList follows Iterator<number> {
+        i: number,
+        values: &list<number>,
+
+        fn next(&mut this): number {
+            let value = this.values[this.i];
+            this.i += 1;
+            value
+        }
+    }")?)?;
+
+    assert_err_toplevel("struct NumList1 follows Iterator<number> {}", PreprocessingError::ContractFunctionsMissing(String::from("next")), &mut interpreter)?;
     assert_err_toplevel("extend number follows Iterator<number> {}", PreprocessingError::ContractFunctionsMissing(String::from("next")), &mut interpreter)?;
-    assert_err_toplevel("struct NumList follows NumIterator {}", PreprocessingError::ContractDoesNotExist(String::from("NumIterator")), &mut interpreter)?;
-    assert_err_toplevel("struct NumList follows Iterator<number> + NetworkRequester {
+    assert_err_toplevel("struct NumList2 follows NumIterator {}", PreprocessingError::ContractDoesNotExist(String::from("NumIterator")), &mut interpreter)?;
+    assert_err_toplevel("struct NumList3 follows Iterator<number> + NetworkRequester {
         fn next(&mut this): number {
             5
         }
     }", PreprocessingError::AmbiguousFunctionFromMultipleContracts(String::from("next")), &mut interpreter)?;
-    assert_err_toplevel("struct NumList follows NetworkRequester + NetworkRequester {
+    assert_err_toplevel("struct NumList4 follows NetworkRequester + NetworkRequester {
         fn next(&this): number {
             5
         }
     }", PreprocessingError::DuplicateInFollowsClause(String::from("NetworkRequester")), &mut interpreter)?;
 
-    interpreter.run_top_level(CortexParser::parse_top_level("struct NumList follows Iterator<number> { i: number, values: &list<number>, fn next(&mut this): number { let result = this.values[this.i]; this.i += 1; result } }")?)?;
+    interpreter.run_top_level(CortexParser::parse_top_level("struct NumList5 follows Iterator<number> { i: number, values: &list<number>, fn next(&mut this): number { let result = this.values[this.i]; this.i += 1; result } }")?)?;
     interpreter.execute_statement(CortexParser::parse_statement("let x: follows Iterator<number> = heap NumList { i: 0, values: [1, 2] };")?)?;
     assert_err("x.dne();", PreprocessingError::FunctionDoesNotExist(String::from("dne")), &mut interpreter)?;
     assert_err("x.i;", PreprocessingError::CannotAccessMemberOfFollowsType, &mut interpreter)?;
