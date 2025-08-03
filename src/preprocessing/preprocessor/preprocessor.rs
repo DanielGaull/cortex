@@ -93,15 +93,12 @@ impl CortexPreprocessor {
     pub(super) fn assign_to(&mut self, base: RExpression, base_type: RType, typ: RType) -> Result<(RExpression, Vec<RStatement>), CortexError> {
         match (typ, base_type) {
             (RType::FollowsType(follows), ref other) if !matches!(other, RType::FollowsType(_)) => {
-                let prefix = other.prefix();
                 let mut func_addresses = Vec::new();
                 for entry in follows.entries {
                     let contract = self.lookup_contract(&entry.name)?;
                     for sig in &contract.function_sigs {
                         let addr = self.get_member_function_address(other, &sig.name)?;
-                        let extended_prefix = PathIdent::concat(&self.current_context, &prefix);
-                        let full_path = FunctionAddress::concat(&extended_prefix, &addr);
-                        func_addresses.push(full_path);
+                        func_addresses.push(addr);
                     }
                 }
     

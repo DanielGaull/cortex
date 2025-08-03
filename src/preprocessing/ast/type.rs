@@ -96,20 +96,6 @@ impl RType {
         }
     }
 
-    pub fn prefix(&self) -> PathIdent {
-        match self {
-            Self::BasicType(name, _) => {
-                name.without_last()
-            },
-            Self::RefType(r, _) => {
-                r.prefix()
-            },
-            Self::TupleType(_) | Self::FollowsType(_) | 
-            Self::NoneType | Self::GenericType(_) => PathIdent::empty(),
-            Self::OptionalType(t) => t.prefix(),
-        }
-    }
-
     pub fn is_core(&self) -> bool {
         match self {
             Self::BasicType(name, ..) => {
