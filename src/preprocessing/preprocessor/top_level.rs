@@ -449,11 +449,12 @@ impl CortexPreprocessor {
         let mut contract_paths = HashSet::new();
 
         for entry in contracts {
-            if contract_paths.contains(&entry.name) {
-                return Err(Box::new(PreprocessingError::DuplicateInFollowsClause(entry.name.codegen(0))));
+            let name = entry.name.clone().subtract_if_possible(&self.current_context);
+            if contract_paths.contains(&name) {
+                return Err(Box::new(PreprocessingError::DuplicateInFollowsClause(name.codegen(0))));
             }
-            contract_paths.insert(entry.name.clone());
-            let contract = self.lookup_contract(&entry.name)?;
+            contract_paths.insert(name.clone());
+            let contract = self.lookup_contract(&name)?;
             let type_bindings = TypeEnvironment::create_bindings(&contract.type_params, &entry.type_args);
             for func in &contract.function_sigs {
                 if method_names.contains(&func.name) {

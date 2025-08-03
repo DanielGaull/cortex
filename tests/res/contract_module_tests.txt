@@ -2,6 +2,14 @@ module mystd {
     contract MyAdd<T> {
         fn add(this, other: T): T;
     }
+
+    struct MyAddFollower follows MyAdd<number> {
+        value: number,
+
+        fn add(this, other: number): number {
+            this.value + other
+        }
+    }
 }
 
 extend number follows mystd::MyAdd<number> {
