@@ -1,14 +1,8 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{RFollowsEntry, RType}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
-
-macro_rules! core_types {
-    () => {
-        "number" | "bool" | "string" | "void" | "none" | "list" | "char" | "range"
-    }
-}
 
 impl CortexPreprocessor {
     pub(super) fn lookup_type(&self, path: &PathIdent) -> Result<&TypeDefinition, CortexError> {
@@ -33,7 +27,7 @@ impl CortexPreprocessor {
         }
     }
     fn lookup_type_with(&self, path: &PathIdent, prefix: &PathIdent) -> Result<&TypeDefinition, CortexError> {
-        let full_path = if path.is_final() && matches!(path.get_back()?.as_str(), core_types!()) {
+        let full_path = if is_path_a_core_type(path) {
             path.clone()
         } else {
             PathIdent::concat(prefix, &path)
@@ -69,7 +63,7 @@ impl CortexPreprocessor {
         }
     }
     fn get_struct_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
-        let full_path = if path.is_final() && matches!(path.get_back().unwrap().as_str(), core_types!()) {
+        let full_path = if is_path_a_core_type(path) {
             path.clone()
         } else {
             PathIdent::concat(prefix, &path)
@@ -127,7 +121,7 @@ impl CortexPreprocessor {
         }
     }
     fn get_contract_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
-        let full_path = if path.is_final() && matches!(path.get_back().unwrap().as_str(), core_types!()) {
+        let full_path = if is_path_a_core_type(path) {
             path.clone()
         } else {
             PathIdent::concat(prefix, &path)
@@ -541,9 +535,16 @@ impl CortexPreprocessor {
                         func.body,
                         type_param_names,
                     );
+
+                    let target = if is_path_a_core_type(&item.name) {
+                        item.name.clone()
+                    } else {
+                        PathIdent::concat(&n, &item.name)
+                    };
+
                     let addr = FunctionAddress {
                         own_module_path: PathIdent::continued(n.clone(), func_name),
-                        target: Some(PathIdent::concat(&n, &item.name)),
+                        target: Some(target),
                     };
                     funcs_to_add.push((addr, new_func));
                 },

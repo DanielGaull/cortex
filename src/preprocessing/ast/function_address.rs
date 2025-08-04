@@ -2,6 +2,8 @@ use std::fmt::Debug;
 
 use crate::parsing::{ast::expression::{PathError, PathIdent}, codegen::r#trait::SimpleCodeGen};
 
+use super::r#type::is_path_a_core_type;
+
 /// Represents an address/path to a function: so the key in a map to function signatures
 /// If an extension/member function, then target will be set to Some, and point to the calling type
 /// Otherwise, target will be None
@@ -19,9 +21,15 @@ impl Debug for FunctionAddress {
 }
 impl FunctionAddress {
     pub(crate) fn concat(prefix: &PathIdent, addr: &FunctionAddress) -> FunctionAddress {
+        let target = addr.target.as_ref().map(|t| if is_path_a_core_type(t) {
+            t.clone()
+        } else {
+            PathIdent::concat(prefix, t)
+        });
+
         FunctionAddress {
             own_module_path: PathIdent::concat(prefix, &addr.own_module_path),
-            target: addr.target.as_ref().map(|t| PathIdent::concat(prefix, t)),
+            target,
         }
     }
     pub(crate) fn simple(path: PathIdent) -> FunctionAddress {
@@ -48,10 +56,18 @@ impl FunctionAddress {
     }
     pub(crate) fn get_back(self) -> Result<FunctionAddress, PathError> {
         let prefix = self.own_module_path.without_last();
+        let target = self.target.map(|t| {
+            if is_path_a_core_type(&t) {
+                Ok(t)
+            } else {
+                Ok(t.subtract(&prefix)?)
+            }
+        }).transpose()?;
+
         Ok(
             FunctionAddress {
                 own_module_path: PathIdent::simple(self.own_module_path.get_back()?.clone()),
-                target: self.target.map(|t| Ok(t.subtract(&prefix)?)).transpose()?,
+                target,
             }
         )
     }

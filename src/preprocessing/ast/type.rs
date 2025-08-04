@@ -47,6 +47,10 @@ macro_rules! non_composite_types {
     }
 }
 
+pub fn is_path_a_core_type(path: &PathIdent) -> bool {
+    path.is_final() && matches!(path.get_back().unwrap().as_str(), core_types!())
+}
+
 impl RType {
     pub fn number() -> Self {
         Self::simple("number")
@@ -99,8 +103,7 @@ impl RType {
     pub fn is_core(&self) -> bool {
         match self {
             Self::BasicType(name, ..) => {
-                name.is_final() && 
-                    matches!(name.get_back().unwrap().as_str(), core_types!())
+                is_path_a_core_type(name)
             },
             Self::RefType(r, ..) => {
                 r.is_core()
