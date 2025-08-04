@@ -9,11 +9,11 @@ module GeometryExtended {
             }
         }
     }
+}
 
-    extend Geometry::Point {
-        fn incY(&mut this, amount: number) {
-            this.y += amount;
-        }
+extend GeometryExtended::Geometry::Point {
+    fn incY(&mut this, amount: number) {
+        this.y += amount;
     }
 }
 

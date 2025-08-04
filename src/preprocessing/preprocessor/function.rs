@@ -397,28 +397,36 @@ impl CortexPreprocessor {
     }
 
     fn search_for_extension(&self, typ: &PathIdent, member: &String) -> Result<Option<&FunctionAddress>, CortexError> {
-        // Search through *ALL* functions
-        // If they are prefixed by the current_context, and have a target type = to `typ`,
-        // and a function name .getBack() == member, then return that address
+        // What lets a function be a valid extension to call right now?
+        // 1. The target types are exactly equal
+        // 2. The "back" of the function's name is equal to the member path we're trying to call
+        // 3. The function's name is fully prefixed by either current_context, or a path we have imported
+        
         let candidates = self.function_signature_map.keys().filter_map(|p| {
-            // Must be prefixed by current_context to be in scope at this point
-            if p.own_module_path.is_prefixed_by(&self.current_context) {
-                // Must have the same target type to be able to be called
-                if let Some(target) = &p.target {
-                    if target == typ {
-                        // Finally, must have same method name (getBack() == member)
-                        let back = p.own_module_path.get_back();
-                        match back {
-                            Ok(back_name) => {
-                                if back_name == member {
-                                    return Some(Ok::<_, CortexError>(p));
+            // Must be prefixed by current_context or any imported path
+            let mut all_valid_prefixes = Vec::new();
+            all_valid_prefixes.push(&self.current_context);
+            all_valid_prefixes.extend(self.imported_paths.iter());
+
+            for prefix in all_valid_prefixes {
+                let back = p.own_module_path.get_back();
+                match back {
+                    Ok(back_name) => {
+                        if back_name == member {
+                            if p.own_module_path.is_fully_prefixed_by(prefix) {
+                                // Must have the same target type to be able to be called
+                                if let Some(target) = &p.target {
+                                    if target == typ {
+                                        return Some(Ok::<_, CortexError>(p));
+                                    }
                                 }
-                            },
-                            Err(err) => {
-                                return Some(Err(Box::new(err)));
-                            },
+                            }
+                            
                         }
-                    }
+                    },
+                    Err(err) => {
+                        return Some(Err(Box::new(err)));
+                    },
                 }
             }
             None

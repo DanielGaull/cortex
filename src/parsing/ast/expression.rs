@@ -390,6 +390,13 @@ impl PathIdent {
         true
     }
 
+    pub fn is_fully_prefixed_by(&self, prefix: &PathIdent) -> bool {
+        if prefix.path.len() != self.path.len() - 1 {
+            return false;
+        }
+        self.is_prefixed_by(prefix)
+    }
+
     pub fn subtract(self, second: &PathIdent) -> Result<Self, PathError> {
         if second.is_empty() {
             Ok(self)
