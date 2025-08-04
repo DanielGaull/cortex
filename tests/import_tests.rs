@@ -46,6 +46,28 @@ fn test_imports2() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn test_imports3() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    load_lib(&mut interpreter)?;
+
+    let path = Path::new("./tests/res/import_tests2.txt");
+    let mut file = File::open(path).unwrap();
+    let mut content = String::new();
+    let _ = file.read_to_string(&mut content);
+    content = content.replace("\r\n", "\n");
+    let program = CortexParser::parse_program(&content)?;
+    interpreter.run_program(program)?;
+    interpreter.finish_running_program();
+
+    import("import mylib;", &mut interpreter)?;
+    import("import libBoxUtils;", &mut interpreter)?;
+    run("let box = heap LibBox<number>{item: 5};", &mut interpreter)?;
+    assert("box.duplicate().get()", "5", &mut interpreter)?;
+
+    Ok(())
+}
+
+#[test]
 fn test_import_errors1() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     load_lib(&mut interpreter)?;
@@ -94,6 +116,7 @@ fn load_lib(interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     content = content.replace("\r\n", "\n");
     let program = CortexParser::parse_program(&content)?;
     interpreter.run_program(program)?;
+    interpreter.finish_running_program();
     Ok(())
 }
 
