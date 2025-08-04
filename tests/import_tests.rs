@@ -1,6 +1,6 @@
 use std::{error::Error, fs::File, io::Read, path::Path};
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::parser::CortexParser};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::parser::CortexParser, preprocessing::error::PreprocessingError};
 
 #[test]
 fn test_imports() -> Result<(), Box<dyn Error>> {
@@ -45,6 +45,47 @@ fn test_imports2() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn test_import_errors1() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    load_lib(&mut interpreter)?;
+
+    import("import mylib::NumWrapper as NumWrapper;", &mut interpreter)?;
+    assert_err_import("import mylib::AFunc as NumWrapper;", PreprocessingError::DuplicateSymbolImport(String::from("NumWrapper")), &mut interpreter)?;
+
+    Ok(())
+}
+
+#[test]
+fn test_import_errors2() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+
+    top_level("struct NumWrapper { value: number }", &mut interpreter)?;
+    assert_err_import("import mylib::AFunc as NumWrapper;", PreprocessingError::DuplicateSymbolImport(String::from("NumWrapper")), &mut interpreter)?;
+
+    Ok(())
+}
+
+#[test]
+fn test_import_errors3() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    load_lib(&mut interpreter)?;
+    top_level("struct NumWrapper { }", &mut interpreter)?;
+    assert_err_import("import mylib;", PreprocessingError::DuplicateSymbolImport(String::from("NumWrapper")), &mut interpreter)?;
+
+    let mut interpreter = CortexInterpreter::new()?;
+    load_lib(&mut interpreter)?;
+    top_level("contract NumWrapper { }", &mut interpreter)?;
+    assert_err_import("import mylib;", PreprocessingError::DuplicateSymbolImport(String::from("NumWrapper")), &mut interpreter)?;
+
+    let mut interpreter = CortexInterpreter::new()?;
+    load_lib(&mut interpreter)?;
+    top_level("fn NumWrapper() { }", &mut interpreter)?;
+    assert_err_import("import mylib;", PreprocessingError::DuplicateSymbolImport(String::from("NumWrapper")), &mut interpreter)?;
+
+    Ok(())
+}
+
 fn load_lib(interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let path = Path::new("./tests/res/testlib.txt");
     let mut file = File::open(path).unwrap();
@@ -66,4 +107,24 @@ fn assert(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> R
 fn run(st: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     interpreter.execute_statement(CortexParser::parse_statement(st)?)?;
     Ok(())
+}
+fn import(st: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+    interpreter.handle_import(CortexParser::parse_import(st)?)?;
+    Ok(())
+}
+fn top_level(st: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+    interpreter.run_top_level(CortexParser::parse_top_level(st)?)?;
+    Ok(())
+}
+
+fn assert_err_import<T: Error + PartialEq + 'static>(statement: &str, flavor: T, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+    let parsed = CortexParser::parse_import(statement)?;
+    let evaled = interpreter.handle_import(parsed);
+    if let Err(e) = evaled {
+        let error = *e.downcast::<T>().expect("Expected provided error type");
+        assert_eq!(flavor, error);
+        Ok(())
+    } else {
+        panic!("Statement did not result in an error: {}", statement);
+    }
 }

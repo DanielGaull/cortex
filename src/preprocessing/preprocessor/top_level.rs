@@ -101,6 +101,9 @@ impl CortexPreprocessor {
         }
     }
 
+    pub(super) fn has_contract(&self, path: &PathIdent) -> bool {
+        self.get_contract_stub(path).is_some()
+    }
     pub(super) fn get_contract_stub(&self, path: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
         if path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.get_back().unwrap()) {
