@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress, r#type::r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam, TypeParamType}};
 
-use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::Program, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, Extension, Import, ImportEntry, MemberFunction, MemberFunctionSignature, PFunction, Struct as Struct, ThisArg, TopLevel}};
+use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::ModuleContent, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, Extension, Import, ImportEntry, MemberFunction, MemberFunctionSignature, PFunction, Struct as Struct, ThisArg, TopLevel}};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -130,17 +130,21 @@ impl CortexParser {
             },
         }
     }
-    pub fn parse_program(input: &str) -> Result<Program, ParseError> {
+    pub fn parse_program(input: &str) -> Result<ModuleContent, ParseError> {
         let pair = PestCortexParser::parse(Rule::program, input);
         match pair {
-            Ok(mut v) => Self::parse_program_pair(v.next().unwrap()),
+            Ok(mut v) => {
+                let mut pairs = v.next().unwrap().into_inner();
+                let next = pairs.next().unwrap();
+                Self::parse_module_content(next)
+            },
             Err(e) => {
                 Err(ParseError::ParseFailure(String::from("program"), String::from(e.line())))
             },
         }
     }
-    
-    fn parse_program_pair(pair: Pair<Rule>) -> Result<Program, ParseError> {
+
+    fn parse_module_content(pair: Pair<Rule>) -> Result<ModuleContent, ParseError> {
         let pairs = pair.into_inner();
         let mut content = Vec::new();
         let mut imports = Vec::new();
@@ -151,11 +155,9 @@ impl CortexParser {
             } else if p.as_rule() == Rule::topLevel {
                 let t = Self::parse_toplevel_pair(p)?;
                 content.push(t);
-            } else if p.as_rule() != Rule::EOI {
-                return Err(ParseError::FailProgram);
             }
         }
-        Ok(Program {
+        Ok(ModuleContent {
             content,
             imports,
         })
@@ -173,11 +175,7 @@ impl CortexParser {
             Rule::module => {
                 let mut pairs = pair.into_inner();
                 let name = pairs.next().unwrap().as_str();
-                let mut contents = Vec::<TopLevel>::new();
-                for p in pairs {
-                    let toplevel = Self::parse_toplevel_pair(p)?;
-                    contents.push(toplevel);
-                }
+                let contents = Self::parse_module_content(pairs.next().unwrap())?;
                 Ok(TopLevel::Module { name: String::from(name), contents: contents })
             },
             Rule::extension => {

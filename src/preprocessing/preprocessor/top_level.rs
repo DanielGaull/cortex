@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, Import, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -226,12 +226,15 @@ impl CortexPreprocessor {
         self.stubbed_functions.get(&full_path).map(|f| (f, full_path))
     }
 
-    pub(crate) fn construct_module(contents: Vec<TopLevel>) -> Result<Module, CortexError> {
+    fn construct_module_helper(&mut self, imports: Vec<Import>, contents: Vec<TopLevel>, maintain_imports: bool) -> Result<Module, CortexError> {
         let mut module = Module::new();
+        for import in imports {
+            self.handle_import(import)?;
+        }
         for item in contents.into_iter() {
             match item {
                 TopLevel::Module { name: submod_name, contents } => {
-                    let new_module = Self::construct_module(contents)?;
+                    let new_module = self.construct_module(contents.imports, contents.content, maintain_imports)?;
                     module.add_child(submod_name, new_module)?;
                 },
                 TopLevel::Function(function) => {
@@ -250,9 +253,24 @@ impl CortexPreprocessor {
         }
         Ok(module)
     }
+    pub(crate) fn construct_module(&mut self, imports: Vec<Import>, contents: Vec<TopLevel>, maintain_imports: bool) -> Result<Module, CortexError> {
+        if maintain_imports {
+            self.construct_module_helper(imports, contents, maintain_imports)
+        } else {
+            let aliases_to_restore = std::mem::replace(&mut self.imported_aliases, HashMap::new());
+            let paths_to_restore = std::mem::replace(&mut self.imported_paths, Vec::new());
+
+            let result = self.construct_module_helper(imports, contents, maintain_imports);
+
+            self.imported_aliases = aliases_to_restore;
+            self.imported_paths = paths_to_restore;
+
+            result
+        }
+    }
 
     pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {
-        let module = Self::construct_module(vec![top_level])?;
+        let module = self.construct_module(vec![], vec![top_level], true)?;
         self.register_module(&PathIdent::empty(), module)?;
         Ok(())
     }

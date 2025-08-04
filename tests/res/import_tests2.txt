@@ -17,6 +17,8 @@ fn multiplyStringLengths(string1: string, amount: number): number {
 }
 
 module libBoxUtils {
+    import mylib::LibBox as LibBox;
+
     extend LibBox<T> {
         fn duplicate(&this): &mut LibBox<T> {
             heap LibBox<T> {

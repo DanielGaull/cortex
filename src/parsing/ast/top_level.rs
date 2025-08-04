@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, r#type::r#type::{CortexType, FollowsClause, TypeParam, TypeParamType}};
 
-use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, statement::PStatement};
+use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, program::ModuleContent, statement::PStatement};
 
 pub struct ImportEntry {
     pub(crate) path: PathIdent,
@@ -22,9 +22,10 @@ pub struct Import {
     pub(crate) entries: Vec<ImportEntry>,
 }
 impl SimpleCodeGen for Import {
-    fn codegen(&self, _: usize) -> String {
+    fn codegen(&self, indent: usize) -> String {
         format!(
-            "import {};", 
+            "{}import {};", 
+            "    ".repeat(indent),
             self.entries.iter()
                 .map(|e| e.codegen(0))
                 .collect::<Vec<_>>()
@@ -36,7 +37,7 @@ impl SimpleCodeGen for Import {
 pub enum TopLevel {
     Module {
         name: String,
-        contents: Vec<TopLevel>,
+        contents: ModuleContent,
     },
     Function(PFunction),
     Struct(Struct),
@@ -54,10 +55,7 @@ impl SimpleCodeGen for TopLevel {
                 s.push_str(name);
                 s.push_str(" {\n");
 
-                for top in contents {
-                    s.push_str(&top.codegen(indent + 1));
-                    s.push_str("\n");
-                }
+                s.push_str(&contents.codegen(indent + 1));
                 
                 s.push_str(indent_prefix);
                 s.push_str("}");

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::{parsing::{ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, statement::PStatement, top_level::{BasicBody, Import, PFunction, TopLevel}}, parser::CortexParser}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement, r#type::RType}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}, r#type::r#type::CortexType};
+use crate::{parsing::{ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, program::ModuleContent, statement::PStatement, top_level::{BasicBody, Import, PFunction, TopLevel}}, parser::CortexParser}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement, r#type::RType}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}, r#type::r#type::CortexType};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
 
 const STDLIB: &str = include_str!("..\\..\\res\\stdlib.txt");
@@ -90,7 +90,7 @@ impl CortexInterpreter {
         self.preprocessor.register_module(path, module)
     }
 
-    pub fn run_program(&mut self, program: crate::parsing::ast::program::Program) -> Result<(), CortexError> {
+    pub fn run_program(&mut self, program: ModuleContent) -> Result<(), CortexError> {
         for im in program.imports {
             self.handle_import(im)?;
         }
@@ -100,7 +100,7 @@ impl CortexInterpreter {
         for tl in program.content {
             match tl {
                 TopLevel::Module { name, contents } => {
-                    let submodule = CortexPreprocessor::construct_module(contents)?;
+                    let submodule = self.preprocessor.construct_module(contents.imports, contents.content, false)?;
                     module.add_child(name, submodule)?;
                 },
                 TopLevel::Function(function) => module.add_function(function)?,

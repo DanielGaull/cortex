@@ -4,11 +4,11 @@ use crate::parsing::codegen::r#trait::SimpleCodeGen;
 
 use super::top_level::{Import, TopLevel};
 
-pub struct Program {
+pub struct ModuleContent {
     pub(crate) imports: Vec<Import>,
     pub(crate) content: Vec<TopLevel>,
 }
-impl SimpleCodeGen for Program {
+impl SimpleCodeGen for ModuleContent {
     fn codegen(&self, indent: usize) -> String {
         let mut s = String::new();
         for im in &self.imports {
@@ -22,7 +22,7 @@ impl SimpleCodeGen for Program {
         s
     }
 }
-impl IntoIterator for Program {
+impl IntoIterator for ModuleContent {
     type Item = TopLevel;
 
     type IntoIter = IntoIter<TopLevel>;

@@ -1,11 +1,12 @@
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!"\n" ~ ANY)*) }
 WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
 
-program = { SOI ~ import* ~ topLevel* ~ EOI }
+program = { SOI ~ moduleContent ~ EOI }
+moduleContent = { import* ~ topLevel* }
 
 // Top-level
 topLevel = { import | function | struct | extension | contract | module }
-module = { "module" ~ ident ~ "{" ~ topLevel* ~ "}" }
+module = { "module" ~ ident ~ "{" ~ moduleContent ~ "}" }
 import = { "import" ~ importEntry ~ ("," ~ importEntry)* ~ ";" }
 function = { "fn" ~ optIdentifier ~ ("<" ~ typeParamList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 struct = { "struct" ~ ident ~ ("<" ~ typeParamList ~ ">")? ~ followsClause? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
