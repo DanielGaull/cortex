@@ -19,7 +19,28 @@ fn test_imports() -> Result<(), Box<dyn Error>> {
     assert("doBox2(5)", "5", &mut interpreter)?;
     assert("numWrapper(10)", "15", &mut interpreter)?;
     assert("hello()", "\"hello\"", &mut interpreter)?;
-    // assert("doPoint(2, 3)", "(2, 3)", &mut interpreter)?;
+
+    run("let point = doPoint(2, 3);", &mut interpreter)?;
+    assert("point.t0", "2", &mut interpreter)?;
+    assert("point.t1", "3", &mut interpreter)?;
+
+    Ok(())
+}
+
+#[test]
+fn test_imports2() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    load_lib(&mut interpreter)?;
+
+    let path = Path::new("./tests/res/import_tests2.txt");
+    let mut file = File::open(path).unwrap();
+    let mut content = String::new();
+    let _ = file.read_to_string(&mut content);
+    content = content.replace("\r\n", "\n");
+    let program = CortexParser::parse_program(&content)?;
+    interpreter.run_program(program)?;
+
+    assert("multiplyStringLengths(\"foo\", 3)", "9", &mut interpreter)?;
 
     Ok(())
 }
@@ -40,5 +61,9 @@ fn assert(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> R
     let value = interpreter.execute_expression(ast)?;
     let value_string = format!("{}", value);
     assert_eq!(expected, value_string);
+    Ok(())
+}
+fn run(st: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+    interpreter.execute_statement(CortexParser::parse_statement(st)?)?;
     Ok(())
 }

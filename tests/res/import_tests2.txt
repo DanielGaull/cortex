@@ -1,0 +1,16 @@
+import mylib::AFunc as MyLibAFunc;
+
+struct StringWrapper follows MyLibAFunc {
+    value: string,
+
+    fn a(&this, other: number): number {
+        this.value.len() * other
+    }
+}
+
+fn multiplyStringLengths(string1: string, amount: number): number {
+    let wrapper = heap StringWrapper {
+        value: string1,
+    };
+    wrapper.a(amount)
+}

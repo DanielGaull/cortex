@@ -21,8 +21,6 @@ fn hello(): string {
     "hello".stringIdentity()
 }
 
-/*
-
 // Again, returns what was passed into it in a roundabout way
 fn doPoint(x: number, y: number): (number, number) {
     let p = heap DrawPoint {
@@ -30,5 +28,3 @@ fn doPoint(x: number, y: number): (number, number) {
     };
     (p.getX(), p.getY())
 }
-
-*/
