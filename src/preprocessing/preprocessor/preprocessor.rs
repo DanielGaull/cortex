@@ -88,6 +88,11 @@ impl CortexPreprocessor {
         Ok(typ)
     }
 
+    pub(crate) fn reset_imports(&mut self) {
+        self.imported_aliases.clear();
+        self.imported_paths.clear();
+    }
+
     // When a value is assigned to a certain type, sometimes transformations are needed
     // (ex vtables); this is the function that takes care of that
     pub(super) fn assign_to(&mut self, base: RExpression, base_type: RType, typ: RType) -> Result<(RExpression, Vec<RStatement>), CortexError> {

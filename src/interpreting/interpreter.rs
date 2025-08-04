@@ -113,6 +113,9 @@ impl CortexInterpreter {
         self.preprocessor.register_module(&PathIdent::empty(), module)?;
         Ok(())
     }
+    pub fn finish_running_program(&mut self) {
+        self.preprocessor.reset_imports();
+    }
 
     pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {
         self.preprocessor.run_top_level(top_level)
