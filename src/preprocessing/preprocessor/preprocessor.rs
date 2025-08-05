@@ -646,7 +646,13 @@ impl CortexPreprocessor {
                 is_mutable = true;
             },
         }
-        let typedef = self.lookup_type(&atom_type.name()?.clone().subtract(&self.current_context)?)?;
+        // We can look up the type directly here, we will always have the full name already!
+        let full_path = atom_type.name()?.clone();
+        let typedef = if let Some(c) = self.type_map.get(&full_path) {
+            Ok(c)
+        } else {
+            Err(Box::new(PreprocessingError::TypeDoesNotExist(full_path.codegen(0))))
+        }?;
         if !typedef.fields.contains_key(&member) {
             Err(Box::new(PreprocessingError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
         } else {

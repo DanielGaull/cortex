@@ -8,7 +8,7 @@ impl CortexPreprocessor {
     pub(super) fn lookup_type(&self, path: &PathIdent) -> Result<&TypeDefinition, CortexError> {
         if path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.get_back()?) {
-                return self.lookup_type(resolved);
+                return self.lookup_type_with(resolved, &PathIdent::empty());
             }
         }
         let res = self.lookup_type_with(path, &self.current_context);
@@ -46,7 +46,7 @@ impl CortexPreprocessor {
     pub(super) fn get_struct_stub(&self, path: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
         if path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.get_back().unwrap()) {
-                return self.get_struct_stub(resolved);
+                return self.get_struct_stub_with(resolved, &PathIdent::empty());
             }
         }
         let res = self.get_struct_stub_with(path, &self.current_context);
@@ -74,7 +74,7 @@ impl CortexPreprocessor {
     pub(super) fn lookup_contract(&self, path: &PathIdent) -> Result<&RContract, CortexError> {
         if path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.get_back()?) {
-                return self.lookup_contract(resolved);
+                return self.lookup_contract_with(resolved, &PathIdent::empty());
             }
         }
         let res = self.lookup_contract_with(path, &self.current_context);
@@ -107,7 +107,7 @@ impl CortexPreprocessor {
     pub(super) fn get_contract_stub(&self, path: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
         if path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.get_back().unwrap()) {
-                return self.get_contract_stub(resolved);
+                return self.get_contract_stub_with(resolved, &PathIdent::empty());
             }
         }
         let res = self.get_contract_stub_with(path, &self.current_context);
@@ -133,51 +133,30 @@ impl CortexPreprocessor {
     }
 
     pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<(&RFunctionSignature, PathIdent), CortexError> {
-        if path.own_module_path.is_final() {
-            if let Some(resolved) = self.imported_aliases.get(path.own_module_path.get_back()?) {
-                return self.lookup_signature(&FunctionAddress {
-                    own_module_path: resolved.clone(),
-                    target: path.target.clone(),
-                });
-            }
-        }
-        if let Some(target) = &path.target {
-            if target.is_final() {
-                if let Some(resolved) = self.imported_aliases.get(target.get_back()?) {
-                    // Need to check both the path where own_module_path is extended, and where it isn't
-                    // For example, may `import drawing::Point as Point` but then `Point::getX` could be under
-                    // either `drawing::getX (on type drawing::Point)` - if a regular member function,
-                    // or under any other prefix that's imported (`_::getX (on type drawing::Point)`)
-                    // if it's an extension function
-                    // So, we check both cases - the basic one of it being a member function first since it's more common
-                    let resolved_prefix = resolved.without_last();
-                    let first_attempt = self.lookup_signature(&FunctionAddress {
-                        own_module_path: PathIdent::concat(&resolved_prefix, &path.own_module_path),
-                        target: Some(resolved.clone()),
-                    });
-                    if let Ok(result) = first_attempt {
-                        return Ok((result.0, resolved_prefix));
-                    } else {
-                        return self.lookup_signature(&FunctionAddress {
-                            own_module_path: path.own_module_path.clone(),
-                            target: Some(resolved.clone()),
-                        });
-                    }
+        // If target is None, then this is as simple as the struct/contract lookup system
+        // Because member functions cannot be directly imported, if target is Some, then we have these restrictions:
+        // own_module_path must come from the same module as the target (since extensions are handled separately)
+        // It *cannot* be an alias
+        if path.target.is_none() {
+            // Simple case mentioned above
+            let own_module_path = &path.own_module_path;
+            if own_module_path.is_final() {
+                if let Some(resolved) = self.imported_aliases.get(own_module_path.get_back().unwrap()) {
+                    let sig = FunctionAddress::simple(resolved.clone());
+                    return Ok((self.lookup_signature_with(&sig, &PathIdent::empty())?, PathIdent::empty()));
                 }
             }
         }
-        
-        let res = self.lookup_signature_with(path, &self.current_context);
+        let res = self.lookup_signature_with(&path, &self.current_context);
         match res {
-            Ok(r) => Ok((r, self.current_context.clone())),
+            Ok(res) => Ok((res, self.current_context.clone())),
             Err(e) => {
                 for prefix in &self.imported_paths {
-                    let res = self.lookup_signature_with(path, prefix);
-                    if let Ok(r) = res {
-                        return Ok((r, prefix.clone()));
+                    let res = self.lookup_signature_with(&path, prefix);
+                    if let Ok(res) = res {
+                        return Ok((res, prefix.clone()));
                     }
                 }
-    
                 Err(e)
             },
         }
@@ -195,15 +174,12 @@ impl CortexPreprocessor {
         self.get_function_stub(path).is_some()
     }
     pub(super) fn get_function_stub(&self, path: &FunctionAddress) -> Option<(&Vec<TypeParam>, FunctionAddress)> {
-        if path.own_module_path.is_final() {
-            if let Some(resolved) = self.imported_aliases.get(path.own_module_path.get_back().unwrap()) {
-                return self.get_function_stub(&FunctionAddress::new(resolved.clone(), path.target.clone()));
-            }
-        }
-        if let Some(target) = &path.target {
-            if target.is_final() {
-                if let Some(resolved) = self.imported_aliases.get(target.get_back().unwrap()) {
-                    return self.get_function_stub(&FunctionAddress::new(path.own_module_path.clone(), Some(resolved.clone())));
+        if path.target.is_none() {
+            let own_module_path = &path.own_module_path;
+            if own_module_path.is_final() {
+                if let Some(resolved) = self.imported_aliases.get(own_module_path.get_back().unwrap()) {
+                    let sig = FunctionAddress::simple(resolved.clone());
+                    return self.get_function_stub_with(&sig, &PathIdent::empty());
                 }
             }
         }
