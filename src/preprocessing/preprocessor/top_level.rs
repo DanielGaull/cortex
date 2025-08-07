@@ -527,8 +527,10 @@ impl CortexPreprocessor {
         let validated = self.validate_type(item_as_type)?;
         let item_name;
         let item_prefix;
+        let validated_target_path;
         match validated {
             RType::BasicType(path, _) => {
+                validated_target_path = path.clone();
                 item_name = path.get_back()?.clone();
                 item_prefix = path.without_last();
             },
@@ -557,15 +559,9 @@ impl CortexPreprocessor {
                         type_param_names,
                     );
 
-                    let target = if is_path_a_core_type(&item.name) {
-                        item.name.clone()
-                    } else {
-                        PathIdent::concat(&n, &item.name)
-                    };
-
                     let addr = FunctionAddress {
                         own_module_path: PathIdent::continued(n.clone(), func_name),
-                        target: Some(target),
+                        target: Some(validated_target_path.clone()),
                     };
                     funcs_to_add.push((addr, new_func));
                 },

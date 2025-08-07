@@ -951,7 +951,6 @@ impl CortexPreprocessor {
             CortexType::BasicType(b) => {
                 let result = self.get_struct_stub(&b.name);
                 if result.is_none() {
-                    self.get_struct_stub(&b.name);
                     return Err(Box::new(PreprocessingError::TypeDoesNotExist(b.name.codegen(0))));
                 }
                 let (type_params, path) = result.unwrap();
