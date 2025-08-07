@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, r#type::r#type::{CortexType, FollowsClause, TypeParam, TypeParamType}};
+use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, r#type::r#type::{CortexType, FollowsClause, TypeArg, TypeParam, TypeParamType}};
 
 use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, program::ModuleContent, statement::PStatement};
 
@@ -381,8 +381,9 @@ impl Struct {
 }
 
 pub struct Extension {
-    pub(crate) name: PathIdent,
     pub(crate) type_params: Vec<TypeParam>,
+    pub(crate) name: PathIdent,
+    pub(crate) type_args: Vec<TypeArg>,
     pub(crate) functions: Vec<MemberFunction>,
     pub(crate) follows_clause: Option<FollowsClause>,
 }
@@ -392,7 +393,14 @@ impl SimpleCodeGen for Extension {
         let indent_prefix = "    ".repeat(indent);
 
         s.push_str(&indent_prefix);
-        s.push_str("extend ");
+        s.push_str("extend");
+
+        if self.type_args.len() > 0 {
+            s.push_str(&format!("<{}> ", self.type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
+        } else {
+            s.push_str(" ");
+        }
+
         s.push_str(&self.name.codegen(indent));
 
         if self.type_params.len() > 0 {

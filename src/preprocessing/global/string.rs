@@ -20,6 +20,7 @@ impl CortexPreprocessor {
         global.add_extension(Extension {
             name: PathIdent::simple(String::from("string")),
             type_params: vec![],
+            type_args: vec![],
             follows_clause: None,
             functions: vec![
                 MemberFunction::new(OptionalIdentifier::Ident(
@@ -363,6 +364,7 @@ impl CortexPreprocessor {
         global.add_extension(Extension {
             name: PathIdent::simple(String::from("char")),
             type_params: vec![],
+            type_args: vec![],
             follows_clause: None,
             functions: vec![
                 MemberFunction::new(OptionalIdentifier::Ident(

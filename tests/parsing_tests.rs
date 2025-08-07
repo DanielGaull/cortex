@@ -190,6 +190,7 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     run_top_level_test("extend string {\n}\n")?;
     run_top_level_test("extend string {\n    fn len(&this): number {\n        5\n    }\n}\n")?;
     run_top_level_test("extend number follows Add<number> {\n}\n")?;
+    run_top_level_test("extend<T: ty> list<T> {\n}\n")?;
 
     run_top_level_test("contract Empty {\n}\n")?;
     run_top_level_test("contract Requester {\n    fn request(&mut this): string;\n}\n")?;

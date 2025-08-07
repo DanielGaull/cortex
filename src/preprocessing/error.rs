@@ -84,4 +84,6 @@ pub enum PreprocessingError {
     DuplicatePathImport(String),
     #[error("Mismatched type argument: value {0} cannot be assigned to {1}")]
     MismatchedTypeArgument(String, String),
+    #[error("Invalid type provided to extend block ({0}): only basic types are allowed")]
+    InvalidTypeProvidedToExtendBlock(String),
 }

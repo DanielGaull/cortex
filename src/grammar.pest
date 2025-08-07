@@ -10,7 +10,7 @@ module = { "module" ~ ident ~ "{" ~ moduleContent ~ "}" }
 import = { "import" ~ importEntry ~ ("," ~ importEntry)* ~ ";" }
 function = { "fn" ~ optIdentifier ~ ("<" ~ typeParamList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
 struct = { "struct" ~ ident ~ ("<" ~ typeParamList ~ ">")? ~ followsClause? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
-extension = { "extend" ~ pathIdent ~ ("<" ~ typeParamList ~ ">")? ~ followsClause? ~ "{" ~ memberFuncList ~ "}" }
+extension = { "extend" ~ ("<" ~ typeParamList ~ ">")? ~ pathIdent ~ ("<" ~ typeArgList ~ ">")? ~ followsClause? ~ "{" ~ memberFuncList ~ "}" }
 contract = { "contract" ~ ident ~ ("<" ~ typeParamList ~ ">")? ~ "{" ~ (memberFunctionSignature ~ ";")* ~ "}" }
 
 // Statements

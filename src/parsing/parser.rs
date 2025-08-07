@@ -886,12 +886,19 @@ impl CortexParser {
     }
     fn parse_extension_pair(pair: Pair<Rule>) -> Result<Extension, ParseError> {
         let mut pairs = pair.into_inner();
-        let name = Self::parse_path_ident(pairs.next().unwrap())?;
-        let mut follows_clause = None;
-        let mut type_params = Vec::new();
         let mut next = pairs.next().unwrap();
+        let mut type_params = Vec::new();
         if matches!(next.as_rule(), Rule::typeParamList) {
             type_params = Self::parse_type_param_list(next)?;
+            next = pairs.next().unwrap();
+        }
+        let name = Self::parse_path_ident(next)?;
+        
+        let mut follows_clause = None;
+        let mut type_args = Vec::new();
+        next = pairs.next().unwrap();
+        if matches!(next.as_rule(), Rule::typeArgList) {
+            type_args = Self::parse_type_arg_list(next, type_params.iter().map(|t| t.name.clone()).collect())?;
             next = pairs.next().unwrap();
         }
         let active_generics = Self::convert_to_active_generics(&type_params);
@@ -909,6 +916,7 @@ impl CortexParser {
                 name: name,
                 functions: functions,
                 type_params,
+                type_args,
                 follows_clause,
             }
         )

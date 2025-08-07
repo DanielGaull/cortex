@@ -15,7 +15,9 @@ impl CortexPreprocessor {
         match res {
             Ok(r) => Ok(r),
             Err(e) => {
-                for prefix in &self.imported_paths {
+                let mut valid_prefixes = self.imported_paths.clone();
+                valid_prefixes.push(PathIdent::empty());
+                for prefix in &valid_prefixes {
                     let res = self.lookup_type_with(path, prefix);
                     if let Ok(r) = res {
                         return Ok(r);
@@ -53,7 +55,9 @@ impl CortexPreprocessor {
         if let Some(res) = res {
             Some(res)
         } else {
-            for prefix in &self.imported_paths {
+            let mut valid_prefixes = self.imported_paths.clone();
+            valid_prefixes.push(PathIdent::empty());
+            for prefix in &valid_prefixes {
                 let res = self.get_struct_stub_with(path, prefix);
                 if let Some(res) = res {
                     return Some(res);
@@ -81,7 +85,9 @@ impl CortexPreprocessor {
         match res {
             Ok(r) => Ok(r),
             Err(e) => {
-                for prefix in &self.imported_paths {
+                let mut valid_prefixes = self.imported_paths.clone();
+                valid_prefixes.push(PathIdent::empty());
+                for prefix in &valid_prefixes {
                     let res = self.lookup_contract_with(path, prefix);
                     if let Ok(r) = res {
                         return Ok(r);
@@ -114,7 +120,9 @@ impl CortexPreprocessor {
         if let Some(res) = res {
             Some(res)
         } else {
-            for prefix in &self.imported_paths {
+            let mut valid_prefixes = self.imported_paths.clone();
+            valid_prefixes.push(PathIdent::empty());
+            for prefix in &valid_prefixes {
                 let res = self.get_contract_stub_with(path, prefix);
                 if let Some(res) = res {
                     return Some(res);
@@ -151,7 +159,9 @@ impl CortexPreprocessor {
         match res {
             Ok(res) => Ok((res, self.current_context.clone())),
             Err(e) => {
-                for prefix in &self.imported_paths {
+                let mut valid_prefixes = self.imported_paths.clone();
+                valid_prefixes.push(PathIdent::empty());
+                for prefix in &valid_prefixes {
                     let res = self.lookup_signature_with(&path, prefix);
                     if let Ok(res) = res {
                         return Ok((res, prefix.clone()));
@@ -188,7 +198,9 @@ impl CortexPreprocessor {
         if let Some(res) = res {
             Some(res)
         } else {
-            for prefix in &self.imported_paths {
+            let mut valid_prefixes = self.imported_paths.clone();
+            valid_prefixes.push(PathIdent::empty());
+            for prefix in &valid_prefixes {
                 let res = self.get_function_stub_with(path, prefix);
                 if let Some(res) = res {
                     return Some(res);
@@ -511,12 +523,24 @@ impl CortexPreprocessor {
             )?;
         }
 
-        let item_name = item.name.get_back()?;
-        let item_prefix = item.name.without_last();
+        let item_as_type = CortexType::basic(item.name.clone(), item.type_args.clone());
+        let validated = self.validate_type(item_as_type)?;
+        let item_name;
+        let item_prefix;
+        match validated {
+            RType::BasicType(path, _) => {
+                item_name = path.get_back()?.clone();
+                item_prefix = path.without_last();
+            },
+            _ => {
+                return Err(Box::new(PreprocessingError::InvalidTypeProvidedToExtendBlock(validated.codegen(0))));
+            }
+        }
+
         for func in item.functions {
             match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, &item.type_params).with_prefix(&item_prefix));
+                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, &item_name, &item.type_params).with_prefix(&item_prefix));
                     let mut param_list = vec![new_param];
                     param_list.extend(func.signature.params);
                     let mut type_param_names = func.signature.type_params;
