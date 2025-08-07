@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, Import, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, Import, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -348,8 +348,18 @@ impl CortexPreprocessor {
             self.add_contract(path.clone(), item)?;
         }
 
+        let mut structs_to_check_for_loops = Vec::new();
         for item in structs {
-            self.add_struct(path.clone(), item, &mut functions)?;
+            self.add_struct(path.clone(), item, &mut functions, &mut structs_to_check_for_loops)?;
+        }
+        for (name, type_args, fields) in structs_to_check_for_loops {
+            let name = PathIdent::simple(name);
+            let full_path = PathIdent::concat(&path, &name);
+            let stype = RType::basic(name, type_args);
+            let has_loop = self.search_struct_for_loops(stype, fields)?;
+            if has_loop {
+                return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
+            }
         }
 
         for item in extensions {
@@ -406,16 +416,13 @@ impl CortexPreprocessor {
         Ok(())
     }
     
-    fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
+    fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>, structs_to_search: &mut Vec<(String, Vec<RTypeArg>, Vec<RType>)>) -> Result<(), CortexError> {
         let full_path = PathIdent::continued(n.clone(), item.name.clone());
         let mut fields = HashMap::new();
         for f in &item.fields {
             fields.insert(f.0.clone(), self.validate_type(f.1.clone())?);
         }
-        let has_loop = self.search_struct_for_loops(&item.name, &item.type_params, fields.values().cloned().into_iter().collect())?;
-        if has_loop {
-            return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
-        }
+        structs_to_search.push((item.name.clone(), forwarded_type_args(&item.type_params), fields.values().cloned().into_iter().collect()));
         
         if let Some(clause) = &item.follows_clause {
             self.check_contract_follows(
@@ -596,8 +603,7 @@ impl CortexPreprocessor {
         }
     }
 
-    fn search_struct_for_loops(&self, name: &String, type_params: &Vec<TypeParam>, fields: Vec<RType>) -> Result<bool, CortexError> {
-        let stype = RType::basic(PathIdent::simple(name.clone()), forwarded_type_args(type_params));
+    fn search_struct_for_loops(&self, struct_type: RType, fields: Vec<RType>) -> Result<bool, CortexError> {
         let mut q = VecDeque::new();
         for field in fields {
             q.push_back(field);
@@ -605,7 +611,7 @@ impl CortexPreprocessor {
         // Only need to search for references to this struct, everything else should be fine
         while !q.is_empty() {
             let typ = q.pop_front().unwrap();
-            if typ == stype {
+            if typ == struct_type {
                 return Ok(true);
             }
             if !typ.is_core() {
