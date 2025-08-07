@@ -433,12 +433,10 @@ impl CortexPreprocessor {
             PExpression::Char(v) => Ok((RExpression::Char(v), RType::char(), vec![])),
             PExpression::PathIdent(path_ident) => Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.get_variable_type(&path_ident)?, vec![])),
             PExpression::Call { name: addr, args: arg_exps, type_args } => {
-                let prefix = addr.without_last();
                 let result = self.check_call(
-                    addr.get_back()?,
+                    addr,
                     arg_exps, 
                     type_args,
-                    prefix,
                     &st_str
                 );
                 result

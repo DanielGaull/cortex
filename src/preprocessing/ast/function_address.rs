@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::parsing::{ast::expression::{PathError, PathIdent}, codegen::r#trait::SimpleCodeGen};
+use crate::parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen};
 
 use super::r#type::is_path_a_core_type;
 
@@ -49,27 +49,6 @@ impl FunctionAddress {
             own_module_path,
             target,
         }
-    }
-
-    pub(crate) fn without_last(&self) -> PathIdent {
-        self.own_module_path.without_last()
-    }
-    pub(crate) fn get_back(self) -> Result<FunctionAddress, PathError> {
-        let prefix = self.own_module_path.without_last();
-        let target = self.target.map(|t| {
-            if is_path_a_core_type(&t) {
-                Ok(t)
-            } else {
-                Ok(t.subtract(&prefix)?)
-            }
-        }).transpose()?;
-
-        Ok(
-            FunctionAddress {
-                own_module_path: PathIdent::simple(self.own_module_path.get_back()?.clone()),
-                target,
-            }
-        )
     }
 }
 impl SimpleCodeGen for FunctionAddress {

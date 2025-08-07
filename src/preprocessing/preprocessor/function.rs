@@ -141,15 +141,14 @@ impl CortexPreprocessor {
         Ok(actual_func_addr)
     }
 
-    pub(super) fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<PExpression>, type_args: Option<Vec<TypeArg>>, prefix: PathIdent, st_str: &String) -> CheckResult<RExpression> {
-        let (sig, sig_prefix_used) = self.lookup_signature(&FunctionAddress::concat(&prefix, &addr))?;
+    pub(super) fn check_call(&mut self, addr: FunctionAddress, arg_exps: Vec<PExpression>, type_args: Option<Vec<TypeArg>>, st_str: &String) -> CheckResult<RExpression> {
+        let (sig, sig_prefix_used) = self.lookup_signature(&addr)?;
         let type_args = if let Some(type_args) = type_args {
             Some(self.validate_type_args(&sig.type_params, type_args, addr.codegen(0), "Function")?)
         } else {
             None
         };
-        let extended_prefix = PathIdent::concat(&sig_prefix_used, &prefix);
-        let full_path = FunctionAddress::concat(&extended_prefix, &addr);
+        let full_path = FunctionAddress::concat(&sig_prefix_used, &addr);
         let call = self.check_call_base(sig.clone(), full_path.codegen(0), arg_exps, type_args, st_str)?;
         let func_id = self.function_dict.add_call(full_path)?;
         Ok((RExpression::Call { addr: func_id, args: call.args }, call.return_type, call.statements))
