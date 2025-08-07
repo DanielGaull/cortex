@@ -395,22 +395,16 @@ impl SimpleCodeGen for Extension {
         s.push_str(&indent_prefix);
         s.push_str("extend");
 
-        if self.type_args.len() > 0 {
-            s.push_str(&format!("<{}> ", self.type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
+        if self.type_params.len() > 0 {
+            s.push_str(&format!("<{}> ", self.type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
         } else {
             s.push_str(" ");
         }
 
         s.push_str(&self.name.codegen(indent));
 
-        if self.type_params.len() > 0 {
-            s.push_str("<");
-            s.push_str(&self.type_params
-                .iter()
-                .map(|t| t.codegen(0))
-                .collect::<Vec<_>>()
-                .join(","));
-            s.push_str(">");
+        if self.type_args.len() > 0 {
+            s.push_str(&format!("<{}>", self.type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
         }
 
         if let Some(clause) = &self.follows_clause {

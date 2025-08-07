@@ -18,6 +18,7 @@ impl SimpleCodeGen for ModuleContent {
 
         for c in &self.content {
             s.push_str(&c.codegen(indent));
+            s.push_str("\n");
         }
         s
     }
