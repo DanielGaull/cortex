@@ -5,6 +5,16 @@ Comments can be used by starting a line with '//' or enclosed within '/* */' lik
 ## Data Types
 There are 6 built-in data types in Cortex: number, boolean, string, void, none, and list. Numbers are stored as a 64-bit floating point number (Rust's `f64`); booleans are stored as a boolean (1 byte); strings are stored in Rust `String`s (so all Rust `String` rules apply); and void and none each don't store any additional data. Void should be used for functions that return no data; none should indicate the explicit absense of data.
 
+### References
+References currently can only be created to values stored on the heap (which can happen explicitly with the `heap` keyword). References can be thought of like pointers in other languages. However, references are special in that they denote if a value is mutable or not - either `&T` or `&mut T`. Mutability propagates, so fields of structs you have an immutable reference to will also be immutable, and you cannot call functions that require `&mut this` on immutable references.
+
+You can dereference any reference value with the `@` operator: 
+
+    let x = heap 5;
+    let y = @x; // y = 5
+
+Keep in mind that this will *copy* data from the heap onto the stack. So for large structs, this may cause issues - only do this if you know what you're doing!
+
 ### List
 Lists are a special data type. Internally, they use a Rust `Vec`. Lists require a type argument denoting which type they store. Lists can be created using list construction syntax:
 
@@ -345,6 +355,12 @@ You can define extensions on any type to add additional functions. Just don't de
         fn addTo(this, other: number): number {
             this + other
         }
+    }
+
+If you're extending a type that takes in type parameters, you'll need to define those after the `extend` keyword so that they're in scope:
+
+    extend<T> Box<T> {
+        // ...
     }
 
 ## Modules
