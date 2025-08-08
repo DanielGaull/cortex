@@ -1,5 +1,6 @@
-use super::{expression::{RExpression, RIdentExpression}, function::RInterpretedBody};
+use super::{expression::{RExpression, RIdentExpression}, function::RDefinedBody};
 
+#[derive(Clone)]
 pub enum RStatement {
     Expression(RExpression),
     Throw(Option<RExpression>),
@@ -17,12 +18,13 @@ pub enum RStatement {
     Continue,
 }
 
+#[derive(Clone)]
 pub struct RConditionBody {
     pub(crate) condition: RExpression,
-    pub(crate) body: RInterpretedBody,
+    pub(crate) body: RDefinedBody,
 }
 impl RConditionBody {
-    pub fn new(condition: RExpression, body: RInterpretedBody) -> Self {
+    pub fn new(condition: RExpression, body: RDefinedBody) -> Self {
         RConditionBody {
             condition,
             body,

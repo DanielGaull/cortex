@@ -22,6 +22,9 @@ pub enum ModuleError {
     #[error("Contract \"{0}\" already exists")]
     ContractAlreadyExists(String),
 
+    #[error("Function \"{0}\" does not exist")]
+    FunctionDoesNotExist(String),
+
     #[error("Duplicate type argument name: {0}")]
     DuplicateTypeArgumentName(String),
 }

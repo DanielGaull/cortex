@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use crate::{parsing::{ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, program::ModuleContent, statement::PStatement, top_level::{BasicBody, Import, PFunction, TopLevel}}, parser::CortexParser}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RInterpretedBody}, statement::RStatement, r#type::RType}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}, r#type::r#type::CortexType};
+use crate::{parsing::{ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, program::ModuleContent, statement::PStatement, top_level::{BasicBody, Import, PFunction, TopLevel}}, parser::CortexParser}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RDefinedBody}, statement::RStatement, r#type::RType}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}, r#type::r#type::CortexType};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
 
 const STDLIB: &str = include_str!("..\\..\\res\\stdlib.txt");
@@ -572,16 +572,16 @@ impl CortexInterpreter {
 
     fn evaluate_body(&mut self, body: &RBody) -> Result<CortexValue, CortexError> {
         match body {
-            RBody::Interpreted(b) => {
+            RBody::Defined(b) => {
                 Ok(self.evaluate_interpreted_body(b)?)
             },
-            RBody::Native(func) => {
+            RBody::Extern(func) => {
                 let res = func(self.current_env.as_ref().unwrap(), &mut self.heap)?;
                 Ok(res)
             },
         }
     }
-    fn evaluate_interpreted_body_handle_env(&mut self, b: &RInterpretedBody) -> Result<CortexValue, CortexError> {
+    fn evaluate_interpreted_body_handle_env(&mut self, b: &RDefinedBody) -> Result<CortexValue, CortexError> {
         let parent_env = self.current_env.take().ok_or(InterpreterError::NoParentEnv)?;
         self.current_env = Some(Box::new(Environment::new(*parent_env)));
 
@@ -594,7 +594,7 @@ impl CortexInterpreter {
 
         result
     }
-    fn evaluate_interpreted_body(&mut self, b: &RInterpretedBody) -> Result<CortexValue, CortexError> {
+    fn evaluate_interpreted_body(&mut self, b: &RDefinedBody) -> Result<CortexValue, CortexError> {
         for st in &b.statements {
             self.run_statement(st)?;
         }

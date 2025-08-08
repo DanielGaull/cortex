@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, rc::Rc};
 
 use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
 
-use super::super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RInterpretedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program};
+use super::super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RDefinedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program};
 
 type CortexError = Box<dyn Error>;
 pub type CheckResult<T> = Result<(T, RType, Vec<RStatement>), CortexError>;
@@ -109,7 +109,7 @@ impl CortexPreprocessor {
     
                 let mut vtable = VTable::new(vec![]);
                 for addr in func_addresses {
-                    let id = self.function_dict.add_call(addr)?;
+                    let id = self.function_dict.add_call(addr, todo!())?;
                     vtable.add(id);
                 }
     
@@ -170,10 +170,10 @@ impl CortexPreprocessor {
                 if !self.is_subtype(&body_type, &return_type)? {
                     return Err(Box::new(PreprocessingError::ReturnTypeMismatch(return_type.codegen(0), body_type.codegen(0))));
                 }
-                final_fn_body = RBody::Interpreted(new_body);
+                final_fn_body = RBody::Defined(new_body);
             },
             Body::Native(native_body) => {
-                final_fn_body = RBody::Native(native_body);
+                final_fn_body = RBody::Extern(native_body);
             },
         }
 
@@ -801,7 +801,7 @@ impl CortexPreprocessor {
         }, the_type, pre_statements))
     }
 
-    fn check_body_and_handle_env(&mut self, body: BasicBody, expected_return_value: Option<RType>) -> Result<(RInterpretedBody, RType), CortexError> {
+    fn check_body_and_handle_env(&mut self, body: BasicBody, expected_return_value: Option<RType>) -> Result<(RDefinedBody, RType), CortexError> {
         let parent_env = self.current_env.take().ok_or(PreprocessingError::NoParentEnv)?;
         self.current_env = Some(Box::new(TypeCheckingEnvironment::new(*parent_env)));
 
@@ -811,7 +811,7 @@ impl CortexPreprocessor {
         result
     }
 
-    fn check_body(&mut self, body: BasicBody, expected_return_value: Option<RType>) -> Result<(RInterpretedBody, RType), CortexError> {
+    fn check_body(&mut self, body: BasicBody, expected_return_value: Option<RType>) -> Result<(RDefinedBody, RType), CortexError> {
         let mut statements = Vec::new();
         for st in body.statements {
             let s = self.check_statement(st)?;
@@ -820,9 +820,9 @@ impl CortexPreprocessor {
         if let Some(exp) = body.result {
             let (exp, typ, st) = self.check_exp(exp, expected_return_value)?;
             statements.extend(st);
-            Ok((RInterpretedBody::new(statements, Some(exp)), typ))
+            Ok((RDefinedBody::new(statements, Some(exp)), typ))
         } else {
-            Ok((RInterpretedBody::new(statements, None), RType::void()))
+            Ok((RDefinedBody::new(statements, None), RType::void()))
         }
     }
 

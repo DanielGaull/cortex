@@ -1,5 +1,5 @@
-use super::ast::function::RInterpretedBody;
+use super::ast::function::RDefinedBody;
 
 pub struct Program {
-    pub(crate) code: RInterpretedBody,
+    pub(crate) code: RDefinedBody,
 }

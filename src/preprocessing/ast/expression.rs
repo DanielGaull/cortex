@@ -1,7 +1,8 @@
 use crate::{joint::vtable::VTable, parsing::ast::expression::{BinaryOperator, IdentExpression, UnaryOperator}};
 
-use super::{function::RInterpretedBody, statement::RConditionBody};
+use super::{function::RDefinedBody, statement::RConditionBody};
 
+#[derive(Clone)]
 pub enum RExpression {
     Number(f64),
     Boolean(bool),
@@ -20,7 +21,7 @@ pub enum RExpression {
     IfStatement {
         first: Box<RConditionBody>,
         conds: Vec<RConditionBody>,
-        last: Option<Box<RInterpretedBody>>,
+        last: Option<Box<RDefinedBody>>,
     },
     UnaryOperation {
         op: UnaryOperator,
@@ -45,6 +46,7 @@ pub enum RExpression {
     DerefFat(Box<RExpression>),
 }
 
+#[derive(Clone)]
 pub struct RIdentExpression {
     pub(crate) base: String,
     pub(crate) chain: Vec<String>,

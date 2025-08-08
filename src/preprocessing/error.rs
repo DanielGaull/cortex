@@ -86,4 +86,6 @@ pub enum PreprocessingError {
     MismatchedTypeArgument(String, String),
     #[error("Invalid type provided to extend block ({0}): only basic types are allowed")]
     InvalidTypeProvidedToExtendBlock(String),
+    #[error("Body of a generic function must be defined")]
+    GenericFunctionMustHaveABody,
 }
