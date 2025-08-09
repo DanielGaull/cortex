@@ -3,8 +3,8 @@ use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 use crate::{parsing::{ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, program::ModuleContent, statement::PStatement, top_level::{BasicBody, Import, PFunction, TopLevel}}, parser::CortexParser}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RDefinedBody}, statement::RStatement, r#type::RType}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}, r#type::r#type::CortexType};
 use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
 
-const STDLIB: &str = include_str!("..\\..\\res\\stdlib.txt");
-const PREAMBLE: &str = include_str!("..\\..\\res\\preamble.txt");
+const STDLIB: &str = include_str!("..\\..\\res\\stdlib.cortex");
+const PREAMBLE: &str = include_str!("..\\..\\res\\preamble.cortex");
 
 pub struct CortexInterpreter {
     preprocessor: CortexPreprocessor,
@@ -449,6 +449,7 @@ impl CortexInterpreter {
                     Err(Box::new(InterpreterError::ExpectedFatPointer(String::from(value.get_variant_name()))))
                 }
             },
+            RExpression::MakeAnon(v) => Ok(CortexValue::AnonymousBox(Box::new(self.evaluate_expression(v)?))),
         }
     }
 

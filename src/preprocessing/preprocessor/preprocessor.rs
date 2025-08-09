@@ -58,6 +58,7 @@ impl CortexPreprocessor {
         add_core_type!("void");
         add_core_type!("none");
         add_core_type!("char");
+        add_core_type!("anonbox");
         // NOTE: range is added by Self::add_range_funcs (since it can operate as a struct... maybe add to stdlib?)
 
         let list_path = PathIdent::simple(String::from("list"));
@@ -70,6 +71,7 @@ impl CortexPreprocessor {
         this.stubbed_structs.insert(list_path, list_type_params);
 
         let mut global_module = Module::new();
+        Self::add_corelib(&mut global_module)?;
         Self::add_list_funcs(&mut global_module)?;
         Self::add_string_funcs(&mut global_module)?;
         Self::add_range_struct(&mut global_module)?;
@@ -630,7 +632,11 @@ impl CortexPreprocessor {
             PExpression::DerefFat(inner) => {
                 let (exp, typ, st) = self.check_exp(*inner, expected_type)?;
                 Ok((RExpression::DerefFat(Box::new(exp)), typ, st))
-            }
+            },
+            PExpression::MakeAnon(inner) => {
+                let (inner, _, st) = self.check_exp(*inner, None)?;
+                Ok((RExpression::MakeAnon(Box::new(inner)), RType::anonbox(), st))
+            },
         }
     }
 

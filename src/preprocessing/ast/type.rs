@@ -38,12 +38,12 @@ pub enum RType {
 
 macro_rules! core_types {
     () => {
-        "number" | "bool" | "string" | "void" | "none" | "list" | "char" | "range"
+        "number" | "bool" | "string" | "void" | "none" | "list" | "char" | "range" | "anonbox"
     }
 }
 macro_rules! non_composite_types {
     () => {
-        "number" | "bool" | "string" | "void" | "none" | "char"
+        "number" | "bool" | "string" | "void" | "none" | "char" | "anonbox"
     }
 }
 
@@ -69,6 +69,9 @@ impl RType {
     }
     pub fn string() -> Self {
         Self::simple("string")
+    }
+    pub fn anonbox() -> Self {
+        Self::simple("anonbox")
     }
     pub fn none() -> Self {
         Self::NoneType

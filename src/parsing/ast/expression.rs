@@ -72,6 +72,7 @@ pub enum PExpression {
     },
     HeapAlloc(Box<PExpression>),
     DerefFat(Box<PExpression>),
+    MakeAnon(Box<PExpression>),
 }
 impl SimpleCodeGen for PExpression {
     fn codegen(&self, indent: usize) -> String {
@@ -202,23 +203,24 @@ impl SimpleCodeGen for PExpression {
             },
             PExpression::HeapAlloc(exp) => format!("heap {}", exp.codegen(indent)),
             PExpression::DerefFat(exp) => exp.codegen(indent),
+            PExpression::MakeAnon(exp) => format!("anon {}", exp.codegen(indent)),
         }
     }
 }
 impl PExpression {
     fn is_atomic(&self) -> bool {
         match self {
-            PExpression::Number(_) | PExpression::Boolean(_) | PExpression::Void | PExpression::None | 
-            PExpression::String(_) | PExpression::PathIdent(_) | PExpression::Call { name: _, args: _, type_args: _ } |
-            PExpression::Construction { name: _, type_args: _, assignments: _ } |
-            PExpression::IfStatement { first: _, conds: _, last: _ } | PExpression::MemberAccess(_, _) |
-            PExpression::ListLiteral(_) | PExpression::MemberCall { callee: _, member: _, args: _, type_args: _ } |
-            PExpression::Tuple(_) | PExpression::Char(_) | PExpression::DerefFat(_)
+            PExpression::Number(..) | PExpression::Boolean(..) | PExpression::Void | PExpression::None | 
+            PExpression::String(..) | PExpression::PathIdent(..) | PExpression::Call { .. } |
+            PExpression::Construction { .. } |
+            PExpression::IfStatement { .. } | PExpression::MemberAccess(..) |
+            PExpression::ListLiteral(..) | PExpression::MemberCall { .. } |
+            PExpression::Tuple(..) | PExpression::Char(..) | PExpression::DerefFat(..)
                 => true,
             
-            PExpression::UnaryOperation { op: _, exp: _ } | PExpression::Bang(_) | 
-            PExpression::BinaryOperation { left: _, op: _, right: _ } | PExpression::Range { start: _, end: _, step: _ } |
-            PExpression::HeapAlloc(_)
+            PExpression::UnaryOperation { .. } | PExpression::Bang(..) | 
+            PExpression::BinaryOperation { .. } | PExpression::Range { .. } |
+            PExpression::HeapAlloc(..) | PExpression::MakeAnon(..)
                 => false,
         }
     }

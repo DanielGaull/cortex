@@ -44,6 +44,7 @@ pub enum RExpression {
     },
     HeapAlloc(Box<RExpression>),
     DerefFat(Box<RExpression>),
+    MakeAnon(Box<RExpression>),
 }
 
 #[derive(Clone)]

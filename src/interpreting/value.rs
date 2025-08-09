@@ -32,6 +32,7 @@ pub enum CortexValue {
     Reference(usize),
     List(Vec<CortexValue>),
     Fat(Rc<RefCell<CortexValue>>, VTable),
+    AnonymousBox(Box<CortexValue>),
 }
 
 impl PartialEq for CortexValue {
@@ -45,6 +46,7 @@ impl PartialEq for CortexValue {
             (Self::Reference(l0), Self::Reference(r0)) => l0 == r0,
             (Self::List(l0), Self::List(r0)) => l0 == r0,
             (Self::Fat(l0, _), Self::Fat(r0, _)) => l0 == r0,
+            (Self::AnonymousBox(l0), Self::AnonymousBox(r0)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -81,6 +83,7 @@ impl Display for CortexValue {
                     },
             CortexValue::Char(v) => write!(f, "\'{}\'", *v as char),
             CortexValue::Fat(v, _) => write!(f, "{}", *v.borrow()),
+            CortexValue::AnonymousBox(v) => write!(f, "anonymous({})", *v),
         }
     }
 }
@@ -108,6 +111,7 @@ impl CortexValue {
             CortexValue::List(_) => "list",
             CortexValue::Char(_) => "char",
             CortexValue::Fat(v, _) => v.borrow().get_variant_name(),
+            CortexValue::AnonymousBox(..) => "anonymous box",
         }
     }
 

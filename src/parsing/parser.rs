@@ -612,6 +612,11 @@ impl CortexParser {
                 let inner = Self::parse_expr_pair(inner, active_generics)?;
                 Ok(PExpression::HeapAlloc(Box::new(inner)))
             },
+            Rule::anonymize => {
+                let inner = pair.into_inner().next().unwrap();
+                let inner = Self::parse_expr_pair(inner, active_generics)?;
+                Ok(PExpression::MakeAnon(Box::new(inner)))
+            },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }
