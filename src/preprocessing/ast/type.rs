@@ -38,12 +38,12 @@ pub enum RType {
 
 macro_rules! core_types {
     () => {
-        "number" | "bool" | "string" | "void" | "none" | "list" | "char" | "range" | "anonbox"
+        "number" | "bool" | "string" | "void" | "none" | "list" | "char" | "range" | "anonbox" | "span"
     }
 }
 macro_rules! non_composite_types {
     () => {
-        "number" | "bool" | "string" | "void" | "none" | "char" | "anonbox"
+        "number" | "bool" | "string" | "void" | "none" | "char" | "anonbox" | "span"
     }
 }
 
@@ -78,6 +78,9 @@ impl RType {
     }
     pub fn list(inner: RType) -> Self {
         Self::basic(PathIdent::new(vec!["list"]), vec![RTypeArg::Ty(inner)])
+    }
+    pub fn span(inner: RType) -> Self {
+        Self::basic(PathIdent::new(vec!["span"]), vec![RTypeArg::Ty(inner)])
     }
 
     pub fn basic(name: PathIdent, args: Vec<RTypeArg>) -> Self {

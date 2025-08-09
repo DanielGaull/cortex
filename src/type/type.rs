@@ -174,6 +174,16 @@ impl CortexType {
     pub fn generic(name: &str) -> Self {
         Self::GenericType(String::from(name))
     }
+    pub fn anonbox() -> Self {
+        Self::simple("anonbox")
+    }
+    pub fn span(typ: CortexType) -> Self {
+        Self::basic(
+            PathIdent::simple(String::from("span")), 
+            vec![TypeArg::Ty(typ)]
+        )
+    }
+
     pub fn with_prefix(&self, path: &PathIdent) -> Self {
         match self {
             CortexType::BasicType(b) => {

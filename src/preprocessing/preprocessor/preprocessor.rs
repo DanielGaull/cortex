@@ -61,6 +61,15 @@ impl CortexPreprocessor {
         add_core_type!("anonbox");
         // NOTE: range is added by Self::add_range_funcs (since it can operate as a struct... maybe add to stdlib?)
 
+        let span_path = PathIdent::simple(String::from("span"));
+        let span_type_params = vec![TypeParam::ty("T")];
+        this.type_map.insert(span_path.clone(), TypeDefinition {
+            fields: HashMap::new(),
+            type_params: span_type_params.clone(),
+            followed_contracts: vec![],
+        });
+        this.stubbed_structs.insert(span_path, span_type_params);
+
         let list_path = PathIdent::simple(String::from("list"));
         let list_type_params = vec![TypeParam::ty("T")];
         this.type_map.insert(list_path.clone(), TypeDefinition {
