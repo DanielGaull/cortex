@@ -21,7 +21,7 @@ impl CortexPreprocessor {
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
-                            if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
+                            if let CortexValue::Span(items) = &*rheap.get(addr).borrow() {
                                 if let CortexValue::Number(num) = env.get_value("index")? {
                                     let index = f64_to_usize(num).ok_or(RuntimeError::InvalidIndex(num, items.len()))?;
                                     if let Some(item) = items.get(index) {
@@ -52,7 +52,7 @@ impl CortexPreprocessor {
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
-                            if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
+                            if let CortexValue::Span(items) = &mut *rheap.get(addr).borrow_mut() {
                                 if let CortexValue::Number(num) = env.get_value("index")? {
                                     let index = f64_to_usize(num).ok_or(RuntimeError::InvalidIndex(num, items.len()))?;
                                     if index < items.len() {
@@ -81,7 +81,7 @@ impl CortexPreprocessor {
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
-                            if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
+                            if let CortexValue::Span(items) = &*rheap.get(addr).borrow() {
                                 Ok(CortexValue::Number(items.len() as f64))
                             } else {
                                 Err(Box::new(RuntimeError::InvalidArg("this", "&list<T>")))
@@ -102,7 +102,7 @@ impl CortexPreprocessor {
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
-                            if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
+                            if let CortexValue::Span(items) = &*rheap.get(addr).borrow() {
                                 let item = env.get_value("item")?;
                                 let idx = items.iter().position(|i| *i == item);
                                 if let Some(i) = idx {
@@ -129,7 +129,7 @@ impl CortexPreprocessor {
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
-                            if let CortexValue::List(items) = &*rheap.get(addr).borrow() {
+                            if let CortexValue::Span(items) = &*rheap.get(addr).borrow() {
                                 let item = env.get_value("item")?;
                                 Ok(CortexValue::Boolean(items.contains(&item)))
                             } else {
@@ -151,7 +151,7 @@ impl CortexPreprocessor {
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
-                            if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
+                            if let CortexValue::Span(items) = &mut *rheap.get(addr).borrow_mut() {
                                 let item = env.get_value("item")?;
                                 items.push(item);
                                 Ok(CortexValue::Void)
@@ -175,7 +175,7 @@ impl CortexPreprocessor {
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
-                            if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
+                            if let CortexValue::Span(items) = &mut *rheap.get(addr).borrow_mut() {
                                 if let CortexValue::Number(num) = env.get_value("index")? {
                                     let index = f64_to_usize(num).ok_or(RuntimeError::InvalidIndex(num, items.len()))?;
                                     if index <= items.len() {
@@ -207,7 +207,7 @@ impl CortexPreprocessor {
                     Body::Native(Box::new(move |env, rheap| {
                         let list_ptr = env.get_value("this")?;
                         if let CortexValue::Reference(addr) = list_ptr {
-                            if let CortexValue::List(items) = &mut *rheap.get(addr).borrow_mut() {
+                            if let CortexValue::Span(items) = &mut *rheap.get(addr).borrow_mut() {
                                 if let CortexValue::Number(num) = env.get_value("index")? {
                                     let index = f64_to_usize(num).ok_or(RuntimeError::InvalidIndex(num, items.len()))?;
                                     if index < items.len() {

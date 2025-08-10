@@ -27,7 +27,7 @@ pub enum RExpression {
         op: UnaryOperator,
         exp: Box<RExpression>,
     },
-    ListLiteral(Vec<RExpression>),
+    CollectionLiteral(Vec<RExpression>),
     Bang(Box<RExpression>),
     MemberAccess(Box<RExpression>, String),
     BinaryOperation {

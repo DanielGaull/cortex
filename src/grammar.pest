@@ -104,12 +104,13 @@ assignName = { tupleAssign | identExpr | ignoredIdentifier }
 
 typ = { atomType ~ typeTail }
 atomType = _{ basicType | tupleType | followsType | refType | "(" ~ typ ~ ")" }
-typeTail = { optionalTail | "" }
+typeTail = { optionalTail | spanSugarTypeTail | "" }
 refType = { ("&mut" | "&") ~ typ }
 basicType = { pathIdent ~ ("<" ~ typeArgList ~ ">")? }
 tupleType = { "(" ~ typ ~ "," ~ typ? ~ ("," ~ typ)* ~ ")" }
 followsType = { followsClause }
 optionalTail = { "?" }
+spanSugarTypeTail = { "[]" }
 
 typeParam = { ident ~ (": " ~ (typeParamTy | typeParamInt))? }
 typeParamTy = { "ty" }

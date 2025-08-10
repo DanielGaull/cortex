@@ -81,7 +81,7 @@ impl CortexPreprocessor {
 
         let mut global_module = Module::new();
         Self::add_corelib(&mut global_module)?;
-        Self::add_list_funcs(&mut global_module)?;
+        // Self::add_list_funcs(&mut global_module)?;
         Self::add_string_funcs(&mut global_module)?;
         Self::add_range_struct(&mut global_module)?;
 
@@ -487,12 +487,12 @@ impl CortexPreprocessor {
                     },
                 }
             },
-            PExpression::ListLiteral(items) => {
+            PExpression::CollectionLiteral(items) => {
                 let mut expected_internal = None;
                 if let Some(expected) = expected_type {
                     if let RType::RefType(r, ..) = expected {
                         if let RType::BasicType(name, mut type_args) = *r {
-                            if name.is_final() && name.get_back().unwrap() == "list" {
+                            if name.is_final() && name.get_back().unwrap() == "span" {
                                 let type_arg = type_args.remove(0);
                                 if let RTypeArg::Ty(t) = type_arg {
                                     expected_internal = Some(t);
@@ -515,7 +515,7 @@ impl CortexPreprocessor {
                         let typ_str = typ.codegen(0);
                         contained_type = Some(
                             self.combine_types(typ, item_type)?
-                                .ok_or(PreprocessingError::CannotDetermineListLiteralType(typ_str, item_type_str))?
+                                .ok_or(PreprocessingError::CannotDetermineCollectionLiteralType(typ_str, item_type_str))?
                             );
                     }
                     new_items.push(item_exp);
@@ -523,18 +523,18 @@ impl CortexPreprocessor {
                 if let Some(expected) = expected_internal {
                     if let Some(contained) = contained_type {
                         if self.is_subtype(&contained, &expected)? {
-                            let true_type = RType::reference(RType::list(expected), true);
-                            Ok((RExpression::ListLiteral(new_items), true_type, statements))
+                            let true_type = RType::span(expected);
+                            Ok((RExpression::CollectionLiteral(new_items), true_type, statements))
                         } else {
                             Err(Box::new(PreprocessingError::CannotDetermineType(st_str)))
                         }
                     } else {
-                        let true_type = RType::reference(RType::list(expected), true);
-                        Ok((RExpression::ListLiteral(new_items), true_type, statements))
+                        let true_type = RType::span(expected);
+                        Ok((RExpression::CollectionLiteral(new_items), true_type, statements))
                     }
                 } else if let Some(contained) = contained_type {
-                    let true_type = RType::reference(RType::list(contained), true);
-                    Ok((RExpression::ListLiteral(new_items), true_type, statements))
+                    let true_type = RType::span(contained);
+                    Ok((RExpression::CollectionLiteral(new_items), true_type, statements))
                 } else {
                     Err(Box::new(PreprocessingError::CannotDetermineType(st_str)))
                 }

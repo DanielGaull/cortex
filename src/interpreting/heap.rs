@@ -72,7 +72,7 @@ impl Heap {
                     self.mark_children(marked, Rc::new(RefCell::new(fvalue.clone())));
                 }
             }
-        } else if let CortexValue::List(items) = &*value.borrow() {
+        } else if let CortexValue::Span(items) = &*value.borrow() {
             for fvalue in items {
                 if let CortexValue::Reference(addr) = fvalue {
                     self.mark(marked, *addr);

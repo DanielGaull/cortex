@@ -577,7 +577,7 @@ impl CortexParser {
             Rule::listLiteral => {
                 let mut pairs = pair.into_inner();
                 let items = Self::parse_expr_list(pairs.next().unwrap(), active_generics)?;
-                Ok(PExpression::ListLiteral(items))
+                Ok(PExpression::CollectionLiteral(items))
             },
             Rule::tuple => {
                 let items = Self::parse_expr_list(pair, active_generics)?;
@@ -830,6 +830,9 @@ impl CortexParser {
                     match tail_pair.as_rule() {
                         Rule::optionalTail => {
                             Ok(CortexType::OptionalType(Box::new(base)))
+                        },
+                        Rule::spanSugarTypeTail => {
+                            Ok(CortexType::span(base))
                         },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }

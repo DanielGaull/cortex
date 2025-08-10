@@ -360,12 +360,12 @@ impl CortexInterpreter {
                     },
                 }
             },
-            RExpression::ListLiteral(items) => {
+            RExpression::CollectionLiteral(items) => {
                 let values = items
                     .iter()
                     .map(|e| self.evaluate_expression(e))
                     .collect::<Result<Vec<_>, _>>()?;
-                let addr = self.heap.allocate(CortexValue::List(values));
+                let addr = self.heap.allocate(CortexValue::Span(values));
                 Ok(CortexValue::Reference(addr))
             },
             RExpression::Bang(inner) => {

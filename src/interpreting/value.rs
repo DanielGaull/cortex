@@ -30,7 +30,7 @@ pub enum CortexValue {
         field_values: HashMap<String, Rc<RefCell<CortexValue>>>,
     },
     Reference(usize),
-    List(Vec<CortexValue>),
+    Span(Vec<CortexValue>),
     Fat(Rc<RefCell<CortexValue>>, VTable),
     AnonymousBox(Box<CortexValue>),
 }
@@ -44,7 +44,7 @@ impl PartialEq for CortexValue {
             (Self::Char(l0), Self::Char(r0)) => l0 == r0,
             (Self::Composite { field_values: l_field_values }, Self::Composite { field_values: r_field_values }) => l_field_values == r_field_values,
             (Self::Reference(l0), Self::Reference(r0)) => l0 == r0,
-            (Self::List(l0), Self::List(r0)) => l0 == r0,
+            (Self::Span(l0), Self::Span(r0)) => l0 == r0,
             (Self::Fat(l0, _), Self::Fat(r0, _)) => l0 == r0,
             (Self::AnonymousBox(l0), Self::AnonymousBox(r0)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
@@ -71,7 +71,7 @@ impl Display for CortexValue {
                         write!(f, "{{ {} }}", s)
                     },
             CortexValue::Reference(addr) => write!(f, "&0x{:x}", addr),
-            CortexValue::List(list) => {
+            CortexValue::Span(list) => {
                         let _ = write!(f, "[");
                         for (i, item) in list.iter().enumerate() {
                             let _ = write!(f, "{}", item);
@@ -108,7 +108,7 @@ impl CortexValue {
             CortexValue::None => "none",
             CortexValue::Composite { field_values: _ } => "composite",
             CortexValue::Reference(_) => "pointer",
-            CortexValue::List(_) => "list",
+            CortexValue::Span(_) => "list",
             CortexValue::Char(_) => "char",
             CortexValue::Fat(v, _) => v.borrow().get_variant_name(),
             CortexValue::AnonymousBox(..) => "anonymous box",

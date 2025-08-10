@@ -6,16 +6,16 @@ use super::runtime_error::RuntimeError;
 
 impl CortexPreprocessor {
     pub(crate) fn add_string_funcs(global: &mut Module) -> Result<(), Box<dyn Error>> {
-        global.add_function(PFunction::new(
-            OptionalIdentifier::Ident(String::from("toString")),
-            vec![Parameter::named("item", CortexType::generic("T"))],
-            CortexType::string(),
-            Body::Native(Box::new(move |env, heap| {
-                let item = env.get_value("item")?;
-                Ok(CortexValue::String(to_string(item, heap)))
-            })),
-            vec![TypeParam::ty("T")],
-        ))?;
+        // global.add_function(PFunction::new(
+        //     OptionalIdentifier::Ident(String::from("toString")),
+        //     vec![Parameter::named("item", CortexType::generic("T"))],
+        //     CortexType::string(),
+        //     Body::Native(Box::new(move |env, heap| {
+        //         let item = env.get_value("item")?;
+        //         Ok(CortexValue::String(to_string(item, heap)))
+        //     })),
+        //     vec![TypeParam::ty("T")],
+        // ))?;
 
         global.add_extension(Extension {
             name: PathIdent::simple(String::from("string")),
@@ -307,7 +307,7 @@ impl CortexPreprocessor {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::String(delimiter) = env.get_value("delimiter")? {
                                 let split: Vec<&str> = strval.split(&delimiter).collect();
-                                let split_list = CortexValue::List(split.into_iter().map(|s| CortexValue::String(String::from(s))).collect());
+                                let split_list = CortexValue::Span(split.into_iter().map(|s| CortexValue::String(String::from(s))).collect());
                                 let addr = heap.allocate(split_list);
                                 Ok(CortexValue::Reference(addr))
                             } else {
@@ -486,7 +486,7 @@ fn to_string(val: CortexValue, heap: &Heap) -> String {
         CortexValue::Reference(addr) => {
             format!("&({})", to_string(heap.get(addr).borrow().clone(), heap))
         },
-        CortexValue::List(items) => {
+        CortexValue::Span(items) => {
             format!("[{}]", items.iter().map(|i| to_string(i.clone(), heap)).collect::<Vec<_>>().join(", "))
         },
         CortexValue::Char(c) => (c as char).to_string(),

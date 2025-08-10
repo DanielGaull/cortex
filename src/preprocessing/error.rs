@@ -9,7 +9,7 @@ pub enum PreprocessingError {
     #[error("Expected type {0} for {2} but expression of type {1} was found (context: {3})")]
     MismatchedType(String, String, String, String),
     #[error("Could not determine type for list literal: expected {0} but found {1}")]
-    CannotDetermineListLiteralType(String, String),
+    CannotDetermineCollectionLiteralType(String, String),
     #[error("Value not found: {0} (module constants are currently not supported)")]
     ValueNotFound(String),
     #[error("Invalid unary operator values: only the type(s) {0} are allowed for unary operator {1}, but expression of type {2} was found")]

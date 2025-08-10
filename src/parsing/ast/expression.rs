@@ -50,7 +50,7 @@ pub enum PExpression {
         op: UnaryOperator,
         exp: Box<PExpression>,
     },
-    ListLiteral(Vec<PExpression>),
+    CollectionLiteral(Vec<PExpression>),
     Bang(Box<PExpression>),
     MemberAccess(Box<PExpression>, String),
     MemberCall {
@@ -143,7 +143,7 @@ impl SimpleCodeGen for PExpression {
             PExpression::UnaryOperation { op, exp } => {
                 format!("{}{}", op.codegen(indent), exp.codegen_as_sub(indent))
             },
-            PExpression::ListLiteral(items) => {
+            PExpression::CollectionLiteral(items) => {
                 let mut s = String::new();
                 s.push_str("[");
                 s.push_str(
@@ -214,7 +214,7 @@ impl PExpression {
             PExpression::String(..) | PExpression::PathIdent(..) | PExpression::Call { .. } |
             PExpression::Construction { .. } |
             PExpression::IfStatement { .. } | PExpression::MemberAccess(..) |
-            PExpression::ListLiteral(..) | PExpression::MemberCall { .. } |
+            PExpression::CollectionLiteral(..) | PExpression::MemberCall { .. } |
             PExpression::Tuple(..) | PExpression::Char(..) | PExpression::DerefFat(..)
                 => true,
             
