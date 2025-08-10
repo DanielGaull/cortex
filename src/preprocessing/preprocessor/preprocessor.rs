@@ -490,13 +490,11 @@ impl CortexPreprocessor {
             PExpression::CollectionLiteral(items) => {
                 let mut expected_internal = None;
                 if let Some(expected) = expected_type {
-                    if let RType::RefType(r, ..) = expected {
-                        if let RType::BasicType(name, mut type_args) = *r {
-                            if name.is_final() && name.get_back().unwrap() == "span" {
-                                let type_arg = type_args.remove(0);
-                                if let RTypeArg::Ty(t) = type_arg {
-                                    expected_internal = Some(t);
-                                }
+                    if let RType::BasicType(name, mut type_args) = expected {
+                        if name.is_final() && name.get_back().unwrap() == "span" {
+                            let type_arg = type_args.remove(0);
+                            if let RTypeArg::Ty(t) = type_arg {
+                                expected_internal = Some(t);
                             }
                         }
                     }
