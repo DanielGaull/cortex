@@ -629,7 +629,7 @@ impl CortexParser {
                 Ok(PExpression::Tuple(items))
             },
             Rule::range => {
-                fn parse_range_val(pair: Pair<Rule>) -> Option<f64> {
+                fn parse_range_val(pair: Pair<Rule>) -> Option<usize> {
                     let p = pair.into_inner().next();
                     if let Some(p) = p {
                         match p.as_rule() {

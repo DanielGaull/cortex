@@ -5,17 +5,17 @@ use crate::{parsing::ast::top_level::Struct, preprocessing::{module::Module, pre
 
 impl CortexPreprocessor {
     pub(crate) fn add_range_struct(global: &mut Module) -> Result<(), Box<dyn Error>> {
-        // global.add_struct(Struct::new(
-        //     "range",
-        //     vec![
-        //         ("start", PType::number()),
-        //         ("end", PType::number()),
-        //         ("step", PType::number()),
-        //     ],
-        //     vec![],
-        //     vec![],
-        //     None
-        // ))?;
+        global.add_struct(Struct::new(
+            "range",
+            vec![
+                ("start", PType::usz()),
+                ("end", PType::usz()),
+                ("step", PType::usz()),
+            ],
+            vec![],
+            vec![],
+            None
+        ))?;
 
         Ok(())
     }

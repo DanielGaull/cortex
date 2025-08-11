@@ -81,19 +81,20 @@ float = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ ~ ("." ~ (ASCII_DIGIT)+)? }
 f32 = ${ float ~ "f32" }
 f64 = ${ (float ~ "f64") | float }
 int = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ }
-usz = ${ int ~ "usz" }
+uint = @{ "+"? ~ (ASCII_DIGIT)+ }
+usz = ${ uint ~ "usz" }
 isz = ${ int ~ "isz" }
-u8 = ${ int ~ "u8" }
+u8 = ${ uint ~ "u8" }
 i8 = ${ int ~ "i8" }
-u16 = ${ int ~ "u16" }
+u16 = ${ uint ~ "u16" }
 i16 = ${ int ~ "i16" }
-u32 = ${ int ~ "u32" }
+u32 = ${ uint ~ "u32" }
 i32 = ${ (int ~ "i32") | int }
-u64 = ${ int ~ "u64" }
+u64 = ${ uint ~ "u64" }
 i64 = ${ int ~ "i64" }
 numbers = _{ f32 | f64 | usz | isz | u8 | i8 | u16 | i16 | u32 | i32 | u64 | i64 }
 
-rangeVal = { int | "" }
+rangeVal = { uint | "" }
 range = { rangeVal ~ ":" ~ rangeVal ~ (":" ~ rangeVal)? }
 
 char = @{ "\'" ~ charinner ~ "\'" }

@@ -77,9 +77,9 @@ pub enum PExpression {
     },
     Tuple(Vec<PExpression>),
     Range {
-        start: Option<f64>,
-        end: Option<f64>,
-        step: Option<f64>,
+        start: Option<usize>,
+        end: Option<usize>,
+        step: Option<usize>,
     },
     HeapAlloc(Box<PExpression>),
     DerefFat(Box<PExpression>),
@@ -211,7 +211,7 @@ impl SimpleCodeGen for PExpression {
                 format!("'{}'", *c as char)
             },
             PExpression::Range { start, end, step } => {
-                fn ts(v: &Option<f64>) -> String {
+                fn ts(v: &Option<usize>) -> String {
                     match v {
                         Some(v) => v.to_string(),
                         None => String::from(""),
