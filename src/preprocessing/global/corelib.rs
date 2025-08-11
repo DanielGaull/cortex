@@ -10,8 +10,8 @@ pub enum CoreLibError {
     MismatchedTypes(String),
     #[error("corelib: Expected integer ({0})")]
     ExpectedInteger(String),
-    #[error("corelib: Missing value at index ({0})")]
-    MissingValueAtIndex(String),
+    #[error("corelib: Invalid index ({0})")]
+    InvalidIndex(String),
 }
 
 impl CortexPreprocessor {
@@ -26,7 +26,7 @@ impl CortexPreprocessor {
         let mut corelib = Module::new();
         
         corelib.add_function(PFunction::new(
-            OptionalIdentifier::Ident(String::from("spanIndexSingleAnonymous")),
+            OptionalIdentifier::Ident(String::from("spanIndexGetSingleAnonymous")),
             vec![Parameter::named("inputSpan", PType::anonbox()), Parameter::named("index", PType::number())],
             PType::anonbox(),
             Body::Native(Box::new(|env, heap| {
@@ -41,7 +41,35 @@ impl CortexPreprocessor {
                                 let true_result = CortexValue::AnonymousBox(Box::new(result.clone()));
                                 Ok(true_result)
                             } else {
-                                Err(Box::new(CoreLibError::MissingValueAtIndex(format!("{}", index))))
+                                Err(Box::new(CoreLibError::InvalidIndex(format!("{}", index))))
+                            }
+                        } else {
+                            Err(Box::new(CoreLibError::ExpectedInteger(format!("{}", index))))
+                        }
+                    } else {
+                        Err(Box::new(CoreLibError::MismatchedTypes(String::from("span<T>, number"))))
+                    }
+                } else {
+                    Err(Box::new(CoreLibError::MismatchedTypes(String::from("span<T>, number"))))
+                }
+            })),
+            vec![]
+        ))?;
+        corelib.add_function(PFunction::new(
+            OptionalIdentifier::Ident(String::from("spanIndexAssignSingleAnonymous")),
+            vec![Parameter::named("inputSpan", PType::anonbox()), Parameter::named("index", PType::number()), Parameter::named("value", PType::anonbox())],
+            PType::void(),
+            Body::Native(Box::new(|env, heap| {
+                let span = env.get_value("inputSpan")?;
+                let index = env.get_value("index")?;
+                if let (CortexValue::Reference(span_address), CortexValue::Number(index)) = (span, index) {
+                    if let CortexValue::Span(items) = &mut *heap.get(span_address).borrow_mut() {
+                        if let Some(index) = f64_to_usize(index) {
+                            if index >= items.len() {
+                                items[index] = env.get_value("value")?;
+                                Ok(CortexValue::Void)
+                            } else {
+                                Err(Box::new(CoreLibError::InvalidIndex(format!("{}", index))))
                             }
                         } else {
                             Err(Box::new(CoreLibError::ExpectedInteger(format!("{}", index))))
