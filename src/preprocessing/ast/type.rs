@@ -16,14 +16,6 @@ pub enum RTypeArg {
     Ty(RType),
     Int(i32),
 }
-impl RTypeArg {
-    pub fn with_prefix(&self, prefix: &PathIdent) -> Self {
-        match self {
-            RTypeArg::Ty(typ) => RTypeArg::Ty(typ.with_prefix(prefix)),
-            other => other.clone(),
-        }
-    }
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum RType {
@@ -156,35 +148,6 @@ impl RType {
             Self::OptionalType(t) => t.is_core(),
             Self::NoneType => true,
             Self::GenericType(_) => false,
-        }
-    }
-
-    pub fn with_prefix(&self, path: &PathIdent) -> Self {
-        match self {
-            Self::BasicType(name, type_args) => {
-                Self::BasicType(PathIdent::concat(path, &name), type_args.clone())
-            },
-            Self::RefType(r, mutable) => {
-                Self::RefType(Box::new(r.with_prefix(path)), *mutable)
-            },
-            Self::TupleType(t) => {
-                Self::TupleType(t.iter().map(|t| t.with_prefix(path).clone()).collect())
-            },
-            Self::FollowsType(f) => {
-                Self::FollowsType(
-                    RFollowsClause {
-                        entries: f.entries.iter().map(|c| RFollowsEntry {
-                            name: PathIdent::concat(path, &c.name),
-                            type_args: c.type_args.iter().map(|t| t.with_prefix(path)).collect(),
-                        }).collect(),
-                    },
-                )
-            },
-            Self::OptionalType(t) => {
-                Self::OptionalType(Box::new(t.with_prefix(path)))
-            },
-            Self::NoneType => Self::NoneType,
-            Self::GenericType(name) => Self::GenericType(name.clone()),
         }
     }
 
