@@ -92,6 +92,8 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("@(heap 5)")?;
     run_expression_test("anon 5")?;
     run_expression_test("anon heap anon heap 5")?;
+    run_expression_test("deanon<number> value")?;
+    run_expression_test("deanon<number> anon 5")?;
     Ok(())
 }
 

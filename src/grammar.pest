@@ -51,7 +51,7 @@ construction = { pathIdent ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberInit ~ ",
 memberInit = { ident ~ ":" ~ expr }
 
 anonymize = { "anon" ~ expr }
-deanonymize = { "deanon" ~ expr }
+deanonymize = { "deanon" ~ "<" ~ typ ~ ">" ~ expr }
 
 postfixBangTail = { ("!" ~ !"=") ~ exprTail }
 memberAccessTail = { "." ~ ident ~ exprTail }

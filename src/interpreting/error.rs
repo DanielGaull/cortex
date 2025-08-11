@@ -30,4 +30,6 @@ pub enum InterpreterError {
     InvalidArgCountNoPreprocess(usize, usize),
     #[error("Function pointer {0} does not exist")]
     FunctionPointerDoesNotExist(usize),
+    #[error("Expected an anonbox but received {0}")]
+    ExpectedAnonBox(String),
 }

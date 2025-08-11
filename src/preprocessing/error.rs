@@ -88,4 +88,6 @@ pub enum PreprocessingError {
     InvalidTypeProvidedToExtendBlock(String),
     #[error("Body of a generic function must be defined")]
     GenericFunctionMustHaveABody,
+    #[error("Cannot deanonymize \"{0}\": must be an anonbox")]
+    CannotDeanonymize(String),
 }

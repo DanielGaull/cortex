@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, rc::Rc};
 
 use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
 
-use super::super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RFunction, RDefinedBody}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program};
+use super::{super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RDefinedBody, RFunction}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program}, r#type};
 
 type CortexError = Box<dyn Error>;
 pub type CheckResult<T> = Result<(T, RType, Vec<RStatement>), CortexError>;
@@ -643,6 +643,14 @@ impl CortexPreprocessor {
             PExpression::MakeAnon(inner) => {
                 let (inner, _, st) = self.check_exp(*inner, None)?;
                 Ok((RExpression::MakeAnon(Box::new(inner)), RType::anonbox(), st))
+            },
+            PExpression::DeAnon(typ, inner) => {
+                let validated_type = self.validate_type(typ)?;
+                let (inner, inner_type, st) = self.check_exp(*inner, Some(RType::anonbox()))?;
+                if inner_type != RType::anonbox() {
+                    return Err(Box::new(PreprocessingError::CannotDeanonymize(inner_type.codegen(0))));
+                }
+                Ok((RExpression::DeAnon(Box::new(inner)), validated_type, st))
             },
         }
     }

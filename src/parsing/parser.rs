@@ -617,6 +617,12 @@ impl CortexParser {
                 let inner = Self::parse_expr_pair(inner, active_generics)?;
                 Ok(PExpression::MakeAnon(Box::new(inner)))
             },
+            Rule::deanonymize => {
+                let mut pairs = pair.into_inner();
+                let typ = Self::parse_type_pair(pairs.next().unwrap(), active_generics.clone())?;
+                let inner = Self::parse_expr_pair(pairs.next().unwrap(), active_generics)?;
+                Ok(PExpression::DeAnon(typ, Box::new(inner)))
+            },
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }

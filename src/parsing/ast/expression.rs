@@ -73,6 +73,7 @@ pub enum PExpression {
     HeapAlloc(Box<PExpression>),
     DerefFat(Box<PExpression>),
     MakeAnon(Box<PExpression>),
+    DeAnon(CortexType, Box<PExpression>),
 }
 impl SimpleCodeGen for PExpression {
     fn codegen(&self, indent: usize) -> String {
@@ -204,6 +205,7 @@ impl SimpleCodeGen for PExpression {
             PExpression::HeapAlloc(exp) => format!("heap {}", exp.codegen(indent)),
             PExpression::DerefFat(exp) => exp.codegen(indent),
             PExpression::MakeAnon(exp) => format!("anon {}", exp.codegen(indent)),
+            PExpression::DeAnon(typ, exp) => format!("deanon<{}> {}", typ.codegen(indent), exp.codegen(indent)),
         }
     }
 }
@@ -220,7 +222,7 @@ impl PExpression {
             
             PExpression::UnaryOperation { .. } | PExpression::Bang(..) | 
             PExpression::BinaryOperation { .. } | PExpression::Range { .. } |
-            PExpression::HeapAlloc(..) | PExpression::MakeAnon(..)
+            PExpression::HeapAlloc(..) | PExpression::MakeAnon(..) | PExpression::DeAnon(..)
                 => false,
         }
     }

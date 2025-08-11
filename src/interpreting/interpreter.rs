@@ -450,6 +450,14 @@ impl CortexInterpreter {
                 }
             },
             RExpression::MakeAnon(v) => Ok(CortexValue::AnonymousBox(Box::new(self.evaluate_expression(v)?))),
+            RExpression::DeAnon(v) => {
+                let boxed = self.evaluate_expression(v)?;
+                if let CortexValue::AnonymousBox(value) = boxed {
+                    Ok(*value)
+                } else {
+                    Err(Box::new(InterpreterError::ExpectedAnonBox(String::from(boxed.get_variant_name()))))
+                }
+            },
         }
     }
 
