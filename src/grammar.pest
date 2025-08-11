@@ -35,7 +35,7 @@ indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ e
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
-atom = { range | number | boolean | none | void | string | char | tuple | listLiteral | call | construction | if | pathIdent | unOpAtom | heapExp | anonymize | deanonymize | "(" ~ expr ~ ")" }
+atom = { range | numbers | boolean | none | void | string | char | tuple | listLiteral | call | construction | if | pathIdent | unOpAtom | heapExp | anonymize | deanonymize | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberCallTail | memberAccessTail | indexTail | "" }
 
 primary = { atom ~ exprTail }
@@ -71,13 +71,27 @@ unOpAtom = { unOp ~ expr }
 
 // Literals/Primitives
 identChar = _{ (ASCII_ALPHANUMERIC | "_") }
-int = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ }
-number = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ ~ ("." ~ (ASCII_DIGIT)+)? }
 boolean = { ("true" | "false") ~ !identChar }
 none = { "none" ~ !identChar }
 void = { "void" ~ !identChar }
 listLiteral = { "[" ~ exprList ~ "]" }
 tuple = { "(" ~ expr ~ "," ~ expr? ~ ("," ~ expr)* ~ ")" }
+
+float = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ ~ ("." ~ (ASCII_DIGIT)+)? }
+f32 = ${ float ~ "f32" }
+f64 = ${ (float ~ "f64") | float }
+int = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ }
+usz = ${ int ~ "usz" }
+isz = ${ int ~ "isz" }
+u8 = ${ int ~ "u8" }
+i8 = ${ int ~ "i8" }
+u16 = ${ int ~ "u16" }
+i16 = ${ int ~ "i16" }
+u32 = ${ int ~ "u32" }
+i32 = ${ (int ~ "i32") | int }
+u64 = ${ int ~ "u64" }
+i64 = ${ int ~ "i64" }
+numbers = _{ f32 | f64 | usz | isz | u8 | i8 | u16 | i16 | u32 | i32 | u64 | i64 }
 
 rangeVal = { int | "" }
 range = { rangeVal ~ ":" ~ rangeVal ~ (":" ~ rangeVal)? }

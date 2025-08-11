@@ -24,7 +24,18 @@ impl SimpleCodeGen for PConditionBody {
 
 #[derive(Clone)]
 pub enum PExpression {
-    Number(f64),
+    F32(f32),
+    F64(f64),
+    I8(i8),
+    U8(u8),
+    I16(i16),
+    U16(u16),
+    I32(i32),
+    U32(u32),
+    I64(i64),
+    U64(u64),
+    ISZ(isize),
+    USZ(usize),
     Boolean(bool),
     Void,
     None,
@@ -78,7 +89,18 @@ pub enum PExpression {
 impl SimpleCodeGen for PExpression {
     fn codegen(&self, indent: usize) -> String {
         match self {
-            PExpression::Number(v) => format!("{}", v),
+            PExpression::U8(v) => format!("{}u8", v),
+            PExpression::I8(v) => format!("{}i8", v),
+            PExpression::U16(v) => format!("{}u16", v),
+            PExpression::I16(v) => format!("{}i16", v),
+            PExpression::U32(v) => format!("{}u32", v),
+            PExpression::I32(v) => format!("{}i32", v),
+            PExpression::U64(v) => format!("{}u64", v),
+            PExpression::I64(v) => format!("{}i64", v),
+            PExpression::USZ(v) => format!("{}usz", v),
+            PExpression::ISZ(v) => format!("{}isz", v),
+            PExpression::F32(v) => format!("{}f32", v),
+            PExpression::F64(v) => format!("{}f64", v),
             PExpression::Boolean(v) => format!("{}", v),
             PExpression::String(v) => format!("\"{}\"", v),
             PExpression::Void => String::from("void"),
@@ -212,7 +234,19 @@ impl SimpleCodeGen for PExpression {
 impl PExpression {
     fn is_atomic(&self) -> bool {
         match self {
-            PExpression::Number(..) | PExpression::Boolean(..) | PExpression::Void | PExpression::None | 
+            PExpression::U8(..) |
+            PExpression::I8(..) |
+            PExpression::U16(..) |
+            PExpression::I16(..) |
+            PExpression::U32(..) |
+            PExpression::I32(..) |
+            PExpression::U64(..) |
+            PExpression::I64(..) |
+            PExpression::USZ(..) |
+            PExpression::ISZ(..) |
+            PExpression::F32(..) |
+            PExpression::F64(..) |
+            PExpression::Boolean(..) | PExpression::Void | PExpression::None | 
             PExpression::String(..) | PExpression::PathIdent(..) | PExpression::Call { .. } |
             PExpression::Construction { .. } |
             PExpression::IfStatement { .. } | PExpression::MemberAccess(..) |

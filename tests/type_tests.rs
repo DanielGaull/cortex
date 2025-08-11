@@ -13,22 +13,22 @@ fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) ->
 #[test]
 fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
-    run_test("5", "number", &mut interpreter)?;
-    run_test("5.3", "number", &mut interpreter)?;
+    run_test("5", "i32", &mut interpreter)?;
+    run_test("5.3", "f64", &mut interpreter)?;
     run_test("\"hello\"", "string", &mut interpreter)?;
     run_test("true", "bool", &mut interpreter)?;
     run_test("false", "bool", &mut interpreter)?;
     run_test("void", "void", &mut interpreter)?;
     run_test("(((void)))", "void", &mut interpreter)?;
     run_test("none", "none", &mut interpreter)?;
-    run_test("[1]", "&mut list<number>", &mut interpreter)?;
-    run_test("[1, none]", "&mut list<number?>", &mut interpreter)?;
-    run_test("(1,)", "(number,)", &mut interpreter)?;
-    run_test("(1, 2)", "(number, number)", &mut interpreter)?;
-    run_test("(1, true, \"hello\")", "(number, bool, string)", &mut interpreter)?;
+    run_test("[1]", "&mut list<i32>", &mut interpreter)?;
+    run_test("[1, none]", "&mut list<i32?>", &mut interpreter)?;
+    run_test("(1,)", "(i32,)", &mut interpreter)?;
+    run_test("(1, 2)", "(i32, i32)", &mut interpreter)?;
+    run_test("(1, true, \"hello\")", "(i32, bool, string)", &mut interpreter)?;
     run_test("(1, true, \"hello\").t1", "bool", &mut interpreter)?;
-    run_test("[(none, 5), (true, none)]", "&mut list<(bool?, number?)>", &mut interpreter)?;
-    run_test("heap 5", "&mut number", &mut interpreter)?;
+    run_test("[(none, 5), (true, none)]", "&mut list<(bool?, i32?)>", &mut interpreter)?;
+    run_test("heap 5", "&mut i32", &mut interpreter)?;
     Ok(())
 }
 
@@ -73,11 +73,11 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
 
     preprocessor.register_module(&PathIdent::empty(), module)?;
 
-    assert_subtype("none", "number?", &preprocessor)?;
-    assert_subtype("&mut number", "&number", &preprocessor)?;
-    assert_not_subtype("&number", "&mut number", &preprocessor)?;
-    assert_subtype("(&mut number, none)", "(&number, bool?)", &preprocessor)?;
-    assert_not_subtype("(number, number)", "(number, number, number)", &preprocessor)?;
+    assert_subtype("none", "i32?", &preprocessor)?;
+    assert_subtype("&mut i32", "&i32", &preprocessor)?;
+    assert_not_subtype("&i32", "&mut i32", &preprocessor)?;
+    assert_subtype("(&mut i32, none)", "(&i32, bool?)", &preprocessor)?;
+    assert_not_subtype("(i32, i32)", "(i32, i32, i32)", &preprocessor)?;
 
     assert_subtype("follows X + Y + Z", "follows X", &preprocessor)?;
     assert_subtype("&TestType", "follows Iterable", &preprocessor)?;
@@ -86,7 +86,7 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
     assert_subtype("TestType", "follows Iterable", &preprocessor)?;
     assert_not_subtype("TestType", "follows Iterable + X", &preprocessor)?;
     assert_subtype("OtherTestType", "follows Iterable", &preprocessor)?;
-    assert_subtype("&mut Box<number>", "follows Container<number>", &preprocessor)?;
+    assert_subtype("&mut Box<i32>", "follows Container<i32>", &preprocessor)?;
 
     assert_not_subtype("Box<TestType>", "Box<follows Iterable>", &preprocessor)?;
     Ok(())
@@ -99,8 +99,8 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_struct(Struct::new(
         "Time", 
         vec![
-            ("m", PType::number()),
-            ("s", PType::number()),
+            ("m", PType::i32()),
+            ("s", PType::i32()),
         ],
         vec![],
         vec![],
@@ -164,15 +164,15 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
         vec![TypeParam::ty("T")],
     ))?;
     interpreter.register_module(&PathIdent::simple(String::from("box")), module)?;
-    interpreter.execute_statement(CortexParser::parse_statement("let box = heap box::Box<number>{ item: 5 };")?)?;
-    run_test("box.item", "number", &mut interpreter)?;
-    run_test("box.get()", "number", &mut interpreter)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let box = heap box::Box<i32>{ item: 5 };")?)?;
+    run_test("box.item", "i32", &mut interpreter)?;
+    run_test("box.get()", "i32", &mut interpreter)?;
 
-    interpreter.execute_statement(CortexParser::parse_statement("let box2: &box::Box<&mut box::Box<number>> = heap box::Box<&mut box::Box<number>>{ item: heap box::Box<number>{ item: 5 } };")?)?;
-    run_test("box2.item", "&box::Box<number>", &mut interpreter)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let box2: &box::Box<&mut box::Box<i32>> = heap box::Box<&mut box::Box<i32>>{ item: heap box::Box<i32>{ item: 5 } };")?)?;
+    run_test("box2.item", "&box::Box<i32>", &mut interpreter)?;
 
-    run_test("box::generic(5)", "number?", &mut interpreter)?;
-    run_test("box::generic<number>(none)", "number?", &mut interpreter)?;
+    run_test("box::generic(5)", "i32?", &mut interpreter)?;
+    run_test("box::generic<i32>(none)", "i32?", &mut interpreter)?;
 
     Ok(())
 }
@@ -181,8 +181,8 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
 fn run_inference_type_tests() -> Result<(), Box<dyn Error>> {
     // Tests where absence of an error is all that is expected
     let mut interpreter = CortexInterpreter::new()?;
-    interpreter.execute_statement(CortexParser::parse_statement("let l1: &list<number> = [];")?)?;
-    interpreter.execute_statement(CortexParser::parse_statement("let l2: (&list<number>, &list<string>) = ([], []);")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let l1: &list<i32> = [];")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let l2: (&list<i32>, &list<string>) = ([], []);")?)?;
 
     Ok(())
 }

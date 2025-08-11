@@ -484,10 +484,55 @@ impl CortexParser {
 
     fn parse_atom_pair(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PExpression, ParseError> {
         match pair.as_rule() {
-            Rule::number => {
-                let value: f64 = pair.as_str().parse().unwrap();
-                Ok(PExpression::Number(value))
+            Rule::u8 => {
+                let value: u8 = pair.as_str().parse().unwrap();
+                Ok(PExpression::U8(value))
             },
+            Rule::i8 => {
+                let value: i8 = pair.as_str().parse().unwrap();
+                Ok(PExpression::I8(value))
+            },
+            Rule::u16 => {
+                let value: u16 = pair.as_str().parse().unwrap();
+                Ok(PExpression::U16(value))
+            },
+            Rule::i16 => {
+                let value: i16 = pair.as_str().parse().unwrap();
+                Ok(PExpression::I16(value))
+            },
+            Rule::u32 => {
+                let value: u32 = pair.as_str().parse().unwrap();
+                Ok(PExpression::U32(value))
+            },
+            Rule::i32 => {
+                let value: i32 = pair.as_str().parse().unwrap();
+                Ok(PExpression::I32(value))
+            },
+            Rule::u64 => {
+                let value: u64 = pair.as_str().parse().unwrap();
+                Ok(PExpression::U64(value))
+            },
+            Rule::i64 => {
+                let value: i64 = pair.as_str().parse().unwrap();
+                Ok(PExpression::I64(value))
+            },
+            Rule::usz => {
+                let value: usize = pair.as_str().parse().unwrap();
+                Ok(PExpression::USZ(value))
+            },
+            Rule::isz => {
+                let value: isize = pair.as_str().parse().unwrap();
+                Ok(PExpression::ISZ(value))
+            },
+            Rule::f32 => {
+                let value: f32 = pair.as_str().parse().unwrap();
+                Ok(PExpression::F32(value))
+            },
+            Rule::f64 => {
+                let value: f64 = pair.as_str().parse().unwrap();
+                Ok(PExpression::F64(value))
+            },
+
             Rule::boolean => {
                 let value: bool = pair.as_str().trim().parse().unwrap();
                 Ok(PExpression::Boolean(value))

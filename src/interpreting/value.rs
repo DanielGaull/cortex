@@ -20,7 +20,18 @@ pub enum ValueError {
 
 #[derive(Clone, Debug)]
 pub enum CortexValue {
-    Number(f64),
+    F32(f32),
+    F64(f64),
+    I8(i8),
+    U8(u8),
+    I16(i16),
+    U16(u16),
+    I32(i32),
+    U32(u32),
+    I64(i64),
+    U64(u64),
+    ISZ(isize),
+    USZ(usize),
     Boolean(bool),
     String(String),
     Char(u8),
@@ -34,11 +45,23 @@ pub enum CortexValue {
     Fat(Rc<RefCell<CortexValue>>, VTable),
     AnonymousBox(Box<CortexValue>),
 }
-
 impl PartialEq for CortexValue {
+    // Manually implemented purely because of fat pointers - the vtables do not have to be equal in that case
+    // Otherwise, this is everything you'd get from #derive'ing PartialEq
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Number(l0), Self::Number(r0)) => l0 == r0,
+            (Self::F32(l0), Self::F32(r0)) => l0 == r0,
+            (Self::F64(l0), Self::F64(r0)) => l0 == r0,
+            (Self::I8(l0), Self::I8(r0)) => l0 == r0,
+            (Self::U8(l0), Self::U8(r0)) => l0 == r0,
+            (Self::I16(l0), Self::I16(r0)) => l0 == r0,
+            (Self::U16(l0), Self::U16(r0)) => l0 == r0,
+            (Self::I32(l0), Self::I32(r0)) => l0 == r0,
+            (Self::U32(l0), Self::U32(r0)) => l0 == r0,
+            (Self::I64(l0), Self::I64(r0)) => l0 == r0,
+            (Self::U64(l0), Self::U64(r0)) => l0 == r0,
+            (Self::ISZ(l0), Self::ISZ(r0)) => l0 == r0,
+            (Self::USZ(l0), Self::USZ(r0)) => l0 == r0,
             (Self::Boolean(l0), Self::Boolean(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
             (Self::Char(l0), Self::Char(r0)) => l0 == r0,
@@ -55,7 +78,18 @@ impl PartialEq for CortexValue {
 impl Display for CortexValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CortexValue::Number(v) => write!(f, "{}", v),
+            CortexValue::U8(v) => write!(f, "{}u8", v),
+            CortexValue::I8(v) => write!(f, "{}i8", v),
+            CortexValue::U16(v) => write!(f, "{}u16", v),
+            CortexValue::I16(v) => write!(f, "{}i16", v),
+            CortexValue::U32(v) => write!(f, "{}u32", v),
+            CortexValue::I32(v) => write!(f, "{}i32", v),
+            CortexValue::U64(v) => write!(f, "{}u64", v),
+            CortexValue::I64(v) => write!(f, "{}i64", v),
+            CortexValue::USZ(v) => write!(f, "{}usz", v),
+            CortexValue::ISZ(v) => write!(f, "{}isz", v),
+            CortexValue::F32(v) => write!(f, "{}f32", v),
+            CortexValue::F64(v) => write!(f, "{}f64", v),
             CortexValue::Boolean(v) => write!(f, "{}", v),
             CortexValue::String(v) => write!(f, "\"{}\"", v),
             CortexValue::Void => write!(f, "void"),
@@ -101,7 +135,18 @@ impl CortexValue {
     // we should return the value underneath
     pub(crate) fn get_variant_name(&self) -> &'static str {
         match self {
-            CortexValue::Number(_) => "number",
+            CortexValue::F32(_) => "f32",
+            CortexValue::F64(_) => "f64",
+            CortexValue::I8(_) => "i8",
+            CortexValue::U8(_) => "u8",
+            CortexValue::I16(_) => "i16",
+            CortexValue::U16(_) => "u16",
+            CortexValue::I32(_) => "i32",
+            CortexValue::U32(_) => "u32",
+            CortexValue::I64(_) => "i64",
+            CortexValue::U64(_) => "u64",
+            CortexValue::ISZ(_) => "isz",
+            CortexValue::USZ(_) => "usz",
             CortexValue::Boolean(_) => "bool",
             CortexValue::String(_) => "string",
             CortexValue::Void => "void",

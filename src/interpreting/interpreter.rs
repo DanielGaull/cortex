@@ -187,7 +187,7 @@ impl CortexInterpreter {
         match op {
             BinaryOperator::Add => {
                 match (first, second) {
-                    (CortexValue::Number(n1), CortexValue::Number(n2)) => Ok(CortexValue::Number(n1 + n2)),
+                    (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::I32(n1 + n2)),
                     (CortexValue::String(s1), CortexValue::String(s2)) => {
                         let mut s = String::new();
                         s.push_str(&s1);
@@ -198,45 +198,37 @@ impl CortexInterpreter {
                 }
             },
             BinaryOperator::Subtract => {
-                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
-                    Ok(CortexValue::Number(n1 - n2))
+                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
+                    Ok(CortexValue::I32(n1 - n2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::Multiply => {
-                if let CortexValue::Number(n1) = first {
-                    if let CortexValue::Number(n2) = second {
-                        Ok(CortexValue::Number(n1 * n2))
+                if let CortexValue::I32(n1) = first {
+                    if let CortexValue::I32(n2) = second {
+                        Ok(CortexValue::I32(n1 * n2))
                     } else if let CortexValue::String(s2) = second {
-                        if n1.fract() == 0.0 {
-                            Ok(CortexValue::String(s2.repeat(n1 as usize)))
-                        } else {
-                            Err(Box::new(InterpreterError::ExpectedInteger(n1)))
-                        }
+                        Ok(CortexValue::String(s2.repeat(n1 as usize)))
                     } else {
                         Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                     }
-                } else if let (CortexValue::String(s1), CortexValue::Number(n2)) = (first, second) {
-                    if n2.fract() == 0.0 {
-                        Ok(CortexValue::String(s1.repeat(n2 as usize)))
-                    } else {
-                        Err(Box::new(InterpreterError::ExpectedInteger(n2)))
-                    }
+                } else if let (CortexValue::String(s1), CortexValue::I32(n2)) = (first, second) {
+                    Ok(CortexValue::String(s1.repeat(n2 as usize)))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::Divide => {
-                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
-                    Ok(CortexValue::Number(n1 / n2))
+                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
+                    Ok(CortexValue::I32(n1 / n2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::Remainder => {
-                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
-                    Ok(CortexValue::Number(n1 % n2))
+                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
+                    Ok(CortexValue::I32(n1 % n2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
@@ -262,28 +254,28 @@ impl CortexInterpreter {
                 Ok(CortexValue::Boolean(first != second))
             },
             BinaryOperator::IsLessThan => {
-                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
                     Ok(CortexValue::Boolean(n1 < n2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::IsGreaterThan => {
-                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
                     Ok(CortexValue::Boolean(n1 > n2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::IsLessThanOrEqualTo => {
-                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
                     Ok(CortexValue::Boolean(n1 <= n2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::IsGreaterThanOrEqualTo => {
-                if let (CortexValue::Number(n1), CortexValue::Number(n2)) = (first, second) {
+                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
                     Ok(CortexValue::Boolean(n1 >= n2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
@@ -294,7 +286,18 @@ impl CortexInterpreter {
     fn evaluate_expression(&mut self, exp: &RExpression) -> Result<CortexValue, CortexError> {
         match exp {
             RExpression::Boolean(v) => Ok(CortexValue::Boolean(*v)),
-            RExpression::Number(v) => Ok(CortexValue::Number(*v)),
+            RExpression::F32(v) => Ok(CortexValue::F32(*v)),
+            RExpression::F64(v) =>  Ok(CortexValue::F64(*v)),
+            RExpression::I8(v) =>  Ok(CortexValue::I8(*v)),
+            RExpression::U8(v) => Ok(CortexValue::U8(*v)),
+            RExpression::I16(v) => Ok(CortexValue::I16(*v)),
+            RExpression::U16(v) => Ok(CortexValue::U16(*v)),
+            RExpression::I32(v) => Ok(CortexValue::I32(*v)),
+            RExpression::U32(v) => Ok(CortexValue::U32(*v)),
+            RExpression::I64(v) => Ok(CortexValue::I64(*v)),
+            RExpression::U64(v) => Ok(CortexValue::U64(*v)),
+            RExpression::ISZ(v) => Ok(CortexValue::ISZ(*v)),
+            RExpression::USZ(v) => Ok(CortexValue::USZ(*v)),
             RExpression::String(v) => Ok(CortexValue::String(v.clone())),
             RExpression::Char(v) => Ok(CortexValue::Char(*v)),
             RExpression::Void => Ok(CortexValue::Void),
@@ -338,8 +341,8 @@ impl CortexInterpreter {
                 let val = self.evaluate_expression(exp)?;
                 match op {
                     UnaryOperator::Negate => {
-                        if let CortexValue::Number(n) = val {
-                            Ok(CortexValue::Number(-n))
+                        if let CortexValue::I32(n) = val {
+                            Ok(CortexValue::I32(-n))
                         } else {
                             Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                         }

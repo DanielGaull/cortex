@@ -75,8 +75,8 @@ fn test_list_add_insert_remove() -> Result<(), Box<dyn Error>> {
 fn test_list_index_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     run("let myList: &list<number> = [1, 2, 3];", &mut interpreter)?;
-    assert_err("myList[-2];", RuntimeError::InvalidIndex(-2f64, 3usize), &mut interpreter)?;
-    assert_err("myList[4];", RuntimeError::InvalidIndex(4f64, 3usize), &mut interpreter)?;
+    // assert_err("myList[-2];", RuntimeError::InvalidIndex(-2usize, 3usize), &mut interpreter)?; // Should now throw a type error
+    assert_err("myList[4];", RuntimeError::InvalidIndex(4usize, 3usize), &mut interpreter)?;
     Ok(())
 }
 
@@ -194,8 +194,8 @@ fn test_string_split() -> Result<(), Box<dyn Error>> {
 fn test_string_index_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     run("let str: string = \"hello!\";", &mut interpreter)?;
-    assert_err("str[-2];", RuntimeError::InvalidIndex(-2f64, 6usize), &mut interpreter)?;
-    assert_err("str[10];", RuntimeError::InvalidIndex(10f64, 6usize), &mut interpreter)?;
+    // assert_err("str[-2];", RuntimeError::InvalidIndex(-2f64, 6usize), &mut interpreter)?; // Should now throw a type error
+    assert_err("str[10];", RuntimeError::InvalidIndex(10usize, 6usize), &mut interpreter)?;
 
     assert_err("str.repeat(-1);", RuntimeError::ExpectedInteger(-1f64), &mut interpreter)?;
     Ok(())

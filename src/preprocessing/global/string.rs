@@ -26,16 +26,15 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from(INDEX_GET_FN_NAME)), 
                     vec![
-                        Parameter::named("index", PType::number())
+                        Parameter::named("index", PType::usz())
                     ], 
                     PType::char(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
-                            if let CortexValue::Number(num) = env.get_value("index")? {
+                            if let CortexValue::USZ(index) = env.get_value("index")? {
                                 let bytes = strval.as_bytes();
-                                let index = f64_to_usize(num).ok_or(RuntimeError::InvalidIndex(num, bytes.len()))?;
                                 if index >= bytes.len() {
-                                    return Err(Box::new(RuntimeError::InvalidIndex(num, bytes.len())));
+                                    return Err(Box::new(RuntimeError::InvalidIndex(index, bytes.len())));
                                 }
                                 Ok(CortexValue::Char(bytes[index]))
                             } else {
@@ -52,11 +51,11 @@ impl CortexPreprocessor {
                     String::from("len")), 
                     vec![
                     ], 
-                    PType::number(),
+                    PType::usz(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             let bytes = strval.as_bytes();
-                            Ok(CortexValue::Number(bytes.len() as f64))
+                            Ok(CortexValue::USZ(bytes.len()))
                         } else {
                             Err(Box::new(RuntimeError::InvalidArg("this", "string")))
                         }
@@ -145,13 +144,13 @@ impl CortexPreprocessor {
                     vec![
                         Parameter::named("substring", PType::string())
                     ], 
-                    PType::number(),
+                    PType::usz(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::String(substring) = env.get_value("substring")? {
                                 let idx = strval.find(&substring);
                                 if let Some(i) = idx {
-                                    Ok(CortexValue::Number(i as f64))
+                                    Ok(CortexValue::USZ(i))
                                 } else {
                                     Ok(CortexValue::None)
                                 }
@@ -224,15 +223,14 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("padStart")), 
                     vec![
-                        Parameter::named("width", PType::number()),
+                        Parameter::named("width", PType::usz()),
                         Parameter::named("c", PType::char()),
                     ], 
                     PType::string(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
-                            if let CortexValue::Number(widthval) = env.get_value("width")? {
+                            if let CortexValue::USZ(width) = env.get_value("width")? {
                                 if let CortexValue::Char(charval) = env.get_value("c")? {
-                                    let width = f64_to_usize(widthval).ok_or(RuntimeError::ExpectedInteger(widthval))?;
                                     let s = pad_start(&strval, width, charval as char);
                                     Ok(CortexValue::String(String::from(s)))
                                 } else {
@@ -251,15 +249,14 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("padEnd")), 
                     vec![
-                        Parameter::named("width", PType::number()),
+                        Parameter::named("width", PType::usz()),
                         Parameter::named("c", PType::char()),
                     ], 
                     PType::string(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
-                            if let CortexValue::Number(widthval) = env.get_value("width")? {
+                            if let CortexValue::USZ(width) = env.get_value("width")? {
                                 if let CortexValue::Char(charval) = env.get_value("c")? {
-                                    let width = f64_to_usize(widthval).ok_or(RuntimeError::ExpectedInteger(widthval))?;
                                     let s = pad_end(&strval, width, charval as char);
                                     Ok(CortexValue::String(String::from(s)))
                                 } else {
@@ -278,13 +275,12 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("repeat")), 
                     vec![
-                        Parameter::named("times", PType::number()),
+                        Parameter::named("times", PType::usz()),
                     ], 
                     PType::string(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
-                            if let CortexValue::Number(widthval) = env.get_value("times")? {
-                                let width = f64_to_usize(widthval).ok_or(RuntimeError::ExpectedInteger(widthval))?;
+                            if let CortexValue::USZ(width) = env.get_value("times")? {
                                 let s = strval.repeat(width);
                                 Ok(CortexValue::String(String::from(s)))
                             } else {
@@ -336,10 +332,10 @@ impl CortexPreprocessor {
                                 let end = some_or(endv, strval.len(), strval.len())?;
                                 let step = some_or(stepv, 1usize, strval.len())?;
                                 if start > strval.len() {
-                                    return Err(Box::new(RuntimeError::InvalidIndex(start as f64, strval.len())));
+                                    return Err(Box::new(RuntimeError::InvalidIndex(start, strval.len())));
                                 }
                                 if end > strval.len() {
-                                    return Err(Box::new(RuntimeError::InvalidIndex(end as f64, strval.len())));
+                                    return Err(Box::new(RuntimeError::InvalidIndex(end, strval.len())));
                                 }
                                 
                                 if step == 1 {
@@ -466,7 +462,18 @@ impl CortexPreprocessor {
 
 fn to_string(val: CortexValue, heap: &Heap) -> String {
     match val {
-        CortexValue::Number(v) => v.to_string(),
+        CortexValue::F32(v) => v.to_string(),
+        CortexValue::F64(v) => v.to_string(),
+        CortexValue::I8(v) => v.to_string(),
+        CortexValue::U8(v) => v.to_string(),
+        CortexValue::I16(v) => v.to_string(),
+        CortexValue::U16(v) => v.to_string(),
+        CortexValue::I32(v) => v.to_string(),
+        CortexValue::U32(v) => v.to_string(),
+        CortexValue::I64(v) => v.to_string(),
+        CortexValue::U64(v) => v.to_string(),
+        CortexValue::ISZ(v) => v.to_string(),
+        CortexValue::USZ(v) => v.to_string(),
         CortexValue::Boolean(v) => v.to_string(),
         CortexValue::String(s) => s,
         CortexValue::Void => String::from("void"),
@@ -521,12 +528,8 @@ fn pad_end(s: &str, width: usize, pad_char: char) -> String {
 }
 
 fn some_or(v: CortexValue, other: usize, max: usize) -> Result<usize, Box<dyn Error>> {
-    if let CortexValue::Number(n) = v {
-        if let Some(v) = f64_to_usize(n) {
-            Ok(v)
-        } else {
-            Err(Box::new(RuntimeError::InvalidIndex(n, max)))
-        }
+    if let CortexValue::USZ(n) = v {
+        Ok(n)
     } else {
         Ok(other)
     }

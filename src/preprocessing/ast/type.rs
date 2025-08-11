@@ -38,12 +38,16 @@ pub enum RType {
 
 macro_rules! core_types {
     () => {
-        "number" | "bool" | "string" | "void" | "none" | "list" | "char" | "range" | "anonbox" | "span"
+        "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | 
+        "isz" | "usz" | "f32" | "f64" | 
+        "bool" | "string" | "void" | "none" | "list" | "char" | "range" | "anonbox" | "span"
     }
 }
 macro_rules! non_composite_types {
     () => {
-        "number" | "bool" | "string" | "void" | "none" | "char" | "anonbox" | "span"
+        "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | 
+        "isz" | "usz" | "f32" | "f64" | 
+        "bool" | "string" | "void" | "none" | "char" | "anonbox" | "span"
     }
 }
 
@@ -52,8 +56,41 @@ pub fn is_path_a_core_type(path: &PathIdent) -> bool {
 }
 
 impl RType {
-    pub fn number() -> Self {
-        Self::simple("number")
+    pub fn u8() -> Self {
+        Self::simple("u8")
+    }
+    pub fn i8() -> Self {
+        Self::simple("i8")
+    }
+    pub fn u16() -> Self {
+        Self::simple("u16")
+    }
+    pub fn i16() -> Self {
+        Self::simple("i16")
+    }
+    pub fn u32() -> Self {
+        Self::simple("u32")
+    }
+    pub fn i32() -> Self {
+        Self::simple("i32")
+    }
+    pub fn u64() -> Self {
+        Self::simple("u64")
+    }
+    pub fn i64() -> Self {
+        Self::simple("i64")
+    }
+    pub fn usz() -> Self {
+        Self::simple("usz")
+    }
+    pub fn isz() -> Self {
+        Self::simple("isz")
+    }
+    pub fn f32() -> Self {
+        Self::simple("f32")
+    }
+    pub fn f64() -> Self {
+        Self::simple("f64")
     }
     pub fn boolean() -> Self {
         Self::simple("bool")

@@ -52,7 +52,20 @@ impl CortexPreprocessor {
             }
         }
 
-        add_core_type!("number");
+        add_core_type!("u8");
+        add_core_type!("i8");
+        add_core_type!("u16");
+        add_core_type!("i16");
+        add_core_type!("u32");
+        add_core_type!("i32");
+        add_core_type!("u64");
+        add_core_type!("i64");
+        add_core_type!("usz");
+        add_core_type!("isz");
+
+        add_core_type!("f32");
+        add_core_type!("f64");
+
         add_core_type!("bool");
         add_core_type!("string");
         add_core_type!("void");
@@ -436,7 +449,18 @@ impl CortexPreprocessor {
     pub(super) fn check_exp(&mut self, exp: PExpression, expected_type: Option<RType>) -> CheckResult<RExpression> {
         let st_str = exp.codegen(0);
         match exp {
-            PExpression::Number(v) => Ok((RExpression::Number(v), RType::number(), vec![])),
+            PExpression::F32(v) => Ok((RExpression::F32(v), RType::f32(), vec![])),
+            PExpression::F64(v) => Ok((RExpression::F64(v), RType::f64(), vec![])),
+            PExpression::I8(v) => Ok((RExpression::I8(v), RType::i8(), vec![])),
+            PExpression::U8(v) => Ok((RExpression::U8(v), RType::u8(), vec![])),
+            PExpression::I16(v) => Ok((RExpression::I16(v), RType::i16(), vec![])),
+            PExpression::U16(v) => Ok((RExpression::U16(v), RType::u16(), vec![])),
+            PExpression::I32(v) => Ok((RExpression::I32(v), RType::i32(), vec![])),
+            PExpression::U32(v) => Ok((RExpression::U32(v), RType::u32(), vec![])),
+            PExpression::I64(v) => Ok((RExpression::I64(v), RType::i64(), vec![])),
+            PExpression::U64(v) => Ok((RExpression::U64(v), RType::u64(), vec![])),
+            PExpression::ISZ(v) => Ok((RExpression::ISZ(v), RType::isz(), vec![])),
+            PExpression::USZ(v) => Ok((RExpression::USZ(v), RType::usz(), vec![])),
             PExpression::Boolean(v) => Ok((RExpression::Boolean(v), RType::boolean(), vec![])),
             PExpression::Void => Ok((RExpression::Void, RType::void(), vec![])),
             PExpression::None => Ok((RExpression::None, RType::none(), vec![])),
@@ -462,8 +486,8 @@ impl CortexPreprocessor {
                 match op {
                     UnaryOperator::Negate => {
                         let (exp, typ, statements) = self.check_exp(*exp, expected_type)?;
-                        if typ == RType::number() {
-                            Ok((RExpression::UnaryOperation { op: UnaryOperator::Negate, exp: Box::new(exp) }, RType::number(), statements))
+                        if typ == RType::i32() {
+                            Ok((RExpression::UnaryOperation { op: UnaryOperator::Negate, exp: Box::new(exp) }, RType::i32(), statements))
                         } else {
                             Err(Box::new(PreprocessingError::InvalidOperatorUnary("number", "-", typ.codegen(0))))
                         }
@@ -613,7 +637,7 @@ impl CortexPreprocessor {
             PExpression::Range { start, end, step } => {
                 fn otov(o: Option<f64>) -> RExpression {
                     match o {
-                        Some(v) => RExpression::Number(v),
+                        Some(v) => RExpression::F64(v),
                         None => RExpression::None,
                     }
                 }
@@ -848,13 +872,13 @@ impl CortexPreprocessor {
     }
 
     fn check_operator(&self, first: RType, op: &BinaryOperator, second: RType) -> Result<RType, CortexError> {
-        let number = RType::number();
+        let number_i32 = RType::i32();
         let string = RType::string();
         let boolean = RType::boolean();
         match op {
             BinaryOperator::Add => {
-                if first == number && second == number {
-                    Ok(number)
+                if first == number_i32 && second == number_i32 {
+                    Ok(number_i32)
                 } else if first == string && second == string {
                     Ok(string)
                 } else {
@@ -862,33 +886,33 @@ impl CortexPreprocessor {
                 }
             },
             BinaryOperator::Subtract => {
-                if first == number && second == number {
-                    Ok(number)
+                if first == number_i32 && second == number_i32 {
+                    Ok(number_i32)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "-", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::Multiply => {
-                if first == number && second == number {
-                    Ok(number)
-                } else if first == number && second == string {
+                if first == number_i32 && second == number_i32 {
+                    Ok(number_i32)
+                } else if first == number_i32 && second == string {
                     Ok(string)
-                } else if first == string && second == number {
+                } else if first == string && second == number_i32 {
                     Ok(string)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "string", "*", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::Divide => {
-                if first == number && second == number {
-                    Ok(number)
+                if first == number_i32 && second == number_i32 {
+                    Ok(number_i32)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "/", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::Remainder => {
-                if first == number && second == number {
-                    Ok(number)
+                if first == number_i32 && second == number_i32 {
+                    Ok(number_i32)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "%", first.codegen(0), second.codegen(0))))
                 }
@@ -914,28 +938,28 @@ impl CortexPreprocessor {
                 Ok(boolean)
             },
             BinaryOperator::IsLessThan => {
-                if first == number && second == number {
+                if first == number_i32 && second == number_i32 {
                     Ok(boolean)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "<", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::IsGreaterThan => {
-                if first == number && second == number {
+                if first == number_i32 && second == number_i32 {
                     Ok(boolean)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", ">", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::IsLessThanOrEqualTo => {
-                if first == number && second == number {
+                if first == number_i32 && second == number_i32 {
                     Ok(boolean)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "<=", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::IsGreaterThanOrEqualTo => {
-                if first == number && second == number {
+                if first == number_i32 && second == number_i32 {
                     Ok(boolean)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", ">=", first.codegen(0), second.codegen(0))))

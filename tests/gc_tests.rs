@@ -31,8 +31,8 @@ fn gc_test_ref() -> Result<(), Box<dyn Error>> {
 
 fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let test_struct = Struct::new("Time", vec![
-        ("m", PType::number()),
-        ("s", PType::number()),
+        ("m", PType::i32()),
+        ("s", PType::i32()),
     ], vec![], vec![], None);
     let alloc_func = CortexParser::parse_function("fn alloc(): &mut Time { heap Time { m: 0, s: 0 } }")?;
     let mut interpreter = CortexInterpreter::new()?;

@@ -144,9 +144,43 @@ impl PType {
     pub fn simple(name: &str) -> Self {
         Self::basic(PathIdent::simple(String::from(name)), vec![])
     }
-    pub fn number() -> Self {
-        Self::simple("number")
+    pub fn u8() -> Self {
+        Self::simple("u8")
     }
+    pub fn i8() -> Self {
+        Self::simple("i8")
+    }
+    pub fn u16() -> Self {
+        Self::simple("u16")
+    }
+    pub fn i16() -> Self {
+        Self::simple("i16")
+    }
+    pub fn u32() -> Self {
+        Self::simple("u32")
+    }
+    pub fn i32() -> Self {
+        Self::simple("i32")
+    }
+    pub fn u64() -> Self {
+        Self::simple("u64")
+    }
+    pub fn i64() -> Self {
+        Self::simple("i64")
+    }
+    pub fn usz() -> Self {
+        Self::simple("usz")
+    }
+    pub fn isz() -> Self {
+        Self::simple("isz")
+    }
+    pub fn f32() -> Self {
+        Self::simple("f32")
+    }
+    pub fn f64() -> Self {
+        Self::simple("f64")
+    }
+
     pub fn boolean() -> Self {
         Self::simple("bool")
     }

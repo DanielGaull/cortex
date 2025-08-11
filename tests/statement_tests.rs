@@ -26,23 +26,23 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         // The two arguments are "a" and "b"
         let a = env.get_value("a")?;
         let b = env.get_value("b")?;
-        if let CortexValue::Number(a_val) = a {
-            if let CortexValue::Number(b_val) = b {
-                Ok(CortexValue::Number(a_val + b_val))
+        if let CortexValue::I32(a_val) = a {
+            if let CortexValue::I32(b_val) = b {
+                Ok(CortexValue::I32(a_val + b_val))
             } else {
-                Err(Box::new(TestError::Err("b is not a number")))
+                Err(Box::new(TestError::Err("b is not an i32")))
             }
         } else {
-            Err(Box::new(TestError::Err("a is not a number")))
+            Err(Box::new(TestError::Err("a is not an i32")))
         }
     }));
     let add_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("add")),
         vec![
-            Parameter::named("a", PType::number()),
-            Parameter::named("b", PType::number())
+            Parameter::named("a", PType::i32()),
+            Parameter::named("b", PType::i32())
         ],
-        PType::number(),
+        PType::i32(),
         add_body,
         vec![],
     );
