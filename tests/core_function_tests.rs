@@ -97,7 +97,7 @@ fn test_string_index() -> Result<(), Box<dyn Error>> {
 fn test_string_len() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     run("let str: string = \"hello!\";", &mut interpreter)?;
-    assert("str.len()", "6", &mut interpreter)?;
+    assert("str.len()", "6usz", &mut interpreter)?;
     Ok(())
 }
 

@@ -328,9 +328,9 @@ impl CortexPreprocessor {
                                 let startv = field_values.get(&String::from("start")).unwrap().borrow().clone();
                                 let endv = field_values.get(&String::from("end")).unwrap().borrow().clone();
                                 let stepv = field_values.get(&String::from("step")).unwrap().borrow().clone();
-                                let start = some_or(startv, 0usize, strval.len())?;
-                                let end = some_or(endv, strval.len(), strval.len())?;
-                                let step = some_or(stepv, 1usize, strval.len())?;
+                                let start = some_or(startv, 0isize)? as usize;
+                                let end = some_or(endv, strval.len() as isize)? as usize;
+                                let step = some_or(stepv, 1isize)? as usize;
                                 if start > strval.len() {
                                     return Err(Box::new(RuntimeError::InvalidIndex(start, strval.len())));
                                 }
@@ -527,8 +527,8 @@ fn pad_end(s: &str, width: usize, pad_char: char) -> String {
     }
 }
 
-fn some_or(v: CortexValue, other: usize, max: usize) -> Result<usize, Box<dyn Error>> {
-    if let CortexValue::USZ(n) = v {
+fn some_or(v: CortexValue, other: isize) -> Result<isize, Box<dyn Error>> {
+    if let CortexValue::ISZ(n) = v {
         Ok(n)
     } else {
         Ok(other)

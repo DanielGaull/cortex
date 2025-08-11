@@ -40,7 +40,7 @@ fn test_function_errors() -> Result<(), Box<dyn Error>> {
     assert_err("simple::add(1);", PreprocessingError::MismatchedArgumentCount(String::from("simple::add"), 2, 1), &mut interpreter)?;
     assert_err("simple::add(1, 2, 3);", PreprocessingError::MismatchedArgumentCount(String::from("simple::add"), 2, 3), &mut interpreter)?;
     assert_err("simple::add(1, true);", PreprocessingError::MismatchedType(String::from("i32"), String::from("bool"), String::from("b"), String::from("simple::add(1, true)")), &mut interpreter)?;
-    assert_err("simple::generic<i32>(true);", PreprocessingError::MismatchedType(String::from("i32"), String::from("bool"), String::from("t"), String::from("simple::generic<number>(true)")), &mut interpreter)?;
+    assert_err("simple::generic<i32>(true);", PreprocessingError::MismatchedType(String::from("i32"), String::from("bool"), String::from("t"), String::from("simple::generic<i32>(true)")), &mut interpreter)?;
     Ok(())
 }
 

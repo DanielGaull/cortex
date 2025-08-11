@@ -86,6 +86,10 @@ impl CortexInterpreter {
         self.heap.sz()
     }
 
+    pub fn heap_lookup(&self, addr: usize) -> CortexValue {
+        self.heap.get(addr).borrow().clone()
+    }
+
     pub fn register_module(&mut self, path: &PathIdent, module: Module) -> Result<(), CortexError> {
         self.preprocessor.register_module(path, module)
     }

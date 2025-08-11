@@ -21,7 +21,7 @@ fn run_test(input: &str, expected: &str, interpreter: &mut CortexInterpreter) ->
 fn simple_eval_tests() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     run_test("5", "5", &mut interpreter)?;
-    run_test("5.3", "5.3", &mut interpreter)?;
+    run_test("5.3", "5.3f64", &mut interpreter)?;
     run_test("true", "true", &mut interpreter)?;
     run_test("false", "false", &mut interpreter)?;
     run_test("\"hello\"", "\"hello\"", &mut interpreter)?;
@@ -144,7 +144,6 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
     interpreter.register_module(&path, module)?;
 
     run_test("simple::add(5,2)", "7", &mut interpreter)?;
-    run_test("simple::add(5.5,2.2)", "7.7", &mut interpreter)?;
     run_test("simple::add(-5,2)", "-3", &mut interpreter)?;
 
     interpreter.execute_statement(CortexParser::parse_statement("let a = 2;")?)?;

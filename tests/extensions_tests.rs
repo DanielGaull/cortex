@@ -13,7 +13,7 @@ fn test_extensions() -> Result<(), Box<dyn Error>> {
     let program = CortexParser::parse_program(&content)?;
     interpreter.run_program(program)?;
 
-    assert_expression_or("toString(main())", "\"&({x: 4, y: 4})\"", "\"&({y: 4, x: 4})\"", &mut interpreter)?;
+    assert_expression_or("@main()", "{ y:4;x:4; }", "{ x:4;y:4; }", &mut interpreter)?;
 
     Ok(())
 }
