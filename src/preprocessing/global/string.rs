@@ -38,7 +38,7 @@ impl CortexPreprocessor {
                                 }
                                 Ok(CortexValue::Char(bytes[index]))
                             } else {
-                                Err(Box::new(RuntimeError::InvalidArg("index", "number")))
+                                Err(Box::new(RuntimeError::InvalidArg("index", "usz")))
                             }
                         } else {
                             Err(Box::new(RuntimeError::InvalidArg("this", "string")))
@@ -237,7 +237,7 @@ impl CortexPreprocessor {
                                     Err(Box::new(RuntimeError::InvalidArg("c", "char")))
                                 }
                             } else {
-                                Err(Box::new(RuntimeError::InvalidArg("width", "number")))
+                                Err(Box::new(RuntimeError::InvalidArg("width", "usz")))
                             }
                         } else {
                             Err(Box::new(RuntimeError::InvalidArg("this", "string")))
@@ -263,7 +263,7 @@ impl CortexPreprocessor {
                                     Err(Box::new(RuntimeError::InvalidArg("c", "char")))
                                 }
                             } else {
-                                Err(Box::new(RuntimeError::InvalidArg("width", "number")))
+                                Err(Box::new(RuntimeError::InvalidArg("width", "usz")))
                             }
                         } else {
                             Err(Box::new(RuntimeError::InvalidArg("this", "string")))
@@ -284,7 +284,7 @@ impl CortexPreprocessor {
                                 let s = strval.repeat(width);
                                 Ok(CortexValue::String(String::from(s)))
                             } else {
-                                Err(Box::new(RuntimeError::InvalidArg("times", "number")))
+                                Err(Box::new(RuntimeError::InvalidArg("times", "usz")))
                             }
                         } else {
                             Err(Box::new(RuntimeError::InvalidArg("this", "string")))
@@ -307,7 +307,7 @@ impl CortexPreprocessor {
                                 let addr = heap.allocate(split_list);
                                 Ok(CortexValue::Reference(addr))
                             } else {
-                                Err(Box::new(RuntimeError::InvalidArg("times", "number")))
+                                Err(Box::new(RuntimeError::InvalidArg("times", "usz")))
                             }
                         } else {
                             Err(Box::new(RuntimeError::InvalidArg("this", "string")))

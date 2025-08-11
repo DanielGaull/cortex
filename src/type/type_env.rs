@@ -90,8 +90,8 @@ impl TypeEnvironment {
         params.clone().into_iter().zip(values.clone()).collect()
     }
 
-    // For example, going from Iterator<D> where Wrapper<D> follows Iterator<D> when we have a Wrapper<number>
-    // to an Iterator<number>
+    // For example, going from Iterator<D> where Wrapper<D> follows Iterator<D> when we have a Wrapper<i32>
+    // to an Iterator<i32>
     // Returns a list (in the same order as in the typedef) of all follows entries, filled in
     pub(crate) fn fill_in_follows_entry_from_typedef(type_args: Vec<RTypeArg>, type_params: Vec<TypeParam>, followed_contracts: Vec<RFollowsEntry>) -> Result<Vec<RFollowsEntry>, TypeError> {
         let type_arg_map: HashMap<_, _> = type_params.into_iter().zip(type_args).collect();

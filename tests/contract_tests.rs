@@ -14,7 +14,7 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
     interpreter.run_program(program)?;
 
     run("let myList = [1, 2, 3];", &mut interpreter)?;
-    run("let wrapper = heap ListWrapper<number> { items: myList, index: 0, };", &mut interpreter)?;
+    run("let wrapper = heap ListWrapper<i32> { items: myList, index: 0, };", &mut interpreter)?;
     run("let addFn = heap AddMapFn { value: 1, };", &mut interpreter)?;
     assert("toString(mapper(wrapper, addFn))", "\"&([2, 3, 4])\"", &mut interpreter)?;
 
@@ -22,31 +22,31 @@ fn test_contracts() -> Result<(), Box<dyn Error>> {
     assert("myBoxNumber.add(5)", "10", &mut interpreter)?;
     assert("myBoxNumber.map(5)", "0", &mut interpreter)?;
 
-    run("let addFn2: follows MapFn<number, number> = heap AddMapFn {value: 1};", &mut interpreter)?;
+    run("let addFn2: follows MapFn<i32, i32> = heap AddMapFn {value: 1};", &mut interpreter)?;
     assert("addFn2.map(1)", "2", &mut interpreter)?;
-    run("let box = heap Box<follows MapFn<number, number>> {item: addFn2};", &mut interpreter)?;
+    run("let box = heap Box<follows MapFn<i32, i32>> {item: addFn2};", &mut interpreter)?;
     assert("box.get().map(1)", "2", &mut interpreter)?;
-    run("let addFn3: follows MapFn<number, number> = heap AddMapFn {value: 3};", &mut interpreter)?;
+    run("let addFn3: follows MapFn<i32, i32> = heap AddMapFn {value: 3};", &mut interpreter)?;
     run("box.item = addFn3;", &mut interpreter)?;
     assert("box.get().map(1)", "4", &mut interpreter)?;
     run("box.set(addFn2);", &mut interpreter)?;
     assert("box.get().map(1)", "2", &mut interpreter)?;
 
-    run("wrapper = heap ListWrapper<number> { items: [1, 2, 3], index: 0, };", &mut interpreter)?;
-    run("let iterTuple: (follows Iterator<number>,) = (wrapper,);", &mut interpreter)?;
+    run("wrapper = heap ListWrapper<i32> { items: [1, 2, 3], index: 0, };", &mut interpreter)?;
+    run("let iterTuple: (follows Iterator<i32>,) = (wrapper,);", &mut interpreter)?;
     assert("iterTuple.t0.next()", "1", &mut interpreter)?;
 
     // TODO: uncomment in the future once all issues with this test are fixed
-    // run("wrapper = heap ListWrapper<number> { items: [1, 2, 3], index: 0, };", &mut interpreter)?;
-    // run("let iterList: &mut list<follows Iterator<number>> = [wrapper];", &mut interpreter)?;
+    // run("wrapper = heap ListWrapper<i32> { items: [1, 2, 3], index: 0, };", &mut interpreter)?;
+    // run("let iterList: &mut list<follows Iterator<i32>> = [wrapper];", &mut interpreter)?;
     // assert("iterList[0].next()", "1", &mut interpreter)?;
 
-    run("let myOtherListWrapper = heap OtherListWrapper<number>{ items: [1, 2, 3] };", &mut interpreter)?;
+    run("let myOtherListWrapper = heap OtherListWrapper<i32>{ items: [1, 2, 3] };", &mut interpreter)?;
     run("let result = myOtherListWrapper.map(addFn2);", &mut interpreter)?;
     assert("toString(result)", "\"&([2, 3, 4])\"", &mut interpreter)?;
 
-    run("wrapper = heap ListWrapper<number> { items: [1, 2, 3], index: 0, };", &mut interpreter)?;
-    run("let myIteratorMapper = heap IteratorMapper<number, number>{ iter: wrapper, mapper: addFn2 };", &mut interpreter)?;
+    run("wrapper = heap ListWrapper<i32> { items: [1, 2, 3], index: 0, };", &mut interpreter)?;
+    run("let myIteratorMapper = heap IteratorMapper<i32, i32>{ iter: wrapper, mapper: addFn2 };", &mut interpreter)?;
     run("result = myIteratorMapper.map();", &mut interpreter)?;
     assert("toString(result)", "\"&([2, 3, 4])\"", &mut interpreter)?;
 
@@ -73,7 +73,7 @@ fn test_contracts2() -> Result<(), Box<dyn Error>> {
 
     run("let t: follows Transformer = heap IdentityTransformer {};", &mut interpreter)?;
     assert("t.transform(5)", "5", &mut interpreter)?;
-    assert("t.transform<number?>(none)", "none", &mut interpreter)?;
+    assert("t.transform<i32?>(none)", "none", &mut interpreter)?;
 
     Ok(())
 }

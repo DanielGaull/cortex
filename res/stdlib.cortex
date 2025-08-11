@@ -1,12 +1,12 @@
 module stdlib {
     extend<T: ty> span<T> {
-        fn __indexGet(&this, index: number): T {
+        fn __indexGet(&this, index: usz): T {
             let boxThis = anon this;
             let boxedResult = corelib::spanIndexGetSingleAnonymous(boxThis, index);
             deanon<T> boxedResult
         }
 
-        fn __indexSet(&mut this, index: number, value: T): void {
+        fn __indexSet(&mut this, index: usz, value: T): void {
             let boxThis = anon this;
             let boxValue = anon value;
             corelib::spanIndexAssignSingleAnonymous(boxThis, index, boxValue);
@@ -16,7 +16,7 @@ module stdlib {
     module collections {
         struct List<T: ty> {
             items: &mut span<T>,
-            len: number,
+            len: usz,
 
             
         }

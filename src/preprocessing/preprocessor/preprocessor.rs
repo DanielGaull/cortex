@@ -489,7 +489,7 @@ impl CortexPreprocessor {
                         if typ == RType::i32() {
                             Ok((RExpression::UnaryOperation { op: UnaryOperator::Negate, exp: Box::new(exp) }, RType::i32(), statements))
                         } else {
-                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("number", "-", typ.codegen(0))))
+                            Err(Box::new(PreprocessingError::InvalidOperatorUnary("i32", "-", typ.codegen(0))))
                         }
                     },
                     UnaryOperator::Invert => {

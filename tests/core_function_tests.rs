@@ -74,7 +74,7 @@ fn test_list_add_insert_remove() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_list_index_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
-    run("let myList: &list<number> = [1, 2, 3];", &mut interpreter)?;
+    run("let myList: &list<i32> = [1, 2, 3];", &mut interpreter)?;
     // assert_err("myList[-2];", RuntimeError::InvalidIndex(-2usize, 3usize), &mut interpreter)?; // Should now throw a type error
     assert_err("myList[4];", RuntimeError::InvalidIndex(4usize, 3usize), &mut interpreter)?;
     Ok(())

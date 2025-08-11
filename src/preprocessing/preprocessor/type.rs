@@ -58,7 +58,7 @@ impl CortexPreprocessor {
             (RType::BasicType(name1, ta1), RType::BasicType(name2, ta2)) => {
                 if name1 == name2 {
                     if !are_type_args_equal(&ta1, &ta2) {
-                        // When there's only 1 type argument, we can try to combine it (ex. a list<number?> with a list<number>)
+                        // When there's only 1 type argument, we can try to combine it (ex. a span<i32?> with a span<i32>)
                         if ta1.len() == 1 && ta2.len() == 1 {
                             if let Some(inner) = self.combine_type_args(ta1.get(0).unwrap().clone(), ta2.get(0).unwrap().clone())? {
                                 Ok(Some(RType::basic(name1.clone(), vec![inner])))
