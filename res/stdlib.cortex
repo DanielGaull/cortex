@@ -14,11 +14,35 @@ module stdlib {
     }
 
     module collections {
-        struct List<T: ty> {
-            items: &mut span<T>,
-            len: usz,
+        fn newList<T>(): &mut List<T> {
+            heap List<T> {
+                items: [],
+                len: 0,
+                capacity: 0,
+            }
+        }
 
-            
+        struct List<T: ty> {
+            _items: &mut span<T>,
+            _len: usz,
+            _capacity: usz,
+
+            fn add(&mut this, item: T) {
+                if this._len >= this._capacity {
+                    // TODO: finish writing this
+                    // Would be nice to have for loops first to help w/ copying values
+                } else {
+                    _items[this._len] = item;
+                    this._len += 1;
+                }
+            }
+
+            fn len(&this): usz {
+                this._len
+            }
+            fn capacity(&this): usz {
+                this._capacity
+            }
         }
     }
 }
