@@ -29,20 +29,25 @@ impl CortexPreprocessor {
             OptionalIdentifier::Ident(String::from("spanIndexSingleAnonymous")),
             vec![Parameter::named("inputSpan", PType::anonbox()), Parameter::named("index", PType::number())],
             PType::anonbox(),
-            Body::Native(Box::new(|env, _heap| {
+            Body::Native(Box::new(|env, heap| {
                 let span = env.get_value("inputSpan")?;
                 let index = env.get_value("index")?;
-                if let (CortexValue::Span(span), CortexValue::Number(index)) = (span, index) {
-                    if let Some(index) = f64_to_usize(index) {
-                        let value = span.get(index);
-                        if let Some(result) = value {
-                            let true_result = CortexValue::AnonymousBox(Box::new(result.clone()));
-                            Ok(true_result)
+                if let (CortexValue::Reference(span_address), CortexValue::Number(index)) = (span, index) {
+                    let span = heap.get(span_address).borrow().clone();
+                    if let CortexValue::Span(span) = span {
+                        if let Some(index) = f64_to_usize(index) {
+                            let value = span.get(index);
+                            if let Some(result) = value {
+                                let true_result = CortexValue::AnonymousBox(Box::new(result.clone()));
+                                Ok(true_result)
+                            } else {
+                                Err(Box::new(CoreLibError::MissingValueAtIndex(format!("{}", index))))
+                            }
                         } else {
-                            Err(Box::new(CoreLibError::MissingValueAtIndex(format!("{}", index))))
+                            Err(Box::new(CoreLibError::ExpectedInteger(format!("{}", index))))
                         }
                     } else {
-                        Err(Box::new(CoreLibError::ExpectedInteger(format!("{}", index))))
+                        Err(Box::new(CoreLibError::MismatchedTypes(String::from("span<T>, number"))))
                     }
                 } else {
                     Err(Box::new(CoreLibError::MismatchedTypes(String::from("span<T>, number"))))

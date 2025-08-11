@@ -1,3 +1,9 @@
 module stdlib {
-    
+    extend<T: ty> span<T> {
+        fn __indexGet(&this, index: number): T {
+            let thisBox = anon this;
+            let boxedResult = corelib::spanIndexSingleAnonymous(thisBox, index);
+            deanon<T> boxedResult
+        }
+    }
 }
