@@ -1,7 +1,7 @@
 struct Box {
-    value: number,
+    value: i32,
 
-    fn increment(&mut this, amount: number) {
+    fn increment(&mut this, amount: i32) {
         this.value += amount;
     }
 }
@@ -15,21 +15,21 @@ struct BoxedBox {
 }
 
 struct Access {
-    dummy: number,
+    dummy: i32,
 
-    fn __indexGet(&this, val: number): number {
+    fn __indexGet(&this, val: i32): i32 {
         val
     }
-    fn __indexSet(&mut this, idx: number, val: number) {
+    fn __indexSet(&mut this, idx: i32, val: i32) {
         this.dummy = idx + val;
     }
 }
 
-fn getBox(value: number): &mut Box {
+fn getBox(value: i32): &mut Box {
     heap Box {
         value: value,
     }
 }
-fn incValue(box: &mut Box, amt: number): void {
+fn incValue(box: &mut Box, amt: i32): void {
     box.value += amt;
 }

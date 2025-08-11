@@ -3,17 +3,17 @@ module mystd {
         fn add(this, other: T): T;
     }
 
-    struct MyAddFollower follows MyAdd<number> {
-        value: number,
+    struct MyAddFollower follows MyAdd<i32> {
+        value: i32,
 
-        fn add(this, other: number): number {
+        fn add(this, other: i32): i32 {
             this.value + other
         }
     }
 }
 
-extend number follows mystd::MyAdd<number> {
-    fn add(this, other: number): number {
+extend i32 follows mystd::MyAdd<i32> {
+    fn add(this, other: i32): i32 {
         this + other
     }
 }

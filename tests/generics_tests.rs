@@ -17,15 +17,15 @@ fn test_identity() -> Result<(), Box<dyn Error>> {
     assert_exp("identity(none)", "none", &mut interpreter)?;
     assert_exp_or("identity((2, 3))", "{ t0:2;t1:3; }", "{ t1:3;t0:2; }", &mut interpreter)?;
 
-    assert_exp("identity<number?>(5)", "5", &mut interpreter)?;
-    assert_exp("identity<number?>(none)", "none", &mut interpreter)?;
-    assert_exp("identity<(number,)>((5,))", "{ t0:5; }", &mut interpreter)?;
+    assert_exp("identity<i32?>(5)", "5", &mut interpreter)?;
+    assert_exp("identity<i32?>(none)", "none", &mut interpreter)?;
+    assert_exp("identity<(i32,)>((5,))", "{ t0:5; }", &mut interpreter)?;
 
     assert_exp("getFirst((2, \"string\"))", "2", &mut interpreter)?;
 
-    run("let box = heap Box<number>{item: 5};", &mut interpreter)?;
-    assert_exp("box.identity<number?>(5)", "5", &mut interpreter)?;
-    assert_exp("box.identity<number?>(none)", "none", &mut interpreter)?;
+    run("let box = heap Box<i32>{item: 5};", &mut interpreter)?;
+    assert_exp("box.identity<i32?>(5)", "5", &mut interpreter)?;
+    assert_exp("box.identity<i32?>(none)", "none", &mut interpreter)?;
 
     Ok(())
 }
@@ -41,11 +41,11 @@ fn test_box() -> Result<(), Box<dyn Error>> {
     let program = CortexParser::parse_program(&content)?;
     interpreter.run_program(program)?;
 
-    run("let box = heap Box<number>{item: 5};", &mut interpreter)?;
+    run("let box = heap Box<i32>{item: 5};", &mut interpreter)?;
     assert_exp("box.get()", "5", &mut interpreter)?;
     run("box.set(100);", &mut interpreter)?;
     assert_exp("box.get()", "100", &mut interpreter)?;
-    run("let val: number = readBox(box);", &mut interpreter)?;
+    run("let val: i32 = readBox(box);", &mut interpreter)?;
     assert_exp("val", "100", &mut interpreter)?;
 
     Ok(())

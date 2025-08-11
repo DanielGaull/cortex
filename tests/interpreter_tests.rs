@@ -253,7 +253,7 @@ fn heap_struct_tests() -> Result<(), Box<dyn Error>> {
 fn recursive_function_test() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     let f = 
-        "fn factorial(n: number): number {\
+        "fn factorial(n: i32): i32 {\
             if n <= 0 {\
                 1\
             } else {\

@@ -1,10 +1,10 @@
 module GeometryExtended {
     module Geometry {
         struct Point {
-            x: number,
-            y: number,
+            x: i32,
+            y: i32,
 
-            fn incX(&mut this, amount: number) {
+            fn incX(&mut this, amount: i32) {
                 this.x += amount;
             }
         }
@@ -12,7 +12,7 @@ module GeometryExtended {
 }
 
 extend GeometryExtended::Geometry::Point {
-    fn incY(&mut this, amount: number) {
+    fn incY(&mut this, amount: i32) {
         this.y += amount;
     }
 }

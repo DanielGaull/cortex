@@ -68,7 +68,7 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test_expected("5 * 7 + 2", "(5 * 7) + 2")?;
     run_expression_test("5 >= 2")?;
     run_expression_test("time::Time { hours: 5, minutes: 5, seconds: 5, }")?;
-    run_expression_test("simple::Box<number> { item: 5, }")?;
+    run_expression_test("simple::Box<i32> { item: 5, }")?;
     run_expression_test("test!")?;
     run_expression_test("test != 7")?;
     run_expression_test("foo.bar")?;
@@ -87,13 +87,13 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("heap 5")?;
     run_expression_test("heap true")?;
     run_expression_test("heap foo.bar")?;
-    run_expression_test("heap simple::Box<number> { item: 5, }")?;
+    run_expression_test("heap simple::Box<i32> { item: 5, }")?;
     run_expression_test("@value")?;
     run_expression_test("@(heap 5)")?;
     run_expression_test("anon 5")?;
     run_expression_test("anon heap anon heap 5")?;
-    run_expression_test("deanon<number> value")?;
-    run_expression_test("deanon<number> anon 5")?;
+    run_expression_test("deanon<i32> value")?;
+    run_expression_test("deanon<i32> anon 5")?;
     Ok(())
 }
 
@@ -107,26 +107,26 @@ fn test_parse_paths() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_types() -> Result<(), Box<dyn Error>> {
-    run_type_test("number")?;
-    run_type_test("number?")?;
+    run_type_test("i32")?;
+    run_type_test("i32?")?;
     run_type_test("Geometry::Point")?;
     run_type_test("&Point")?;
     run_type_test("&mut Point")?;
     run_type_test("(&mut Point)?")?;
     run_type_test("(&mut Geometry::Point)?")?;
-    run_type_test("Box<number>")?;
-    run_type_test("&Box<number>")?;
-    run_type_test("&mut Box<number>")?;
-    run_type_test("(number, number)")?;
-    run_type_test("(number,)")?;
-    run_type_test("(&mut Box<number>, &list<string>)")?;
+    run_type_test("Box<i32>")?;
+    run_type_test("&Box<i32>")?;
+    run_type_test("&mut Box<i32>")?;
+    run_type_test("(i32, i32)")?;
+    run_type_test("(i32,)")?;
+    run_type_test("(&mut Box<i32>, &list<string>)")?;
     run_type_test("follows X")?;
     run_type_test("follows X + Y")?;
-    run_type_test("follows X<number> + Y<string>")?;
+    run_type_test("follows X<i32> + Y<string>")?;
     run_type_test("follows X<T> + Y<R> + Z<A, B>")?;
-    run_type_test("(&mut Box<number>, &list<string>)?")?;
+    run_type_test("(&mut Box<i32>, &list<string>)?")?;
     run_type_test("(follows X<T> + Y<R> + Z<A, B>)?")?;
-    run_type_test_expected("Box<number>[]", "span<Box<number>>")?;
+    run_type_test_expected("Box<i32>[]", "span<Box<i32>>")?;
     Ok(())
 }
 
@@ -136,9 +136,9 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("none;")?;
     run_statement_test("print(hello, \"hi\");")?;
     run_statement_test("let x = 5;")?;
-    run_statement_test("let x: number = 5;")?;
+    run_statement_test("let x: i32 = 5;")?;
     run_statement_test("const x = 5;")?;
-    run_statement_test("const x: number = 5;")?;
+    run_statement_test("const x: i32 = 5;")?;
     run_statement_test("let ~ = 5;")?;
     run_statement_test("x = 5;")?;
     run_statement_test("while true {\n    x = x + 1;\n}")?;
@@ -155,10 +155,10 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_functions() -> Result<(), Box<dyn Error>> {
-    run_function_test("fn test(x: number): void {\n    stop;\n}")?;
-    run_function_test("fn test(x: number): void {\n    const x: number = 5;\n    x;\n}")?;
-    run_function_test("fn test(x: number): number {\n    const x: number = 5;\n    x\n}")?;
-    run_function_test("fn ~(x: number): void {\n    throw;\n}")?;
+    run_function_test("fn test(x: i32): void {\n    stop;\n}")?;
+    run_function_test("fn test(x: i32): void {\n    const x: i32 = 5;\n    x;\n}")?;
+    run_function_test("fn test(x: i32): i32 {\n    const x: i32 = 5;\n    x\n}")?;
+    run_function_test("fn ~(x: i32): void {\n    throw;\n}")?;
     run_function_test("fn test(): void {\n    throw;\n}")?;
     run_function_test("fn ~(): void {\n    throw;\n}")?;
     run_function_test_expected("fn test() {\n    throw;\n}", "fn test(): void {\n    throw;\n}")?;
@@ -177,15 +177,15 @@ fn test_import() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_top_level() -> Result<(), Box<dyn Error>> {
-    run_top_level_test("fn test(x: number): void {\n    stop;\n}")?;
-    run_top_level_test("module myMod {\n    fn test(x: number): void {\n        stop;\n    }\n}")?;
+    run_top_level_test("fn test(x: i32): void {\n    stop;\n}")?;
+    run_top_level_test("module myMod {\n    fn test(x: i32): void {\n        stop;\n    }\n}")?;
     run_top_level_test_or(
-        "struct Point {\n    x: number,\n    y: number,\n}\n",
-        "struct Point {\n    y: number,\n    x: number,\n}\n"
+        "struct Point {\n    x: i32,\n    y: i32,\n}\n",
+        "struct Point {\n    y: i32,\n    x: i32,\n}\n"
     )?;
     run_top_level_test_or(
-        "struct Point {\n    x: number,\n    y: number,\n    fn incX(&mut this, amt: number): void {\n        this.x = this.x + amt;\n    }\n}\n",
-        "struct Point {\n    y: number,\n    x: number,\n    fn incX(&mut this, amt: number): void {\n        this.x = this.x + amt;\n    }\n}\n"
+        "struct Point {\n    x: i32,\n    y: i32,\n    fn incX(&mut this, amt: i32): void {\n        this.x = this.x + amt;\n    }\n}\n",
+        "struct Point {\n    y: i32,\n    x: i32,\n    fn incX(&mut this, amt: i32): void {\n        this.x = this.x + amt;\n    }\n}\n"
     )?;
     run_top_level_test_expected("struct Box<T> {\n    item: T,\n}\n", "struct Box<T: ty> {\n    item: T,\n}\n")?;
     run_top_level_test_expected(
@@ -193,8 +193,8 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
         "struct Box<T: ty> {\n    fn doAThing<U: ty>(&this): void {\n    }\n}\n"
     )?;
     run_top_level_test("extend string {\n}\n")?;
-    run_top_level_test("extend string {\n    fn len(&this): number {\n        5\n    }\n}\n")?;
-    run_top_level_test("extend number follows Add<number> {\n}\n")?;
+    run_top_level_test("extend string {\n    fn len(&this): i32 {\n        5\n    }\n}\n")?;
+    run_top_level_test("extend i32 follows Add<i32> {\n}\n")?;
     run_top_level_test("extend<T: ty> list<T> {\n}\n")?;
 
     run_top_level_test("contract Empty {\n}\n")?;
@@ -226,7 +226,7 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
         "struct Box<T,R> follows Iterator<R, T> + Iterable<R, R> {\n}\n",
         "struct Box<T: ty,R: ty> follows Iterator<R, T> + Iterable<R, R> {\n}\n"
     )?;
-    run_top_level_test("struct NumList follows Iterator<number> {\n}\n")?;
+    run_top_level_test("struct NumList follows Iterator<i32> {\n}\n")?;
     run_top_level_test_expected(
         "struct DTupleList<T> follows Iterator<(T, T)> {\n}\n",
     "struct DTupleList<T: ty> follows Iterator<(T, T)> {\n}\n"

@@ -58,7 +58,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
 fn statement_tests() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
     run_statement("let x = 5;", &mut interpreter)?;
-    run_statement("let y: number = 7;", &mut interpreter)?;
+    run_statement("let y: i32 = 7;", &mut interpreter)?;
     run_statement("let z = simple::add(x,y);", &mut interpreter)?;
     assert_expression("x", "5", &mut interpreter)?;
     assert_expression("y", "7", &mut interpreter)?;
@@ -88,7 +88,7 @@ fn statement_tests() -> Result<(), Box<dyn Error>> {
     run_statement("while myNum < 10 { myNum += 1; }", &mut interpreter)?;
     assert_expression("myNum", "10", &mut interpreter)?;
 
-    run_statement("let myOptionalNum: number? = 5;", &mut interpreter)?;
+    run_statement("let myOptionalNum: i32? = 5;", &mut interpreter)?;
     assert_expression("myOptionalNum", "5", &mut interpreter)?;
     run_statement("myOptionalNum = none;", &mut interpreter)?;
     assert_expression("myOptionalNum", "none", &mut interpreter)?;
@@ -132,7 +132,7 @@ fn tuple_declaration_tests() -> Result<(), Box<dyn Error>> {
     assert_expression("x", "3", &mut interpreter)?;
     assert_expression("y", "5", &mut interpreter)?;
 
-    run_statement("let (tx, ty, tz): (number, number, number) = (1, 2, 3);", &mut interpreter)?;
+    run_statement("let (tx, ty, tz): (i32, i32, i32) = (1, 2, 3);", &mut interpreter)?;
     assert_expression("tx", "1", &mut interpreter)?;
     assert_expression("ty", "2", &mut interpreter)?;
     assert_expression("tz", "3", &mut interpreter)?;

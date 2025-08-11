@@ -14,12 +14,12 @@ module Second {
     }
 }
 
-fn test(value: number): number {
+fn test(value: i32): i32 {
     First::id(Second::identity(value))
 }
 
-fn test2(value: number): number {
-    let box: First::Box<number>? = First::Box<number> { item: value };
+fn test2(value: i32): i32 {
+    let box: First::Box<i32>? = First::Box<i32> { item: value };
     if box == none {
         let one = First::id(value);
         let two = Second::identity(one);

@@ -21,13 +21,13 @@ fn run_simple_type_tests() -> Result<(), Box<dyn Error>> {
     run_test("void", "void", &mut interpreter)?;
     run_test("(((void)))", "void", &mut interpreter)?;
     run_test("none", "none", &mut interpreter)?;
-    run_test("[1]", "&mut list<i32>", &mut interpreter)?;
-    run_test("[1, none]", "&mut list<i32?>", &mut interpreter)?;
+    run_test("[1]", "span<i32>", &mut interpreter)?;
+    run_test("[1, none]", "span<i32?>", &mut interpreter)?;
     run_test("(1,)", "(i32,)", &mut interpreter)?;
     run_test("(1, 2)", "(i32, i32)", &mut interpreter)?;
     run_test("(1, true, \"hello\")", "(i32, bool, string)", &mut interpreter)?;
     run_test("(1, true, \"hello\").t1", "bool", &mut interpreter)?;
-    run_test("[(none, 5), (true, none)]", "&mut list<(bool?, i32?)>", &mut interpreter)?;
+    run_test("[(none, 5), (true, none)]", "span<(bool?, i32?)>", &mut interpreter)?;
     run_test("heap 5", "&mut i32", &mut interpreter)?;
     Ok(())
 }
@@ -181,8 +181,8 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
 fn run_inference_type_tests() -> Result<(), Box<dyn Error>> {
     // Tests where absence of an error is all that is expected
     let mut interpreter = CortexInterpreter::new()?;
-    interpreter.execute_statement(CortexParser::parse_statement("let l1: &list<i32> = [];")?)?;
-    interpreter.execute_statement(CortexParser::parse_statement("let l2: (&list<i32>, &list<string>) = ([], []);")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let l1: span<i32> = [];")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement("let l2: (span<i32>, span<string>) = ([], []);")?)?;
 
     Ok(())
 }

@@ -4,8 +4,8 @@ contract Iterator<T> {
 }
 
 struct ListWrapper<D> follows Iterator<D> {
-    items: &mut list<D>,
-    index: number,
+    items: &mut List<D>,
+    index: usz,
 
     fn next(&mut this): D {
         let result = this.items[this.index];
@@ -21,16 +21,16 @@ contract MapFn<T, R> {
     fn map(&this, item: T): R;
 }
 
-struct AddMapFn follows MapFn<number, number> {
-    value: number,
+struct AddMapFn follows MapFn<i32, i32> {
+    value: i32,
 
-    fn map(&this, item: number): number {
+    fn map(&this, item: i32): i32 {
         item + this.value
     }
 }
 
-fn mapper<T, R>(iter: follows Iterator<T>, function: follows MapFn<T, R>): &mut list<R> {
-    let result: &mut list<R> = [];
+fn mapper<T, R>(iter: follows Iterator<T>, function: follows MapFn<T, R>): &mut List<R> {
+    let result: &mut List<R> = [];
     while iter.hasNext() {
         let item = function.map(iter.next());
         result.add(item);
@@ -66,10 +66,10 @@ struct Box<T> {
 }
 
 struct OtherListWrapper<D> {
-    items: &mut list<D>,
+    items: &mut List<D>,
 
-    fn map<R>(&this, mapper: follows MapFn<D, R>): &mut list<R> {
-        let result: &mut list<R> = [];
+    fn map<R>(&this, mapper: follows MapFn<D, R>): &mut List<R> {
+        let result: &mut List<R> = [];
         let index = 0;
         while index < this.items.len() {
             result.add(mapper.map(this.items[index]));
@@ -83,7 +83,7 @@ struct IteratorMapper<T, R> {
     iter: follows Iterator<T>,
     mapper: follows MapFn<T, R>,
 
-    fn map(&this): &mut list<R> {
+    fn map(&this): &mut List<R> {
         mapper(this.iter, this.mapper)
     }
 }
@@ -97,7 +97,7 @@ contract SizerWrapper {
 }
 
 struct Square follows Sizer {
-    len: number,
+    len: i32,
 
     fn size(&this): number {
         this.len * this.len
@@ -105,7 +105,7 @@ struct Square follows Sizer {
 }
 
 struct ConcreteShapeSizer follows SizerWrapper {
-    fn size(&this, sz: follows Sizer): number {
+    fn size(&this, sz: follows Sizer): i32 {
         sz.size()
     }
 }
@@ -114,8 +114,8 @@ contract MyAdd<T> {
     fn add(this, rhs: T): T;
 }
 
-extend number follows MyAdd<number> {
-    fn add(this, rhs: number): number {
+extend i32 follows MyAdd<i32> {
+    fn add(this, rhs: i32): i32 {
         this + rhs
     }
 }

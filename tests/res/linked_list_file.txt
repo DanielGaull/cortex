@@ -12,9 +12,9 @@ struct ListNode<T> {
 struct LinkedList<T> {
     head: (&mut ListNode<T>)?,
 
-    fn len(&this): number {
+    fn len(&this): usz {
         let head: (&ListNode<T>)? = this.head;
-        let length = 0;
+        let length = 0usz;
         while head != none {
             head = head!.next;
             length += 1;
@@ -38,8 +38,8 @@ struct LinkedList<T> {
         }
     }
 
-    fn toList(&this): &mut list<T> {
-        let result: &mut list<T> = [];
+    fn toList(&this): &mut List<T> {
+        let result: &mut List<T> = [];
         let head = this.head;
         while head != none {
             let node = head!;

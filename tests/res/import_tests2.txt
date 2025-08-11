@@ -4,12 +4,12 @@ import mylib::LibBox as LibBox;
 struct StringWrapper follows MyLibAFunc {
     value: string,
 
-    fn a(&this, other: number): number {
+    fn a(&this, other: i32): i32 {
         this.value.len() * other
     }
 }
 
-fn multiplyStringLengths(string1: string, amount: number): number {
+fn multiplyStringLengths(string1: string, amount: i32): i32 {
     let wrapper = heap StringWrapper {
         value: string1,
     };

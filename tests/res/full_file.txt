@@ -1,20 +1,20 @@
 // Calls main::main(x, y);
 module main {
-    fn main(x: number, y: number): number {
+    fn main(x: i32, y: i32): i32 {
         x + y
     }
 }
 
 struct Point {
-    x: number,
-    y: number,
+    x: i32,
+    y: i32,
 
-    fn getX(&this): number {
+    fn getX(&this): i32 {
         this.x
     }
 }
 
-fn getPoint(x: number, y: number): Point {
+fn getPoint(x: i32, y: i32): Point {
     Point {
         x: x,
         y: y,

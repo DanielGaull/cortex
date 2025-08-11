@@ -1,10 +1,10 @@
 module Geometry {
     struct Point {
-        x: number,
-        y: number,
+        x: i32,
+        y: i32,
     }
 
-    fn getPoint(x: number, y: number): Point {
+    fn getPoint(x: i32, y: i32): Point {
         let result: Point = Point {
             x: x,
             y: y,
@@ -12,14 +12,14 @@ module Geometry {
         result
     }
 
-    fn abs(n: number): number {
+    fn abs(n: i32): i32 {
         if n < 0 {
             -n
         } else {
             n
         }
     }
-    fn taxiDist(p1: Point, p2: Point): number {
+    fn taxiDist(p1: Point, p2: Point): i32 {
         abs(p2.x - p1.x) + abs(p2.y - p1.y)
     }
 
@@ -27,7 +27,7 @@ module Geometry {
         c1: Point,
         c2: Point,
     }
-    fn rect(x1: number, y1: number, x2: number, y2: number): Rectangle {
+    fn rect(x1: i32, y1: i32, x2: i32, y2: i32): Rectangle {
         Rectangle {
             c1: Point {
                 x: x1,
@@ -41,7 +41,7 @@ module Geometry {
     }
 }
 
-fn testFn(x1: number, y1: number, x2: number, y2: number): number {
+fn testFn(x1: i32, y1: i32, x2: i32, y2: i32): i32 {
     let rect: Geometry::Rectangle = Geometry::rect(x1, y1, x2, y2);
     let dist = Geometry::taxiDist(rect.c1, rect.c2);
     let rect2 = Geometry::Rectangle {
@@ -61,18 +61,18 @@ fn testFn(x1: number, y1: number, x2: number, y2: number): number {
 
 module BGeometry {
     struct Point {
-        x: number,
-        y: number,
+        x: i32,
+        y: i32,
 
-        fn taxiDist(&this, other: &Point): number {
+        fn taxiDist(&this, other: &Point): i32 {
             this.taxiDistHelper(other)
         }
-        fn taxiDistHelper(&this, other: &Point): number {
+        fn taxiDistHelper(&this, other: &Point): i32 {
             abs(other.x - this.x) + abs(other.y - this.y)
         }
     }
 
-    fn getPoint(x: number, y: number): &mut Point {
+    fn getPoint(x: i32, y: i32): &mut Point {
         let result: &mut Point = heap Point {
             x: x,
             y: y,
@@ -80,7 +80,7 @@ module BGeometry {
         result
     }
 
-    fn abs(n: number): number {
+    fn abs(n: i32): i32 {
         if n < 0 {
             -n
         } else {
@@ -92,7 +92,7 @@ module BGeometry {
         c1: &mut Point,
         c2: &mut Point,
     }
-    fn rect(x1: number, y1: number, x2: number, y2: number): &mut Rectangle {
+    fn rect(x1: i32, y1: i32, x2: i32, y2: i32): &mut Rectangle {
         heap Rectangle {
             c1: heap Point {
                 x: x1,
@@ -106,7 +106,7 @@ module BGeometry {
     }
 }
 
-fn btestFn(x1: number, y1: number, x2: number, y2: number): number {
+fn btestFn(x1: i32, y1: i32, x2: i32, y2: i32): i32 {
     let rect: &BGeometry::Rectangle = BGeometry::rect(x1, y1, x2, y2);
     let rectc1: &BGeometry::Point = rect.c1;
     let dist = rect.c1.taxiDist(rect.c2);

@@ -2,17 +2,17 @@ import mylib;
 import drawing::Point as DrawPoint;
 
 // Should just return the value that came into it
-fn doBox(v: number): number {
+fn doBox(v: i32): i32 {
     let box = getBox(v);
     box.get()
 }
 
-fn doBox2(v: number): number {
-    let box: &mylib::LibBox<number> = getBox(v);
+fn doBox2(v: i32): i32 {
+    let box: &mylib::LibBox<i32> = getBox(v);
     readBox(box)
 }
 
-fn numWrapper(v: number): number {
+fn numWrapper(v: i32): i32 {
     let a: follows AFunc = heap NumWrapper { value: 5 };
     a.a(v)
 }
@@ -22,7 +22,7 @@ fn hello(): string {
 }
 
 // Again, returns what was passed into it in a roundabout way
-fn doPoint(x: number, y: number): (number, number) {
+fn doPoint(x: i32, y: i32): (i32, i32) {
     let p = heap DrawPoint {
         coords: (x, y),
     };

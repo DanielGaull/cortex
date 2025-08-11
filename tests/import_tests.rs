@@ -61,7 +61,7 @@ fn test_imports3() -> Result<(), Box<dyn Error>> {
 
     import("import mylib;", &mut interpreter)?;
     import("import libBoxUtils;", &mut interpreter)?;
-    run("let box = heap LibBox<number>{item: 5};", &mut interpreter)?;
+    run("let box = heap LibBox<i32>{item: 5};", &mut interpreter)?;
     assert("box.duplicate().get()", "5", &mut interpreter)?;
 
     Ok(())
@@ -82,7 +82,7 @@ fn test_import_errors1() -> Result<(), Box<dyn Error>> {
 fn test_import_errors2() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
 
-    top_level("struct NumWrapper { value: number }", &mut interpreter)?;
+    top_level("struct NumWrapper { value: i32 }", &mut interpreter)?;
     assert_err_import("import mylib::AFunc as NumWrapper;", PreprocessingError::DuplicateSymbolImport(String::from("NumWrapper")), &mut interpreter)?;
 
     Ok(())

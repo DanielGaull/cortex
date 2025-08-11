@@ -28,13 +28,13 @@ module mylib {
     }
 
     contract AFunc {
-        fn a(&this, other: number): number;
+        fn a(&this, other: i32): i32;
     }
 
     struct NumWrapper follows AFunc {
-        value: number,
+        value: i32,
 
-        fn a(&this, other: number): number {
+        fn a(&this, other: i32): i32 {
             this.value + other
         }
     }
@@ -42,13 +42,13 @@ module mylib {
 
 module drawing {
     struct Point {
-        coords: (number, number),
+        coords: (i32, i32),
 
-        fn getX(&this): number {
+        fn getX(&this): i32 {
             this.coords.t0
         }
 
-        fn getY(&this): number {
+        fn getY(&this): i32 {
             this.coords.t1
         }
     }
