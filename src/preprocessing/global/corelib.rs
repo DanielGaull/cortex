@@ -8,8 +8,6 @@ use crate::{interpreting::value::CortexValue, parsing::ast::{expression::{Option
 pub enum CoreLibError {
     #[error("corelib: mismatched types (expected {0})")]
     MismatchedTypes(String),
-    #[error("corelib: Expected integer ({0})")]
-    ExpectedInteger(String),
     #[error("corelib: Invalid index ({0})")]
     InvalidIndex(String),
 }
@@ -78,13 +76,5 @@ impl CortexPreprocessor {
 
         global.add_module(&PathIdent::simple(String::from("corelib")), corelib)?;
         Ok(())
-    }
-}
-
-fn f64_to_usize(value: f64) -> Option<usize> {
-    if value.is_finite() && value >= 0.0 && value.fract() == 0.0 && value <= usize::MAX as f64 {
-        Some(value as usize)
-    } else {
-        None
     }
 }
