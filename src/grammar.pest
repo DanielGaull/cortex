@@ -77,9 +77,9 @@ void = { "void" ~ !identChar }
 listLiteral = { "[" ~ exprList ~ "]" }
 tuple = { "(" ~ expr ~ "," ~ expr? ~ ("," ~ expr)* ~ ")" }
 
-float = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ ~ ("." ~ (ASCII_DIGIT)+)? }
-f32 = ${ float ~ "f32" }
-f64 = ${ (float ~ "f64") | float }
+float = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ ~ "." ~ (ASCII_DIGIT)+ }
+f32 = ${ (float | int) ~ "f32" }
+f64 = ${ (float | int) ~ "f64" }
 int = @{ ("+" | "-")? ~ (ASCII_DIGIT)+ }
 uint = @{ "+"? ~ (ASCII_DIGIT)+ }
 usz = ${ uint ~ "usz" }
@@ -89,12 +89,12 @@ i8 = ${ int ~ "i8" }
 u16 = ${ uint ~ "u16" }
 i16 = ${ int ~ "i16" }
 u32 = ${ uint ~ "u32" }
-i32 = ${ (int ~ "i32") | int }
+i32 = ${ int ~ "i32" }
 u64 = ${ uint ~ "u64" }
 i64 = ${ int ~ "i64" }
-numbers = _{ f32 | f64 | usz | isz | u8 | i8 | u16 | i16 | u32 | i32 | u64 | i64 }
+numbers = _{ f32 | f64 | float | usz | isz | u8 | i8 | u16 | i16 | u32 | i32 | u64 | i64 | int }
 
-rangeVal = { uint | "" }
+rangeVal = { int | "" }
 range = { rangeVal ~ ":" ~ rangeVal ~ (":" ~ rangeVal)? }
 
 char = @{ "\'" ~ charinner ~ "\'" }

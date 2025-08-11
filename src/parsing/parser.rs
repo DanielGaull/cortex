@@ -504,7 +504,7 @@ impl CortexParser {
                 let value: u32 = pair.as_str().parse().unwrap();
                 Ok(PExpression::U32(value))
             },
-            Rule::i32 => {
+            Rule::i32 | Rule::int => {
                 let value: i32 = pair.as_str().parse().unwrap();
                 Ok(PExpression::I32(value))
             },
@@ -528,7 +528,7 @@ impl CortexParser {
                 let value: f32 = pair.as_str().parse().unwrap();
                 Ok(PExpression::F32(value))
             },
-            Rule::f64 => {
+            Rule::f64 | Rule::float => {
                 let value: f64 = pair.as_str().parse().unwrap();
                 Ok(PExpression::F64(value))
             },
@@ -629,11 +629,11 @@ impl CortexParser {
                 Ok(PExpression::Tuple(items))
             },
             Rule::range => {
-                fn parse_range_val(pair: Pair<Rule>) -> Option<usize> {
+                fn parse_range_val(pair: Pair<Rule>) -> Option<isize> {
                     let p = pair.into_inner().next();
                     if let Some(p) = p {
                         match p.as_rule() {
-                            Rule::int => Some(p.as_str().parse().unwrap()),
+                            Rule::int | Rule::uint => Some(p.as_str().parse().unwrap()),
                             _ => None,
                         }
                     } else {

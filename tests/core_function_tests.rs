@@ -241,9 +241,9 @@ fn test_char_upper_lower() -> Result<(), Box<dyn Error>> {
 fn test_range_basic() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     run("let myRange: range = 1:10:5;", &mut interpreter)?;
-    assert("myRange.start", "1", &mut interpreter)?;
-    assert("myRange.end", "10", &mut interpreter)?;
-    assert("myRange.step", "5", &mut interpreter)?;
+    assert("myRange.start", "1isz", &mut interpreter)?;
+    assert("myRange.end", "10isz", &mut interpreter)?;
+    assert("myRange.step", "5isz", &mut interpreter)?;
 
     run("myRange = :;", &mut interpreter)?;
     assert("myRange.start", "none", &mut interpreter)?;
@@ -251,18 +251,18 @@ fn test_range_basic() -> Result<(), Box<dyn Error>> {
     assert("myRange.step", "none", &mut interpreter)?;
 
     run("myRange = 1:;", &mut interpreter)?;
-    assert("myRange.start", "1", &mut interpreter)?;
+    assert("myRange.start", "1isz", &mut interpreter)?;
     assert("myRange.end", "none", &mut interpreter)?;
     assert("myRange.step", "none", &mut interpreter)?;
 
     run("myRange = :5;", &mut interpreter)?;
     assert("myRange.start", "none", &mut interpreter)?;
-    assert("myRange.end", "5", &mut interpreter)?;
+    assert("myRange.end", "5isz", &mut interpreter)?;
     assert("myRange.step", "none", &mut interpreter)?;
 
     run("myRange = 1:10;", &mut interpreter)?;
-    assert("myRange.start", "1", &mut interpreter)?;
-    assert("myRange.end", "10", &mut interpreter)?;
+    assert("myRange.start", "1isz", &mut interpreter)?;
+    assert("myRange.end", "10isz", &mut interpreter)?;
     assert("myRange.step", "none", &mut interpreter)?;
 
     Ok(())

@@ -13,15 +13,8 @@ module stdlib {
         }
     }
 
+    /*
     module collections {
-        fn newList<T>(): &mut List<T> {
-            heap List<T> {
-                items: [],
-                len: 0,
-                capacity: 0,
-            }
-        }
-
         struct List<T: ty> {
             _items: &mut span<T>,
             _len: usz,
@@ -45,4 +38,5 @@ module stdlib {
             }
         }
     }
+    */
 }

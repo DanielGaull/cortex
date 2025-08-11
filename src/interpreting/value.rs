@@ -83,7 +83,7 @@ impl Display for CortexValue {
             CortexValue::U16(v) => write!(f, "{}u16", v),
             CortexValue::I16(v) => write!(f, "{}i16", v),
             CortexValue::U32(v) => write!(f, "{}u32", v),
-            CortexValue::I32(v) => write!(f, "{}i32", v),
+            CortexValue::I32(v) => write!(f, "{}", v),
             CortexValue::U64(v) => write!(f, "{}u64", v),
             CortexValue::I64(v) => write!(f, "{}i64", v),
             CortexValue::USZ(v) => write!(f, "{}usz", v),

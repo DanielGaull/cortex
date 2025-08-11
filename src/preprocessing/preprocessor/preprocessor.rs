@@ -635,9 +635,9 @@ impl CortexPreprocessor {
                 Ok((RExpression::Tuple(exps), RType::TupleType(types), statements.into_iter().flatten().collect()))
             },
             PExpression::Range { start, end, step } => {
-                fn otov(o: Option<usize>) -> RExpression {
+                fn otov(o: Option<isize>) -> RExpression {
                     match o {
-                        Some(v) => RExpression::USZ(v),
+                        Some(v) => RExpression::ISZ(v),
                         None => RExpression::None,
                     }
                 }

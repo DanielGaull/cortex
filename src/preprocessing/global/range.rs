@@ -8,9 +8,9 @@ impl CortexPreprocessor {
         global.add_struct(Struct::new(
             "range",
             vec![
-                ("start", PType::usz()),
-                ("end", PType::usz()),
-                ("step", PType::usz()),
+                ("start", PType::isz()),
+                ("end", PType::isz()),
+                ("step", PType::isz()),
             ],
             vec![],
             vec![],

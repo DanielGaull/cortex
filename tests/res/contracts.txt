@@ -42,14 +42,14 @@ contract AddTo<R, Out> {
     fn add(&this, other: R): Out;
 }
 
-struct BoxNumber follows MapFn<number, number> + AddTo<number, number> {
-    value: number,
+struct BoxNumber follows MapFn<i32, i32> + AddTo<i32, i32> {
+    value: i32,
 
-    fn add(&this, other: number): number {
+    fn add(&this, other: i32): i32 {
         this.value + other
     }
 
-    fn map(&this, item: number): number {
+    fn map(&this, item: i32): i32 {
         this.value - item
     }
 }
@@ -89,17 +89,17 @@ struct IteratorMapper<T, R> {
 }
 
 contract Sizer {
-    fn size(&this): number;
+    fn size(&this): i32;
 }
 
 contract SizerWrapper {
-    fn size(&this, sz: follows Sizer): number;
+    fn size(&this, sz: follows Sizer): i32;
 }
 
 struct Square follows Sizer {
     len: i32,
 
-    fn size(&this): number {
+    fn size(&this): i32 {
         this.len * this.len
     }
 }
