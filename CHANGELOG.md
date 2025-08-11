@@ -6,12 +6,19 @@
   - As per [SemVer](https://semver.org/), upgrading from version 0.X.0 to 0.Y.0 can have breaking changes
 
 ## Future Plans:
-* Implementing import
-  - Prerequisite for "contracts part 2"
 * Features implemented via contracts ("contracts part 2"):
   - For loops and iterators
   - Operator overloading
   - Lambda functions
+* Function/Type monomorphization
+  - Main difference in usage will be consistency
+  - Ex. can now follow the same contract multiple times if different type args are used
+* Many small but very necessary features:
+  - Static functions (allowing for constructors)
+  - Replacing the built-in `list<T>` type with a standard library `List<T>` type - written in pure Cortex
+  - Private fields and methods, and ability to prevent outsider from constructing using the literal construct syntax
+  - Type aliases
+  - `loop` syntax - just equivalent to `while (true)`
 * Function "forwarding" in composites
 * Break/continue/early-return
 * Plenty of other fixes and enhancements
