@@ -1,4 +1,4 @@
-use crate::{parsing::codegen::r#trait::SimpleCodeGen, r#type::r#type::CortexType};
+use crate::{parsing::codegen::r#trait::SimpleCodeGen, r#type::r#type::PType};
 
 use super::expression::{PConditionBody, PExpression, IdentExpression, OptionalIdentifier};
 
@@ -55,7 +55,7 @@ pub enum PStatement {
     VariableDeclaration {
         name: DeclarationName,
         is_const: bool,
-        typ: Option<CortexType>,
+        typ: Option<PType>,
         initial_value: PExpression,
     },
     Assignment {

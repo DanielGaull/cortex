@@ -1,7 +1,7 @@
 use thiserror::Error;
 use std::error::Error;
 
-use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::ast::function_address::FunctionAddress, r#type::r#type::{CortexType, TypeArg}};
+use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::ast::function_address::FunctionAddress, r#type::r#type::{PType, TypeArg}};
 
 use super::top_level::BasicBody;
 
@@ -73,7 +73,7 @@ pub enum PExpression {
     HeapAlloc(Box<PExpression>),
     DerefFat(Box<PExpression>),
     MakeAnon(Box<PExpression>),
-    DeAnon(CortexType, Box<PExpression>),
+    DeAnon(PType, Box<PExpression>),
 }
 impl SimpleCodeGen for PExpression {
     fn codegen(&self, indent: usize) -> String {
@@ -239,7 +239,7 @@ impl PExpression {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Parameter {
     pub(crate) name: String,
-    pub(crate) typ: CortexType,
+    pub(crate) typ: PType,
 }
 impl SimpleCodeGen for Parameter {
     fn codegen(&self, indent: usize) -> String {
@@ -251,7 +251,7 @@ impl SimpleCodeGen for Parameter {
     }
 }
 impl Parameter {
-    pub fn named(name: &str, typ: CortexType) -> Self {
+    pub fn named(name: &str, typ: PType) -> Self {
         Parameter {
             name: String::from(name),
             typ: typ,
@@ -261,7 +261,7 @@ impl Parameter {
     pub fn name(&self) -> &String {
         &self.name
     }
-    pub fn param_type(&self) -> &CortexType {
+    pub fn param_type(&self) -> &PType {
         &self.typ
     }
 }

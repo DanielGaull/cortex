@@ -2,7 +2,7 @@ use std::error::Error;
 
 use thiserror::Error;
 
-use crate::{interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, PFunction}}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::CortexType};
+use crate::{interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, PFunction}}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::PType};
 
 #[derive(Error, Debug)]
 pub enum CoreLibError {
@@ -27,8 +27,8 @@ impl CortexPreprocessor {
         
         corelib.add_function(PFunction::new(
             OptionalIdentifier::Ident(String::from("spanIndexSingleAnonymous")),
-            vec![Parameter::named("inputSpan", CortexType::anonbox()), Parameter::named("index", CortexType::number())],
-            CortexType::anonbox(),
+            vec![Parameter::named("inputSpan", PType::anonbox()), Parameter::named("index", PType::number())],
+            PType::anonbox(),
             Body::Native(Box::new(|env, _heap| {
                 let span = env.get_value("inputSpan")?;
                 let index = env.get_value("index")?;

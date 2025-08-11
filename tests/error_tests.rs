@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter}, top_level::{BasicBody, Body, PFunction, Struct}}, parser::{CortexParser, ParseError}}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}, r#type::r#type::{CortexType, TypeParam}};
+use cortex_lang::{interpreting::{env::EnvError, error::InterpreterError, interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter}, top_level::{BasicBody, Body, PFunction, Struct}}, parser::{CortexParser, ParseError}}, preprocessing::{error::PreprocessingError, module::{Module, ModuleError}}, r#type::r#type::{PType, TypeParam}};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -244,28 +244,28 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let add_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("add")),
         vec![
-            Parameter::named("a", CortexType::number()),
-            Parameter::named("b", CortexType::number())
+            Parameter::named("a", PType::number()),
+            Parameter::named("b", PType::number())
         ],
-        CortexType::number(),
+        PType::number(),
         add_body,
         vec![],
     );
     let generic_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("generic")),
         vec![
-            Parameter::named("t", CortexType::generic("T"))
+            Parameter::named("t", PType::generic("T"))
         ],
-        CortexType::OptionalType(Box::new(CortexType::generic("T"))),
+        PType::OptionalType(Box::new(PType::generic("T"))),
         Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
         vec![TypeParam::ty("T")],
     );
     let test_struct = Struct::new("Time", vec![
-        ("m", CortexType::number()),
-        ("s", CortexType::number()),
+        ("m", PType::number()),
+        ("s", PType::number()),
     ], vec![], vec![], None);
     let test_struct2 = Struct::new("IntBox", vec![
-        ("v", CortexType::number()),
+        ("v", PType::number()),
     ], vec![], vec![], None);
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();

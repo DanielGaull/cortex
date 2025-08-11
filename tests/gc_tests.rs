@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::top_level::Struct, parser::CortexParser}, preprocessing::module::Module, r#type::r#type::CortexType};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::top_level::Struct, parser::CortexParser}, preprocessing::module::Module, r#type::r#type::PType};
 
 #[test]
 fn gc_test_simple() -> Result<(), Box<dyn Error>> {
@@ -31,8 +31,8 @@ fn gc_test_ref() -> Result<(), Box<dyn Error>> {
 
 fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let test_struct = Struct::new("Time", vec![
-        ("m", CortexType::number()),
-        ("s", CortexType::number()),
+        ("m", PType::number()),
+        ("s", PType::number()),
     ], vec![], vec![], None);
     let alloc_func = CortexParser::parse_function("fn alloc(): &mut Time { heap Time { m: 0, s: 0 } }")?;
     let mut interpreter = CortexInterpreter::new()?;

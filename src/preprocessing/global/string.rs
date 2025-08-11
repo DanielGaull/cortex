@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{constants::INDEX_GET_FN_NAME, interpreting::{heap::Heap, value::CortexValue}, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, PFunction, ThisArg}}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::{CortexType, TypeParam}};
+use crate::{constants::INDEX_GET_FN_NAME, interpreting::{heap::Heap, value::CortexValue}, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, PFunction, ThisArg}}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::{PType, TypeParam}};
 
 use super::runtime_error::RuntimeError;
 
@@ -26,9 +26,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from(INDEX_GET_FN_NAME)), 
                     vec![
-                        Parameter::named("index", CortexType::number())
+                        Parameter::named("index", PType::number())
                     ], 
-                    CortexType::char(),
+                    PType::char(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::Number(num) = env.get_value("index")? {
@@ -52,7 +52,7 @@ impl CortexPreprocessor {
                     String::from("len")), 
                     vec![
                     ], 
-                    CortexType::number(),
+                    PType::number(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             let bytes = strval.as_bytes();
@@ -68,7 +68,7 @@ impl CortexPreprocessor {
                     String::from("isEmpty")), 
                     vec![
                     ], 
-                    CortexType::boolean(),
+                    PType::boolean(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             let bytes = strval.as_bytes();
@@ -83,9 +83,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("startsWith")), 
                     vec![
-                        Parameter::named("substring", CortexType::string())
+                        Parameter::named("substring", PType::string())
                     ], 
-                    CortexType::boolean(),
+                    PType::boolean(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::String(substring) = env.get_value("substring")? {
@@ -103,9 +103,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("endsWith")), 
                     vec![
-                        Parameter::named("substring", CortexType::string())
+                        Parameter::named("substring", PType::string())
                     ], 
-                    CortexType::boolean(),
+                    PType::boolean(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::String(substring) = env.get_value("substring")? {
@@ -123,9 +123,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("contains")), 
                     vec![
-                        Parameter::named("substring", CortexType::string())
+                        Parameter::named("substring", PType::string())
                     ], 
-                    CortexType::boolean(),
+                    PType::boolean(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::String(substring) = env.get_value("substring")? {
@@ -143,9 +143,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("indexOf")), 
                     vec![
-                        Parameter::named("substring", CortexType::string())
+                        Parameter::named("substring", PType::string())
                     ], 
-                    CortexType::number(),
+                    PType::number(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::String(substring) = env.get_value("substring")? {
@@ -169,7 +169,7 @@ impl CortexPreprocessor {
                     String::from("trim")), 
                     vec![
                     ], 
-                    CortexType::string(),
+                    PType::string(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             Ok(CortexValue::String(String::from(strval.trim())))
@@ -183,10 +183,10 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("replace")), 
                     vec![
-                        Parameter::named("from", CortexType::string()),
-                        Parameter::named("to", CortexType::string())
+                        Parameter::named("from", PType::string()),
+                        Parameter::named("to", PType::string())
                     ], 
-                    CortexType::string(),
+                    PType::string(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::String(from) = env.get_value("from")? {
@@ -210,7 +210,7 @@ impl CortexPreprocessor {
                     String::from("reverse")), 
                     vec![
                     ], 
-                    CortexType::string(),
+                    PType::string(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             Ok(CortexValue::String(strval.chars().rev().collect()))
@@ -224,10 +224,10 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("padStart")), 
                     vec![
-                        Parameter::named("width", CortexType::number()),
-                        Parameter::named("c", CortexType::char()),
+                        Parameter::named("width", PType::number()),
+                        Parameter::named("c", PType::char()),
                     ], 
-                    CortexType::string(),
+                    PType::string(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::Number(widthval) = env.get_value("width")? {
@@ -251,10 +251,10 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("padEnd")), 
                     vec![
-                        Parameter::named("width", CortexType::number()),
-                        Parameter::named("c", CortexType::char()),
+                        Parameter::named("width", PType::number()),
+                        Parameter::named("c", PType::char()),
                     ], 
-                    CortexType::string(),
+                    PType::string(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::Number(widthval) = env.get_value("width")? {
@@ -278,9 +278,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("repeat")), 
                     vec![
-                        Parameter::named("times", CortexType::number()),
+                        Parameter::named("times", PType::number()),
                     ], 
-                    CortexType::string(),
+                    PType::string(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::Number(widthval) = env.get_value("times")? {
@@ -300,9 +300,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("split")), 
                     vec![
-                        Parameter::named("delimiter", CortexType::string()),
+                        Parameter::named("delimiter", PType::string()),
                     ], 
-                    CortexType::reference(CortexType::list(CortexType::string()), false),
+                    PType::reference(PType::list(PType::string()), false),
                     Body::Native(Box::new(move |env, heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::String(delimiter) = env.get_value("delimiter")? {
@@ -323,9 +323,9 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("substring")), 
                     vec![
-                        Parameter::named("range", CortexType::range()),
+                        Parameter::named("range", PType::range()),
                     ], 
-                    CortexType::string(),
+                    PType::string(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::String(strval) = env.get_value("this")? {
                             if let CortexValue::Composite { field_values } = env.get_value("range")? {
@@ -370,7 +370,7 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("isAlpha")), 
                     vec![], 
-                    CortexType::boolean(),
+                    PType::boolean(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::Char(ch) = env.get_value("this")? {
                             let c = ch as char;
@@ -385,7 +385,7 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("isDigit")), 
                     vec![], 
-                    CortexType::boolean(),
+                    PType::boolean(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::Char(ch) = env.get_value("this")? {
                             let c = ch as char;
@@ -400,7 +400,7 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("isWhitespace")), 
                     vec![], 
-                    CortexType::boolean(),
+                    PType::boolean(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::Char(ch) = env.get_value("this")? {
                             let c = ch as char;
@@ -415,7 +415,7 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("isAlphanumeric")), 
                     vec![], 
-                    CortexType::boolean(),
+                    PType::boolean(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::Char(ch) = env.get_value("this")? {
                             let c = ch as char;
@@ -430,7 +430,7 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("toUpper")), 
                     vec![], 
-                    CortexType::char(),
+                    PType::char(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::Char(ch) = env.get_value("this")? {
                             let c = ch as char;
@@ -445,7 +445,7 @@ impl CortexPreprocessor {
                 MemberFunction::new(OptionalIdentifier::Ident(
                     String::from("toLower")), 
                     vec![], 
-                    CortexType::char(),
+                    PType::char(),
                     Body::Native(Box::new(move |env, _heap| {
                         if let CortexValue::Char(ch) = env.get_value("this")? {
                             let c = ch as char;

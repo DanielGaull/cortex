@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, PFunction, Struct}}, parser::CortexParser}, preprocessing::module::Module, r#type::r#type::CortexType};
+use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, PFunction, Struct}}, parser::CortexParser}, preprocessing::module::Module, r#type::r#type::PType};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -130,10 +130,10 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
     let add_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("add")),
         vec![
-            Parameter::named("a", CortexType::number()),
-            Parameter::named("b", CortexType::number())
+            Parameter::named("a", PType::number()),
+            Parameter::named("b", PType::number())
         ],
-        CortexType::number(),
+        PType::number(),
         add_body,
         vec![],
     );
@@ -164,7 +164,7 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
     let test_func = PFunction::new(
         OptionalIdentifier::Ident(String::from("test")),
         Vec::new(),
-        CortexType::number(),
+        PType::number(),
         test_body,
         vec![],
     );
@@ -182,11 +182,11 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
 #[test]
 fn struct_tests() -> Result<(), Box<dyn Error>> {
     let test_struct = Struct::new("Time", vec![
-        ("m", CortexType::number()),
-        ("s", CortexType::number()),
+        ("m", PType::number()),
+        ("s", PType::number()),
     ], vec![], vec![], None);
     let date_struct = Struct::new("Date", vec![
-        ("t", CortexType::basic(PathIdent::new(vec!["Time"]), vec![])),
+        ("t", PType::basic(PathIdent::new(vec!["Time"]), vec![])),
     ], vec![], vec![], None);
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
@@ -217,11 +217,11 @@ fn struct_tests() -> Result<(), Box<dyn Error>> {
 #[test]
 fn heap_struct_tests() -> Result<(), Box<dyn Error>> {
     let test_struct1 = Struct::new("Time", vec![
-        ("m", CortexType::number()),
-        ("s", CortexType::number()),
+        ("m", PType::number()),
+        ("s", PType::number()),
     ], vec![], vec![], None);
     let date_struct = Struct::new("Date", vec![
-        ("t", CortexType::reference(CortexType::basic(PathIdent::new(vec!["Time"]), vec![]), true)),
+        ("t", PType::reference(PType::basic(PathIdent::new(vec!["Time"]), vec![]), true)),
     ], vec![], vec![], None);
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();

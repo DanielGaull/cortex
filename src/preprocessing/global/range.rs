@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{parsing::ast::top_level::Struct, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::CortexType};
+use crate::{parsing::ast::top_level::Struct, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::PType};
 
 
 impl CortexPreprocessor {
@@ -8,9 +8,9 @@ impl CortexPreprocessor {
         global.add_struct(Struct::new(
             "range",
             vec![
-                ("start", CortexType::number()),
-                ("end", CortexType::number()),
-                ("step", CortexType::number()),
+                ("start", PType::number()),
+                ("end", PType::number()),
+                ("step", PType::number()),
             ],
             vec![],
             vec![],

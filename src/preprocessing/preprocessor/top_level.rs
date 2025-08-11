@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, Import, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, CortexType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, Import, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, PType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -531,7 +531,7 @@ impl CortexPreprocessor {
             )?;
         }
 
-        let item_as_type = CortexType::basic(item.name.clone(), item.type_args.clone());
+        let item_as_type = PType::basic(item.name.clone(), item.type_args.clone());
         let validated = self.validate_type(item_as_type)?;
         let item_name;
         let item_prefix;
@@ -588,19 +588,19 @@ impl CortexPreprocessor {
         Ok(())
     }
 
-    fn this_arg_to_type(this_arg: ThisArg, item_name: &String, type_params: &Vec<TypeParam>) -> CortexType {
+    fn this_arg_to_type(this_arg: ThisArg, item_name: &String, type_params: &Vec<TypeParam>) -> PType {
         match this_arg {
             ThisArg::RefThis => 
-            CortexType::reference(
-                CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
+            PType::reference(
+                PType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
                     false,
                 ),
             ThisArg::RefMutThis => 
-            CortexType::reference(
-                CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
+            PType::reference(
+                PType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
                     true,
                 ),
-            ThisArg::DirectThis => CortexType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
+            ThisArg::DirectThis => PType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
         }
     }
 

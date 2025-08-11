@@ -5,7 +5,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress, r#type::r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam, TypeParamType}};
+use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress, r#type::r#type::{PType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam, TypeParamType}};
 
 use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::ModuleContent, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, Extension, Import, ImportEntry, MemberFunction, MemberFunctionSignature, PFunction, Struct as Struct, ThisArg, TopLevel}};
 
@@ -76,7 +76,7 @@ impl CortexParser {
             },
         }
     }
-    pub fn parse_type(input: &str) -> Result<CortexType, ParseError> {
+    pub fn parse_type(input: &str) -> Result<PType, ParseError> {
         let pair = PestCortexParser::parse(Rule::typ, input);
         match pair {
             Ok(mut v) => Self::parse_type_pair(v.next().unwrap(), Vec::new()),
@@ -236,7 +236,7 @@ impl CortexParser {
                 };
                 let name = Self::parse_opt_ident(pairs.next().unwrap())?;
                 let third_pair = pairs.next().unwrap();
-                let mut typ: Option<CortexType> = None;
+                let mut typ: Option<PType> = None;
                 let init_value = 
                     if third_pair.as_rule() == Rule::typ {
                         typ = Some(Self::parse_type_pair(third_pair, active_generics.clone())?);
@@ -262,7 +262,7 @@ impl CortexParser {
                 };
                 let name = Self::parse_declaration_name(pairs.next().unwrap())?;
                 let third_pair = pairs.next().unwrap();
-                let mut typ: Option<CortexType> = None;
+                let mut typ: Option<PType> = None;
                 let init_value = 
                     if third_pair.as_rule() == Rule::typ {
                         typ = Some(Self::parse_type_pair(third_pair, active_generics.clone())?);
@@ -771,7 +771,7 @@ impl CortexParser {
         Ok(TypeParam::new(name, type_param_type))
     }
 
-    fn parse_type_pair(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<CortexType, ParseError> {
+    fn parse_type_pair(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PType, ParseError> {
         let mut pairs = pair.into_inner();
         let atom = Self::parse_type_atom(pairs.next().unwrap(), active_generics)?;
         let next = pairs.next();
@@ -782,7 +782,7 @@ impl CortexParser {
             Ok(atom)
         }
     }
-    fn parse_type_atom(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<CortexType, ParseError> {
+    fn parse_type_atom(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PType, ParseError> {
         match pair.as_rule() {
             Rule::basicType => {
                 let mut pairs = pair.into_inner();
@@ -795,18 +795,18 @@ impl CortexParser {
                     }
                 }
                 if ident.is_final() && ident.get_back().unwrap() == "none" && type_args.len() == 0 {
-                    Ok(CortexType::none())
+                    Ok(PType::none())
                 } else if ident.is_final() && type_args.len() == 0 && active_generics.contains(ident.get_back().unwrap()) {
-                    Ok(CortexType::GenericType(ident.get_back().unwrap().clone()))
+                    Ok(PType::GenericType(ident.get_back().unwrap().clone()))
                 } else {
-                    Ok(CortexType::basic(ident, type_args))
+                    Ok(PType::basic(ident, type_args))
                 }
             },
             Rule::refType => {
                 let main_str = pair.as_str();
                 let typ = Self::parse_type_pair(pair.into_inner().next().unwrap(), active_generics)?;
                 let mutable = main_str.starts_with("&mut");
-                Ok(CortexType::reference(typ, mutable))
+                Ok(PType::reference(typ, mutable))
             },
             Rule::tupleType => {
                 let pairs = pair.into_inner();
@@ -814,12 +814,12 @@ impl CortexParser {
                 for p in pairs {
                     types.push(Self::parse_type_pair(p, active_generics.clone())?);
                 }
-                Ok(CortexType::tuple(types))
+                Ok(PType::tuple(types))
             },
             Rule::followsType => {
                 let mut pairs = pair.into_inner();
                 let clause = Self::parse_follows_clause(pairs.next().unwrap(), active_generics)?;
-                Ok(CortexType::FollowsType(FollowsType {
+                Ok(PType::FollowsType(FollowsType {
                     clause,
                 }))
             },
@@ -829,16 +829,16 @@ impl CortexParser {
             _ => Err(ParseError::FailTypeAtom(String::from(pair.as_str())))
         }
     }
-    fn parse_type_tail(pair: Pair<Rule>, base: CortexType) -> Result<CortexType, ParseError> {
+    fn parse_type_tail(pair: Pair<Rule>, base: PType) -> Result<PType, ParseError> {
         match pair.as_rule() {
             Rule::typeTail => {
                 if let Some(tail_pair) = pair.into_inner().next() {
                     match tail_pair.as_rule() {
                         Rule::optionalTail => {
-                            Ok(CortexType::OptionalType(Box::new(base)))
+                            Ok(PType::OptionalType(Box::new(base)))
                         },
                         Rule::spanSugarTypeTail => {
-                            Ok(CortexType::span(base))
+                            Ok(PType::span(base))
                         },
                         _ => Err(ParseError::FailTail(String::from(tail_pair.as_str()))),
                     }
@@ -1022,7 +1022,7 @@ impl CortexParser {
         let return_type = if matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
             Self::parse_type_pair(pairs.next().unwrap(), active_generics.clone())?
         } else {
-            CortexType::void()
+            PType::void()
         };
         let body = Self::parse_body(pairs.next().unwrap(), active_generics)?;
         Ok(PFunction {
@@ -1063,7 +1063,7 @@ impl CortexParser {
         let return_type = if matches!(pairs.peek(), Some(_)) && matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
             Self::parse_type_pair(pairs.next().unwrap(), active_generics.clone())?
         } else {
-            CortexType::void()
+            PType::void()
         };
         Ok(MemberFunctionSignature {
             name: name,

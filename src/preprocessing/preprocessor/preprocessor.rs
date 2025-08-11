@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error, rc::Rc};
 
-use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{CortexType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
+use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{PType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
 
 use super::{super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RDefinedBody, RFunction}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program}, r#type};
 
@@ -965,9 +965,9 @@ impl CortexPreprocessor {
         res
     }
 
-    pub fn validate_type(&self, typ: CortexType) -> Result<RType, CortexError> {
+    pub fn validate_type(&self, typ: PType) -> Result<RType, CortexError> {
         match typ {
-            CortexType::BasicType(b) => {
+            PType::BasicType(b) => {
                 let result = self.get_struct_stub(&b.name);
                 if result.is_none() {
                     return Err(Box::new(PreprocessingError::TypeDoesNotExist(b.name.codegen(0))));
@@ -980,18 +980,18 @@ impl CortexPreprocessor {
                     type_args,
                 ))
             },
-            CortexType::RefType(r) => Ok(RType::RefType(
+            PType::RefType(r) => Ok(RType::RefType(
                 Box::new(self.validate_type(*r.contained)?),
                 r.mutable,
             )),
-            CortexType::TupleType(t) => {
+            PType::TupleType(t) => {
                 let mut types = Vec::new();
                 for ty in t.types {
                     types.push(self.validate_type(ty)?);
                 }
                 Ok(RType::TupleType(types))
             },
-            CortexType::FollowsType(f) => {
+            PType::FollowsType(f) => {
                 let mut entries = Vec::new();
                 for entry in f.clause.contracts {
                     let result = self.get_contract_stub(&entry.name);
@@ -1009,9 +1009,9 @@ impl CortexPreprocessor {
                     entries,
                 }))
             },
-            CortexType::OptionalType(inner) => Ok(RType::OptionalType(Box::new(self.validate_type(*inner)?))),
-            CortexType::NoneType => Ok(RType::NoneType),
-            CortexType::GenericType(name) => Ok(RType::GenericType(name)),
+            PType::OptionalType(inner) => Ok(RType::OptionalType(Box::new(self.validate_type(*inner)?))),
+            PType::NoneType => Ok(RType::NoneType),
+            PType::GenericType(name) => Ok(RType::GenericType(name)),
         }
     }
     pub(crate) fn validate_type_args(&self, type_params: &Vec<TypeParam>, type_args: Vec<TypeArg>, type_name: String, object_name: &'static str) -> Result<Vec<RTypeArg>, CortexError> {
@@ -1035,17 +1035,17 @@ impl CortexPreprocessor {
         Ok(result)
     }
 
-    pub(crate) fn devalidate_type(&self, ty: RType) -> CortexType {
+    pub(crate) fn devalidate_type(&self, ty: RType) -> PType {
         match ty {
-            RType::BasicType(name, type_args) => CortexType::basic(name, self.devalidate_type_args(type_args)),
-            RType::RefType(inner, mutable) => CortexType::reference(self.devalidate_type(*inner), mutable),
-            RType::TupleType(types) => CortexType::tuple(types.into_iter().map(|t| self.devalidate_type(t)).collect()),
-            RType::FollowsType(follows) => CortexType::FollowsType(FollowsType {
+            RType::BasicType(name, type_args) => PType::basic(name, self.devalidate_type_args(type_args)),
+            RType::RefType(inner, mutable) => PType::reference(self.devalidate_type(*inner), mutable),
+            RType::TupleType(types) => PType::tuple(types.into_iter().map(|t| self.devalidate_type(t)).collect()),
+            RType::FollowsType(follows) => PType::FollowsType(FollowsType {
                 clause: self.devalidate_follows_clause(follows)
             }),
             RType::OptionalType(inner) => self.devalidate_type(inner.to_optional()),
-            RType::NoneType => CortexType::NoneType,
-            RType::GenericType(name) => CortexType::GenericType(name),
+            RType::NoneType => PType::NoneType,
+            RType::GenericType(name) => PType::GenericType(name),
         }
     }
     pub(crate) fn devalidate_type_args(&self, ta: Vec<RTypeArg>) -> Vec<TypeArg> {

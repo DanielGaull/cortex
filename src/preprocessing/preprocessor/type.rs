@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{interpreting::error::CortexError, preprocessing::ast::r#type::{RFollowsClause, RType, RTypeArg}, r#type::{r#type::{CortexType, TypeArg, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, preprocessing::ast::r#type::{RFollowsClause, RType, RTypeArg}, r#type::{r#type::{PType, TypeArg, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -19,7 +19,7 @@ fn are_type_args_equal(a: &Vec<RTypeArg>, b: &Vec<RTypeArg>) -> bool {
 pub fn forwarded_type_args(params: &Vec<TypeParam>) -> Vec<TypeArg> {
     let mut type_args = Vec::new();
     for p in params {
-        type_args.push(TypeArg::Ty(CortexType::GenericType(p.name.clone())));
+        type_args.push(TypeArg::Ty(PType::GenericType(p.name.clone())));
     }
     type_args
 }

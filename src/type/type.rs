@@ -19,13 +19,13 @@ pub struct BasicType {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RefType {
-    pub(crate) contained: Box<CortexType>,
+    pub(crate) contained: Box<PType>,
     pub(crate) mutable: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TupleType {
-    pub(crate) types: Vec<CortexType>,
+    pub(crate) types: Vec<PType>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -34,7 +34,7 @@ pub struct FollowsType {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub enum CortexType {
+pub enum PType {
     // Represents a simple named type that may or may not have type arguments
     BasicType(BasicType),
     // Represents a reference to some other type
@@ -44,17 +44,17 @@ pub enum CortexType {
     // Represents a "follows" type
     FollowsType(FollowsType),
     // Represents an optional type - either is a value or is `none`
-    OptionalType(Box<CortexType>),
+    OptionalType(Box<PType>),
     // Represents the unique `none` type
     NoneType,
     // Represents a generic type
     GenericType(String),
 }
 
-impl SimpleCodeGen for CortexType {
+impl SimpleCodeGen for PType {
     fn codegen(&self, _: usize) -> String {
         match self {
-            CortexType::BasicType(b) => {
+            PType::BasicType(b) => {
                 let mut s = String::new();
                 s.push_str(&b.name.codegen(0));
                 if b.type_args.len() > 0 {
@@ -64,7 +64,7 @@ impl SimpleCodeGen for CortexType {
                 }
                 s
             },
-            CortexType::RefType(r) => {
+            PType::RefType(r) => {
                 let mut s = String::from("&");
                 if r.mutable {
                     s.push_str("mut ");
@@ -72,26 +72,26 @@ impl SimpleCodeGen for CortexType {
                 s.push_str(&r.contained.codegen(0));
                 s
             },
-            CortexType::TupleType(t) => {
+            PType::TupleType(t) => {
                 if t.types.len() == 1 {
                     format!("({},)", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
                 } else {
                     format!("({})", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
                 }
             },
-            CortexType::FollowsType(t) => {
+            PType::FollowsType(t) => {
                 format!("{}", t.clause.codegen(0))
             },
-            CortexType::OptionalType(inner) => {
+            PType::OptionalType(inner) => {
                 format!("{}?", inner.codegen_wrap_if_needed())
             },
-            CortexType::NoneType => String::from("none"),
-            CortexType::GenericType(name) => name.clone(),
+            PType::NoneType => String::from("none"),
+            PType::GenericType(name) => name.clone(),
         }
     }
 }
 
-impl CortexType {
+impl PType {
     fn codegen_wrap_if_needed(&self) -> String {
         if self.needs_to_be_wrapped() {
             format!("({})", self.codegen(0))
@@ -102,24 +102,24 @@ impl CortexType {
 
     fn needs_to_be_wrapped(&self) -> bool {
         match &self {
-            CortexType::BasicType(_) => false,
-            CortexType::RefType(_) => true,
-            CortexType::TupleType(_) => false,
-            CortexType::FollowsType(_) => true,
-            CortexType::OptionalType(_) => true,
-            CortexType::NoneType => false,
-            CortexType::GenericType(_) => false,
+            PType::BasicType(_) => false,
+            PType::RefType(_) => true,
+            PType::TupleType(_) => false,
+            PType::FollowsType(_) => true,
+            PType::OptionalType(_) => true,
+            PType::NoneType => false,
+            PType::GenericType(_) => false,
         }
     }
 }
 
-impl std::fmt::Debug for CortexType {
+impl std::fmt::Debug for PType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.codegen(0))
     }
 }
 
-impl CortexType {
+impl PType {
     pub fn basic(name: PathIdent, type_args: Vec<TypeArg>) -> Self {
         Self::BasicType(BasicType {
             name: name,
@@ -132,13 +132,13 @@ impl CortexType {
             type_args: type_args,
         })
     }
-    pub fn reference(contained: CortexType, mutable: bool) -> Self {
+    pub fn reference(contained: PType, mutable: bool) -> Self {
         Self::RefType(RefType {
             contained: Box::new(contained),
             mutable: mutable,
         })
     }
-    pub fn tuple(types: Vec<CortexType>) -> Self {
+    pub fn tuple(types: Vec<PType>) -> Self {
         Self::TupleType(TupleType { types })
     }
     pub fn simple(name: &str) -> Self {
@@ -159,7 +159,7 @@ impl CortexType {
     pub fn none() -> Self {
         Self::NoneType
     }
-    pub fn list(typ: CortexType) -> Self {
+    pub fn list(typ: PType) -> Self {
         Self::basic(
             PathIdent::simple(String::from("list")), 
             vec![TypeArg::Ty(typ)]
@@ -177,7 +177,7 @@ impl CortexType {
     pub fn anonbox() -> Self {
         Self::simple("anonbox")
     }
-    pub fn span(typ: CortexType) -> Self {
+    pub fn span(typ: PType) -> Self {
         Self::basic(
             PathIdent::simple(String::from("span")), 
             vec![TypeArg::Ty(typ)]
@@ -186,23 +186,23 @@ impl CortexType {
 
     pub fn with_prefix(&self, path: &PathIdent) -> Self {
         match self {
-            CortexType::BasicType(b) => {
-                CortexType::BasicType(BasicType {
+            PType::BasicType(b) => {
+                PType::BasicType(BasicType {
                     name: PathIdent::concat(path, &b.name),
                     type_args: b.type_args.clone(),
                 })
             },
-            CortexType::RefType(r) => {
-                CortexType::RefType(RefType {
+            PType::RefType(r) => {
+                PType::RefType(RefType {
                     contained: Box::new(r.contained.with_prefix(path)),
                     mutable: r.mutable,
                 })
             },
-            CortexType::TupleType(t) => {
-                CortexType::TupleType(TupleType { types: t.types.iter().map(|t| t.with_prefix(path).clone()).collect() })
+            PType::TupleType(t) => {
+                PType::TupleType(TupleType { types: t.types.iter().map(|t| t.with_prefix(path).clone()).collect() })
             },
-            CortexType::FollowsType(f) => {
-                CortexType::FollowsType(FollowsType {
+            PType::FollowsType(f) => {
+                PType::FollowsType(FollowsType {
                     clause: FollowsClause {
                         contracts: f.clause.contracts.iter().map(|c| FollowsEntry {
                             name: PathIdent::concat(path, &c.name),
@@ -211,23 +211,23 @@ impl CortexType {
                     },
                 })
             },
-            CortexType::OptionalType(t) => {
-                CortexType::OptionalType(Box::new(t.with_prefix(path)))
+            PType::OptionalType(t) => {
+                PType::OptionalType(Box::new(t.with_prefix(path)))
             },
-            CortexType::NoneType => CortexType::NoneType,
-            CortexType::GenericType(name) => CortexType::GenericType(name.clone()),
+            PType::NoneType => PType::NoneType,
+            PType::GenericType(name) => PType::GenericType(name.clone()),
         }
     }
 
     pub fn name(&self) -> Result<PathIdent, TypeError> {
         match &self {
-            CortexType::BasicType(b) => Ok(b.name.clone()),
-            CortexType::RefType(r) => r.contained.name(),
-            CortexType::TupleType(_) => Err(TypeError::TupleTypeNotValid),
-            CortexType::FollowsType(_) => Err(TypeError::FollowsTypeNotValid),
-            CortexType::OptionalType(t) => t.name(),
-            CortexType::NoneType => Ok(PathIdent::new(vec!["none"])),
-            CortexType::GenericType(g) => Ok(PathIdent::new(vec![g])),
+            PType::BasicType(b) => Ok(b.name.clone()),
+            PType::RefType(r) => r.contained.name(),
+            PType::TupleType(_) => Err(TypeError::TupleTypeNotValid),
+            PType::FollowsType(_) => Err(TypeError::FollowsTypeNotValid),
+            PType::OptionalType(t) => t.name(),
+            PType::NoneType => Ok(PathIdent::new(vec!["none"])),
+            PType::GenericType(g) => Ok(PathIdent::new(vec![g])),
         }
     }
 }
@@ -242,7 +242,7 @@ pub fn forwarded_type_args(params: &Vec<TypeParam>) -> Vec<RTypeArg> {
 pub fn forwarded_type_args_unvalidated(params: &Vec<TypeParam>) -> Vec<TypeArg> {
     let mut type_args = Vec::new();
     for p in params {
-        type_args.push(TypeArg::Ty(CortexType::GenericType(p.name.clone())));
+        type_args.push(TypeArg::Ty(PType::GenericType(p.name.clone())));
     }
     type_args
 }
@@ -331,7 +331,7 @@ impl SimpleCodeGen for TypeParam {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TypeArg {
-    Ty(CortexType),
+    Ty(PType),
     Int(i32),
 }
 impl SimpleCodeGen for TypeArg {

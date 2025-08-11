@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, r#type::r#type::{CortexType, FollowsClause, TypeArg, TypeParam, TypeParamType}};
+use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, r#type::r#type::{PType, FollowsClause, TypeArg, TypeParam, TypeParamType}};
 
 use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, program::ModuleContent, statement::PStatement};
 
@@ -79,14 +79,14 @@ pub enum ThisArg {
 #[derive(Clone)]
 pub(crate) struct FunctionSignature {
     pub(crate) params: Vec<Parameter>,
-    pub(crate) return_type: CortexType,
+    pub(crate) return_type: PType,
     pub(crate) type_params: Vec<TypeParam>,
 }
 
 pub struct PFunction {
     pub(crate) name: OptionalIdentifier,
     pub(crate) params: Vec<Parameter>,
-    pub(crate) return_type: CortexType,
+    pub(crate) return_type: PType,
     pub(crate) body: Body,
     pub(crate) type_params: Vec<TypeParam>,
 }
@@ -129,7 +129,7 @@ impl SimpleCodeGen for PFunction {
     }
 }
 impl PFunction {
-    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, type_params: Vec<TypeParam>) -> Self {
+    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: PType, body: Body, type_params: Vec<TypeParam>) -> Self {
         PFunction {
             name: name,
             params: params,
@@ -142,7 +142,7 @@ impl PFunction {
     pub fn name(&self) -> &OptionalIdentifier {
         &self.name
     }
-    pub fn return_type(&self) -> &CortexType {
+    pub fn return_type(&self) -> &PType {
         &self.return_type
     }
     pub fn num_params(&self) -> usize {
@@ -165,11 +165,11 @@ pub struct MemberFunctionSignature {
     pub(crate) name: OptionalIdentifier,
     pub(crate) this_arg: ThisArg,
     pub(crate) params: Vec<Parameter>,
-    pub(crate) return_type: CortexType,
+    pub(crate) return_type: PType,
     pub(crate) type_params: Vec<TypeParam>,
 }
 impl MemberFunctionSignature {
-    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, this_arg: ThisArg, type_params: Vec<TypeParam>) -> Self {
+    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: PType, this_arg: ThisArg, type_params: Vec<TypeParam>) -> Self {
         MemberFunctionSignature {
             name: name,
             params: params,
@@ -238,7 +238,7 @@ impl SimpleCodeGen for MemberFunction {
     }
 }
 impl MemberFunction {
-    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: CortexType, body: Body, this_arg: ThisArg, type_params: Vec<TypeParam>) -> Self {
+    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: PType, body: Body, this_arg: ThisArg, type_params: Vec<TypeParam>) -> Self {
         MemberFunction {
             signature: MemberFunctionSignature {
                 name,
@@ -313,7 +313,7 @@ impl Body {
 
 pub struct Struct {
     pub(crate) name: String,
-    pub(crate) fields: HashMap<String, CortexType>,
+    pub(crate) fields: HashMap<String, PType>,
     pub(crate) functions: Vec<MemberFunction>,
     pub(crate) type_params: Vec<TypeParam>,
     pub(crate) follows_clause: Option<FollowsClause>,
@@ -365,7 +365,7 @@ impl SimpleCodeGen for Struct {
     }
 }
 impl Struct {
-    pub fn new(name: &str, fields: Vec<(&str, CortexType)>, funcs: Vec<MemberFunction>, type_arg_names: Vec<&str>, follows_clause: Option<FollowsClause>) -> Self {
+    pub fn new(name: &str, fields: Vec<(&str, PType)>, funcs: Vec<MemberFunction>, type_arg_names: Vec<&str>, follows_clause: Option<FollowsClause>) -> Self {
         let mut map = HashMap::new();
         for f in fields {
             map.insert(String::from(f.0), f.1);

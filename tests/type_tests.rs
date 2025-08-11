@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, Contract, MemberFunction, PFunction, Struct}}, parser::CortexParser}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::{CortexType, FollowsClause, FollowsEntry, TypeArg, TypeParam, TypeParamType}};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, Contract, MemberFunction, PFunction, Struct}}, parser::CortexParser}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::{PType, FollowsClause, FollowsEntry, TypeArg, TypeParam, TypeParamType}};
 
 fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
@@ -67,7 +67,7 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
         vec![],
         vec!["T"],
         Some(FollowsClause::new(vec![
-            FollowsEntry::new(PathIdent::new(vec!["Container"]), vec![TypeArg::Ty(CortexType::generic("T"))]),
+            FollowsEntry::new(PathIdent::new(vec!["Container"]), vec![TypeArg::Ty(PType::generic("T"))]),
         ]))
     ))?;
 
@@ -99,8 +99,8 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_struct(Struct::new(
         "Time", 
         vec![
-            ("m", CortexType::number()),
-            ("s", CortexType::number()),
+            ("m", PType::number()),
+            ("s", PType::number()),
         ],
         vec![],
         vec![],
@@ -109,13 +109,13 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_struct(Struct::new(
         "Box",
         vec![
-            ("time", CortexType::reference(CortexType::basic(PathIdent::simple(String::from("Time")), vec![]), true))
+            ("time", PType::reference(PType::basic(PathIdent::simple(String::from("Time")), vec![]), true))
         ],
         vec![
             MemberFunction::new(
                 OptionalIdentifier::Ident(String::from("get")), 
                 vec![],
-                CortexType::reference(CortexType::simple("Time"), true),
+                PType::reference(PType::simple("Time"), true),
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.time")?))),
                 cortex_lang::parsing::ast::top_level::ThisArg::RefMutThis,
                 vec![],
@@ -139,13 +139,13 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_struct(Struct::new(
         "Box",
         vec![
-            ("item", CortexType::generic("T"))
+            ("item", PType::generic("T"))
         ],
         vec![
             MemberFunction::new(
                 OptionalIdentifier::Ident(String::from("get")), 
                 vec![],
-                CortexType::generic("T"),
+                PType::generic("T"),
                 Body::Basic(BasicBody::new(vec![], Some(CortexParser::parse_expression("this.item")?))),
                 cortex_lang::parsing::ast::top_level::ThisArg::RefThis,
                 vec![],
@@ -157,9 +157,9 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
     module.add_function(PFunction::new(
         OptionalIdentifier::Ident(String::from("generic")),
         vec![
-            Parameter::named("t", CortexType::OptionalType(Box::new(CortexType::generic("T"))))
+            Parameter::named("t", PType::OptionalType(Box::new(PType::generic("T"))))
         ],
-        CortexType::OptionalType(Box::new(CortexType::generic("T"))),
+        PType::OptionalType(Box::new(PType::generic("T"))),
         Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
         vec![TypeParam::ty("T")],
     ))?;
