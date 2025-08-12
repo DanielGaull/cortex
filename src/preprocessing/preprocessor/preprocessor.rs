@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error, rc::Rc};
 
-use crate::{joint::vtable::VTable, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{PType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
+use crate::{joint::vtable::{GlobalVTableConcreteRow, GlobalVTableGenericRow, GlobalVTableKey, VTable}, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{FollowsClause, FollowsEntry, FollowsType, PType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
 
 use super::{super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RDefinedBody, RFunction}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program}, r#type};
 
@@ -19,10 +19,11 @@ pub struct CortexPreprocessor {
     pub(super) contract_map: HashMap<PathIdent, RContract>,
     pub(super) imported_paths: Vec<PathIdent>,
     pub(super) imported_aliases: HashMap<String, PathIdent>,
-
     pub(super) stubbed_functions: HashMap<FunctionAddress, Vec<TypeParam>>,
     pub(super) stubbed_structs: HashMap<PathIdent, Vec<TypeParam>>,
     pub(super) stubbed_contracts: HashMap<PathIdent, Vec<TypeParam>>,
+    pub(super) global_generic_vtables: HashMap<GlobalVTableKey, Vec<GlobalVTableGenericRow>>,
+    pub(super) global_concrete_vtables: HashMap<GlobalVTableKey, Vec<GlobalVTableConcreteRow>>,
 }
 
 impl CortexPreprocessor {
@@ -42,6 +43,8 @@ impl CortexPreprocessor {
             stubbed_functions: HashMap::new(),
             stubbed_structs: HashMap::new(),
             stubbed_contracts: HashMap::new(),
+            global_generic_vtables: HashMap::new(),
+            global_concrete_vtables: HashMap::new(),
         };
 
         macro_rules! add_core_type {

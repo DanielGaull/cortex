@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, Import, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, PType, FollowsEntry, TypeParam}, type_env::TypeEnvironment}};
+use crate::{interpreting::error::CortexError, joint::vtable::{GlobalVTableConcreteRow, GlobalVTableGenericRow, GlobalVTableKey}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, Import, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, FollowsEntry, PType, TypeParam}, type_env::TypeEnvironment}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -426,10 +426,23 @@ impl CortexPreprocessor {
         structs_to_search.push((item.name.clone(), forwarded_type_args(&item.type_params), fields.values().cloned().into_iter().collect()));
         
         if let Some(clause) = &item.follows_clause {
+            let validated_member_function_signatures = self.validate_member_function_signatures(&item.functions)?;
+            let validated_follows_entries = self.validate_follows_entries(clause.contracts.clone())?;
             self.check_contract_follows(
-                &self.validate_member_function_signatures(&item.functions)?,
-                &self.validate_follows_entries(clause.contracts.clone())?
+                &validated_member_function_signatures,
+                &validated_follows_entries
             )?;
+
+            for entry in &validated_follows_entries {
+                self.add_contract_follow_to_vtables(
+                    &n,
+                    item.type_params.clone(),
+                    full_path.clone(),
+                    forwarded_type_args(&item.type_params),
+                    &validated_member_function_signatures,
+                    entry
+                )?;
+            }
         }
         Self::handle_member_functions(item.functions, n, &item.type_params, &item.name, funcs_to_add)?;
 
@@ -491,6 +504,77 @@ impl CortexPreprocessor {
         
         Ok(())
     }
+    fn add_contract_follow_to_vtables(
+        &mut self,
+        n: &PathIdent,
+        type_params: Vec<TypeParam>,
+        type_name: PathIdent,
+        type_args: Vec<RTypeArg>,
+        functions: &Vec<RMemberFunctionSignature>,
+        contract_entry: &RFollowsEntry,
+    ) -> Result<(), CortexError> {
+        let contract_name = contract_entry.name.clone().subtract_if_possible(&self.current_context);
+        let contract = self.lookup_contract(&contract_name)?;
+        let mut concrete_vtable_entries = Vec::new();
+        let mut generic_vtable_entries = Vec::new();
+
+        for func in &contract.function_sigs {
+            if func.type_params.is_empty() {
+                for mf in functions {
+                    if mf.name == func.name {
+                        concrete_vtable_entries.push(GlobalVTableConcreteRow::new(
+                            func.name.clone(),
+                            FunctionAddress::new(
+                                PathIdent::concat(n, &PathIdent::simple(func.name.clone())),
+                                Some(type_name.clone())
+                            ),
+                            type_args.clone()
+                        ));
+                    }
+                }
+            } else {
+                for mf in functions {
+                    if mf.name == func.name {
+                        generic_vtable_entries.push(GlobalVTableGenericRow::new(
+                            func.name.clone(),
+                            FunctionAddress::new(
+                                PathIdent::concat(n, &PathIdent::simple(func.name.clone())),
+                                Some(type_name.clone())
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
+
+        if !concrete_vtable_entries.is_empty() {
+            self.global_concrete_vtables.insert(
+                GlobalVTableKey::new(
+                    type_params.clone(), 
+                    contract_name.clone(),
+                    contract_entry.type_args.clone(),
+                    type_name.clone(),
+                    type_args.clone()
+                ),
+                concrete_vtable_entries
+            );
+        }
+        if !generic_vtable_entries.is_empty() {
+            self.global_generic_vtables.insert(
+                GlobalVTableKey::new(
+                    type_params.clone(), 
+                    contract_name.clone(),
+                    contract_entry.type_args.clone(),
+                    type_name.clone(),
+                    type_args.clone()
+                ),
+                generic_vtable_entries
+            );
+        }
+
+        Ok(())
+    }
+    
     fn handle_member_functions(functions: Vec<MemberFunction>, n: PathIdent, item_type_params: &Vec<TypeParam>, item_name: &String, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         for func in functions {
             match func.signature.name {
@@ -524,28 +608,39 @@ impl CortexPreprocessor {
     }
     
     fn add_extension(&mut self, n: PathIdent, item: Extension, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
-        if let Some(clause) = &item.follows_clause {
-            self.check_contract_follows(
-                &self.validate_member_function_signatures(&item.functions)?,
-                &self.validate_follows_entries(clause.contracts.clone())?
-            )?;
-        }
-
         let item_as_type = PType::basic(item.name.clone(), item.type_args.clone());
         let validated = self.validate_type(item_as_type)?;
-        let item_name;
-        let item_prefix;
-        let validated_target_path;
-        match validated {
-            RType::BasicType(path, _) => {
-                validated_target_path = path.clone();
-                item_name = path.get_back()?.clone();
-                item_prefix = path.without_last();
-            },
-            _ => {
-                return Err(Box::new(PreprocessingError::InvalidTypeProvidedToExtendBlock(validated.codegen(0))));
+        let validated_name;
+        let validated_type_args;
+        if let RType::BasicType(n, ta) = validated {
+            validated_name = n;
+            validated_type_args = ta;
+        } else {
+            unreachable!()
+        }
+
+        if let Some(clause) = &item.follows_clause {
+            let validated_member_function_signatures = self.validate_member_function_signatures(&item.functions)?;
+            let validated_follows_entries = self.validate_follows_entries(clause.contracts.clone())?;
+            self.check_contract_follows(
+                &validated_member_function_signatures,
+                &validated_follows_entries
+            )?;
+
+            for entry in &validated_follows_entries {
+                self.add_contract_follow_to_vtables(
+                    &n,
+                    item.type_params.clone(),
+                    validated_name.clone(),
+                    validated_type_args.clone(),
+                    &validated_member_function_signatures,
+                    entry
+                )?;
             }
         }
+
+        let item_name = validated_name.get_back()?.clone();
+        let item_prefix = validated_name.without_last();
 
         for func in item.functions {
             match func.signature.name {
@@ -569,7 +664,7 @@ impl CortexPreprocessor {
 
                     let addr = FunctionAddress {
                         own_module_path: PathIdent::continued(n.clone(), func_name),
-                        target: Some(validated_target_path.clone()),
+                        target: Some(validated_name.clone()),
                     };
                     funcs_to_add.push((addr, new_func));
                 },
