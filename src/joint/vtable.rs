@@ -88,6 +88,13 @@ pub struct GlobalVTableMap<T> {
     values: Vec<T>,
 }
 impl<T> GlobalVTableMap<T> {
+    pub fn new() -> Self {
+        Self {
+            keys: Vec::new(),
+            values: Vec::new(),
+        }
+    }
+
     pub fn insert(&mut self, key: GlobalVTableKey, value: T) {
         let index = self.index(&key);
         if let Some(i) = index {
