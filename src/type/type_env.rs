@@ -27,7 +27,7 @@ impl TypeEnvironment {
         self.bindings.insert(param, value);
     }
 
-    pub fn fill_in(&self, typ: RType) -> Result<RType, TypeError> {
+    pub fn fill_in(&self, typ: RType) -> RType {
         Self::fill_type(typ, &self.bindings)
     }
 
@@ -39,49 +39,57 @@ impl TypeEnvironment {
         }
     }
 
-    pub fn fill(arg: RTypeArg, bindings: &HashMap<TypeParam, RTypeArg>) -> Result<RTypeArg, TypeError> {
+    pub fn fill_type_args(args: Vec<RTypeArg>, bindings: &HashMap<TypeParam, RTypeArg>) -> Vec<RTypeArg> {
+        let mut result = Vec::new();
+        for t in args {
+            result.push(Self::fill_type_arg(t, bindings));
+        }
+        result
+    }
+
+    pub fn fill_type_arg(arg: RTypeArg, bindings: &HashMap<TypeParam, RTypeArg>) -> RTypeArg {
         match arg {
-            RTypeArg::Ty(ty) => Ok(RTypeArg::Ty(Self::fill_type(ty, bindings)?)),
-            other => Ok(other),
+            RTypeArg::Ty(ty) => RTypeArg::Ty(Self::fill_type(ty, bindings)),
+            other => other,
         }
     }
 
-    pub fn fill_type(typ: RType, bindings: &HashMap<TypeParam, RTypeArg>) -> Result<RType, TypeError> {
+    pub fn fill_type(typ: RType, bindings: &HashMap<TypeParam, RTypeArg>) -> RType {
         match typ {
             RType::BasicType(name, type_args) => {
-                Ok(RType::BasicType(name, type_args.into_iter().map(|t| Self::fill(t, bindings)).collect::<Result<Vec<_>, _>>()?))
+                RType::BasicType(name, type_args.into_iter().map(|t| Self::fill_type_arg(t, bindings)).collect())
             },
             RType::RefType(contained, mutable) => {
-                let new_contained = Self::fill_type(*contained, bindings)?;
-                Ok(RType::RefType(Box::new(new_contained), mutable ))
+                let new_contained = Self::fill_type(*contained, bindings);
+                RType::RefType(Box::new(new_contained), mutable )
             },
             RType::TupleType(t) => {
                 let new_types = t.into_iter().map(|t| Self::fill_type(t, bindings))
-                    .collect::<Result<Vec<_>,_>>()?;
-                Ok(RType::TupleType(new_types))
+                    .collect();
+                RType::TupleType(new_types)
             },
             RType::FollowsType(f) => {
-                Ok(RType::FollowsType(RFollowsClause {
-                    entries: f.entries.into_iter().map(|c| Ok(RFollowsEntry {
+                RType::FollowsType(RFollowsClause {
+                    entries: f.entries.into_iter().map(|c| RFollowsEntry {
                         name: c.name,
-                        type_args: c.type_args.into_iter().map(|t| Self::fill(t, bindings)).collect::<Result<Vec<_>, _>>()?
-                    })).collect::<Result<Vec<_>, _>>()?,
-                }))
+                        type_args: c.type_args.into_iter().map(|t| Self::fill_type_arg(t, bindings)).collect()
+                    }).collect(),
+                })
             },
             RType::OptionalType(t) => {
-                Ok(RType::OptionalType(Box::new(Self::fill_type(*t, bindings)?)))
+                RType::OptionalType(Box::new(Self::fill_type(*t, bindings)))
             },
-            RType::NoneType => Ok(RType::NoneType),
+            RType::NoneType => RType::NoneType,
             RType::GenericType(name) => {
                 if let Some(value) = bindings.get(&TypeParam::ty(&name)) {
                     if let RTypeArg::Ty(ty) = value {
-                        return Ok(ty.clone());
+                        return ty.clone();
                     }
                 }
                 // Ex. in preprocessing a function, we need to fill in parameter types *before*
                 // we attempt to infer them, so there are cases where we want to return back
                 // what we read in here
-                Ok(RType::GenericType(name))
+                RType::GenericType(name)
             }
         }
     }
@@ -99,7 +107,7 @@ impl TypeEnvironment {
         for init_entry in followed_contracts {
             let mut args = Vec::new();
             for arg in init_entry.type_args {
-                args.push(TypeEnvironment::fill(arg, &type_arg_map)?);
+                args.push(TypeEnvironment::fill_type_arg(arg, &type_arg_map));
             }
             result.push(RFollowsEntry {
                 name: init_entry.name,

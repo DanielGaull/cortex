@@ -232,20 +232,20 @@ impl CortexPreprocessor {
     }
 
     // Used to get bindings for a type (give param names and the concrete type)
-    pub(super) fn get_bindings(type_params: &Vec<TypeParam>, typ: &RType) -> Result<HashMap<TypeParam, RTypeArg>, CortexError> {
+    pub(super) fn get_bindings(type_params: &Vec<TypeParam>, typ: &RType) -> HashMap<TypeParam, RTypeArg> {
         let mut type_args_handled = false;
         let mut typ = typ.clone();
         let mut bindings = HashMap::new();
         while !type_args_handled {
             if let RType::BasicType(_, type_args) = &typ {
                 bindings = TypeEnvironment::create_bindings(type_params, &type_args);
-                typ = TypeEnvironment::fill_type(typ, &bindings)?;
+                typ = TypeEnvironment::fill_type(typ, &bindings);
                 type_args_handled = true;
             } else if let RType::RefType(r, _) = typ {
                 typ = *r;
             }
         }
-        Ok(bindings)
+        bindings
     }
     fn infer_type_args(&self, param_names: &Vec<String>, param_types: &Vec<RType>, 
             type_params: &Vec<TypeParam>, args: &Vec<RType>, 

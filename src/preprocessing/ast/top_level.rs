@@ -36,10 +36,10 @@ impl RMemberFunctionSignature {
                 .into_iter()
                 .map(|p| Ok(RParameter {
                     name: p.name,
-                    typ: TypeEnvironment::fill_type(p.typ, bindings)?
+                    typ: TypeEnvironment::fill_type(p.typ, bindings)
                 }))
                 .collect::<Result<Vec<_>, _>>()?,
-            TypeEnvironment::fill_type(self.return_type, bindings)?,
+            TypeEnvironment::fill_type(self.return_type, bindings),
             self.this_arg,
             self.type_params,
         ))

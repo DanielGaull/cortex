@@ -703,8 +703,8 @@ impl CortexPreprocessor {
             Err(Box::new(PreprocessingError::FieldDoesNotExist(member.clone(), atom_type.codegen(0))))
         } else {
             let mut member_type = typedef.fields.get(&member).unwrap().clone();
-            let bindings = Self::get_bindings(&typedef.type_params, &atom_type)?;
-            member_type = TypeEnvironment::fill_type(member_type, &bindings)?;
+            let bindings = Self::get_bindings(&typedef.type_params, &atom_type);
+            member_type = TypeEnvironment::fill_type(member_type, &bindings);
             member_type = member_type.forward_immutability(is_mutable);
             Ok((RExpression::MemberAccess(Box::new(atom_exp), member), member_type, vec![]))
         }
@@ -745,7 +745,7 @@ impl CortexPreprocessor {
                 .get(&fname)
                 .map(|t| t.clone());
             if let Some(typ) = opt_typ {
-                let field_type = TypeEnvironment::fill_type(typ, &bindings)?;
+                let field_type = TypeEnvironment::fill_type(typ, &bindings);
                 let (exp, assigned_type, st) = self.check_exp(fvalue, Some(field_type.clone()))?;
                 statements.extend(st);
                 if !self.is_subtype(&assigned_type, &field_type)? {
@@ -973,7 +973,7 @@ impl CortexPreprocessor {
 
     // "Cleans" type, for example replacing type arguments
     pub(super) fn clean_type(&self, typ: RType) -> Result<RType, CortexError> {
-        Ok(self.current_type_env.as_ref().unwrap().fill_in(typ)?)
+        Ok(self.current_type_env.as_ref().unwrap().fill_in(typ))
     }
 
     fn get_variable_type(&self, path: &PathIdent) -> Result<RType, CortexError> {
