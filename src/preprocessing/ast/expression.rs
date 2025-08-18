@@ -57,6 +57,11 @@ pub enum RExpression {
     DerefFat(Box<RExpression>),
     MakeAnon(Box<RExpression>),
     DeAnon(Box<RExpression>),
+    FunctionPointerCall{
+        ident: String,
+        args: Vec<RExpression>,
+    },
+    MakeFunctionPointer(usize),
 }
 
 #[derive(Clone)]

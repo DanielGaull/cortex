@@ -307,10 +307,8 @@ impl CortexInterpreter {
             RExpression::Void => Ok(CortexValue::Void),
             RExpression::None => Ok(CortexValue::None),
             RExpression::Identifier(path) => Ok(self.lookup_value(path)?),
-            RExpression::Call { addr: id, args: expressions } => {
-                let func = self.lookup_function(*id)?.clone();
-                let func_result = self.run_function(&func, expressions.iter().collect());
-                Ok(func_result?)
+            RExpression::Call { addr, args } => {
+                Ok(self.call_function_addr(*addr, args)?)
             },
             RExpression::Construction { assignments } => {
                 Ok(self.construct_struct(assignments)?)
@@ -465,9 +463,23 @@ impl CortexInterpreter {
                     Err(Box::new(InterpreterError::ExpectedAnonBox(String::from(boxed.get_variant_name()))))
                 }
             },
+            RExpression::FunctionPointerCall { ident, args } => {
+                let value = self.lookup_value(ident)?;
+                if let CortexValue::FunctionPointer(addr) = value {
+                    Ok(self.call_function_addr(addr, args)?)
+                } else {
+                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
+                }
+            },
+            RExpression::MakeFunctionPointer(addr) => Ok(CortexValue::FunctionPointer(*addr)),
         }
     }
 
+    fn call_function_addr(&mut self, addr: usize, args: &Vec<RExpression>) -> Result<CortexValue, CortexError> {
+        let func = self.lookup_function(addr)?.clone();
+        let func_result = self.run_function(&func, args.iter().collect());
+        Ok(func_result?)
+    }
     fn access_member(&self, inner: Rc<RefCell<CortexValue>>, member: &String) -> Result<CortexValue, CortexError> {
         if let CortexValue::Reference(addr) = *inner.borrow() {
             let val = self.heap
