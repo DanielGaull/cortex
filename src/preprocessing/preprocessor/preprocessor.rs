@@ -469,7 +469,27 @@ impl CortexPreprocessor {
             PExpression::None => Ok((RExpression::None, RType::none(), vec![])),
             PExpression::String(v) => Ok((RExpression::String(v), RType::string(), vec![])),
             PExpression::Char(v) => Ok((RExpression::Char(v), RType::char(), vec![])),
-            PExpression::PathIdent(path_ident) => Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.get_variable_type(&path_ident)?, vec![])),
+            PExpression::PathIdent(path_ident) => {
+                if self.has_variable(&path_ident) {
+                    Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.get_variable_type(&path_ident)?, vec![]))
+                } else {
+                    // TODO: if we add static functions, this will need to change
+                    let function_addr = FunctionAddress::new(path_ident.clone(), None);
+                    if self.function_dict.exists_concrete(&function_addr) {
+                        let (sig, ..) = self.lookup_signature(&function_addr)?;
+                        let params = sig.params.iter().map(|p| p.typ.clone()).collect();
+                        let return_type = Box::new(sig.return_type.clone());
+                        let addr = self.function_dict.add_call(function_addr, vec![])?;
+                        Ok((
+                            RExpression::MakeFunctionPointer(addr),
+                            RType::FunctionType(vec![], params, return_type),
+                            vec![]
+                        ))
+                    } else {
+                        Err(Box::new(PreprocessingError::ValueNotFound(path_ident.codegen(0))))
+                    }
+                }
+            },
             PExpression::Call { name: addr, args: arg_exps, type_args } => {
                 let result = self.check_call(
                     addr,
@@ -982,6 +1002,14 @@ impl CortexPreprocessor {
             Ok(self.current_env.as_ref().unwrap().get(front)?.clone())
         } else {
             Err(Box::new(PreprocessingError::ValueNotFound(path.codegen(0))))
+        }
+    }
+    fn has_variable(&self, path: &PathIdent) -> bool {
+        if path.is_final() {
+            let front = path.get_front().unwrap();
+            self.current_env.as_ref().unwrap().get(front).is_ok()
+        } else {
+            false
         }
     }
 
