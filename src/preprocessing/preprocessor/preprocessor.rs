@@ -475,8 +475,9 @@ impl CortexPreprocessor {
                 } else {
                     // TODO: if we add static functions, this will need to change
                     let function_addr = FunctionAddress::new(path_ident.clone(), None);
+                    let (sig, sig_prefix_used) = self.lookup_signature(&function_addr)?;
+                    let function_addr = FunctionAddress::concat(&sig_prefix_used, &function_addr);
                     if self.function_dict.exists_concrete(&function_addr) {
-                        let (sig, ..) = self.lookup_signature(&function_addr)?;
                         let params = sig.params.iter().map(|p| p.typ.clone()).collect();
                         let return_type = Box::new(sig.return_type.clone());
                         let addr = self.function_dict.add_call(function_addr, vec![])?;
