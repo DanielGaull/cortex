@@ -127,6 +127,9 @@ fn test_types() -> Result<(), Box<dyn Error>> {
     run_type_test("(&mut Box<i32>, &list<string>)?")?;
     run_type_test("(follows X<T> + Y<R> + Z<A, B>)?")?;
     run_type_test_expected("Box<i32>[]", "span<Box<i32>>")?;
+    // run_type_test("() => void")?;
+    // run_type_test("(i32, string) => void")?;
+    run_type_test("<T: ty, N: int>(i32, string) => void")?;
     Ok(())
 }
 

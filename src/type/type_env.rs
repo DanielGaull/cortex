@@ -90,7 +90,14 @@ impl TypeEnvironment {
                 // we attempt to infer them, so there are cases where we want to return back
                 // what we read in here
                 RType::GenericType(name)
-            }
+            },
+            RType::FunctionType(type_param_types, param_types, return_type) => {
+                RType::FunctionType(
+                    type_param_types, 
+                    param_types.into_iter().map(|p| Self::fill_type(p, bindings)).collect(),
+                    Box::new(Self::fill_type(*return_type, bindings)),
+                )
+            },
         }
     }
 

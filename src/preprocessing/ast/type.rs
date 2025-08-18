@@ -1,4 +1,4 @@
-use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, r#type::r#type::TypeError};
+use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, r#type::r#type::{TypeError, TypeParam}};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RFollowsClause {
@@ -26,6 +26,7 @@ pub enum RType {
     OptionalType(Box<RType>),
     NoneType,
     GenericType(String),
+    FunctionType(Vec<TypeParam>, Vec<RType>, Box<RType>)
 }
 
 macro_rules! core_types {
@@ -132,6 +133,7 @@ impl RType {
             RType::OptionalType(t) => t.name(),
             RType::NoneType => Ok(PathIdent::new(vec!["none"])),
             RType::GenericType(g) => Ok(PathIdent::new(vec![g])),
+            RType::FunctionType(..) => Err(TypeError::FunctionTypeNotValid),
         }
     }
 
@@ -148,13 +150,14 @@ impl RType {
             Self::OptionalType(t) => t.is_core(),
             Self::NoneType => true,
             Self::GenericType(_) => false,
+            Self::FunctionType(..) => false,
         }
     }
 
     pub fn optional(&self) -> bool {
         match self {
             Self::BasicType(..) | Self::RefType(..) | Self::TupleType(..) | 
-            Self::FollowsType(..) | Self::GenericType(..) => {
+            Self::FollowsType(..) | Self::GenericType(..) | Self::FunctionType(..) => {
                 false
             },
             Self::OptionalType(..) => true,
@@ -211,6 +214,7 @@ impl RType {
             Self::OptionalType(..) => true,
             Self::NoneType => false,
             Self::GenericType(..) => false,
+            Self::FunctionType(..) => true,
         }
     }
 
@@ -243,6 +247,7 @@ impl RType {
             RType::OptionalType(t) => t.is_non_composite(),
             RType::NoneType => true,
             RType::GenericType(..) => false,
+            Self::FunctionType(..) => true,
         }
     }
 }
@@ -282,6 +287,18 @@ impl SimpleCodeGen for RType {
             },
             Self::NoneType => String::from("none"),
             Self::GenericType(name) => name.clone(),
+            Self::FunctionType(type_params, param_types, return_type) => {
+                format!(
+                    "{}({}) => {}",
+                    if type_params.len() > 0 {
+                        format!("<{}>", type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
+                    } else {
+                        String::new()
+                    },
+                    param_types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "),
+                    return_type.codegen(0)
+                )
+            },
         }
     }
 }

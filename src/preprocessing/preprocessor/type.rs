@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::{interpreting::error::CortexError, preprocessing::ast::r#type::{RFollowsClause, RType, RTypeArg}, r#type::{r#type::{PType, TypeArg, TypeParam}, type_env::TypeEnvironment}};
 
@@ -77,7 +77,7 @@ impl CortexPreprocessor {
             },
             (RType::RefType(r1, m1), RType::RefType(r2, m2)) => {
                 if let Some(res) = self.combine_types(*r1.clone(), *r2.clone())? {
-                    Ok(Some(RType::reference(res, m1 || m2)))
+                    Ok(Some(RType::reference(res, m1 && m2)))
                 } else {
                     Ok(None)
                 }
@@ -115,10 +115,12 @@ impl CortexPreprocessor {
                     })))
                 }
             },
-            (RType::FollowsType(f), RType::RefType(r, _)) => {
+            (RType::FollowsType(f), RType::RefType(r, _)) |
+            (RType::RefType(r, _), RType::FollowsType(f)) => {
                 self.combine_types(RType::FollowsType(f), *r)
             },
-            (RType::FollowsType(f), RType::BasicType(name, _)) => {
+            (RType::FollowsType(f), RType::BasicType(name, _)) |
+            (RType::BasicType(name, _), RType::FollowsType(f)) => {
                 let type_def = self.lookup_type(&name)?;
                 let mut common_contracts = HashSet::new();
                 for c1 in &f.entries {
@@ -158,7 +160,47 @@ impl CortexPreprocessor {
                     Ok(None)
                 }
             },
+            (RType::FunctionType(tp1, pt1, rt1), RType::FunctionType(tp2, pt2, rt2)) => {
+                let attempt1 = self.combine_fn_types(tp1.clone(), pt1.clone(), *rt1.clone(), tp2.clone(), pt2.clone(), *rt2.clone())?;
+                if attempt1.is_some() {
+                    Ok(attempt1)
+                } else {
+                    Ok(self.combine_fn_types(tp2, pt2, *rt2, tp1, pt1, *rt1)?)
+                }
+            },
             _ => Ok(None)
+        }
+    }
+
+    // Since order doesn't matter when combining function types, but we do need distinct "first" and "second" types,
+    // this function is to aid in combining them
+    fn combine_fn_types(&self, tp1: Vec<TypeParam>, pt1: Vec<RType>, rt1: RType, tp2: Vec<TypeParam>, pt2: Vec<RType>, rt2: RType) -> Result<Option<RType>, CortexError> {
+        if tp1.len() == tp2.len() && pt1.len() == pt2.len() {
+            let mut mappings = HashMap::new();
+            for (t1, t2) in tp1.iter().zip(tp2.iter()) {
+                if t1.typ != t2.typ {
+                    return Ok(None);
+                }
+                mappings.insert(t1.clone(), RTypeArg::Ty(RType::GenericType(t2.name.clone())));
+            }
+
+            let mut params = Vec::new();
+            for (p1, p2) in pt1.into_iter().zip(pt2) {
+                let p1 = TypeEnvironment::fill_type(p1.clone(), &mappings);
+                if self.is_subtype(&p2, &p1)? {
+                    params.push(p2);
+                } else {
+                    return Ok(None);
+                }
+            }
+            let rt1 = TypeEnvironment::fill_type(rt1.clone(), &mappings);
+            if self.is_subtype(&rt1, &rt2)? {
+                Ok(Some(RType::FunctionType(tp2, params, Box::new(rt2))))
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
         }
     }
 
@@ -245,6 +287,29 @@ impl CortexPreprocessor {
             },
             (RType::GenericType(n1), RType::GenericType(n2)) => {
                 Ok(n1 == n2)
+            },
+            (RType::FunctionType(tp1, pt1, rt1), RType::FunctionType(tp2, pt2, rt2)) => {
+                if tp1.len() == tp2.len() && pt1.len() == pt2.len() {
+                    let mut mappings = HashMap::new();
+                    for (t1, t2) in tp1.iter().zip(tp2) {
+                        if t1.typ != t2.typ {
+                            return Ok(false);
+                        }
+                        mappings.insert(t1.clone(), RTypeArg::Ty(RType::GenericType(t2.name.clone())));
+                    }
+
+                    for (p1, p2) in pt1.iter().zip(pt2) {
+                        let p1 = TypeEnvironment::fill_type(p1.clone(), &mappings);
+                        if !self.is_subtype(p2, &p1)? {
+                            return Ok(false);
+                        }
+                    }
+                    let r1 = TypeEnvironment::fill_type(*rt1.clone(), &mappings);
+
+                    Ok(self.is_subtype(&r1, rt2)?)
+                } else {
+                    Ok(false)
+                }
             },
             _ => Ok(false),
         }

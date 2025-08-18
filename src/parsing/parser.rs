@@ -5,7 +5,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress, r#type::r#type::{PType, FollowsClause, FollowsEntry, FollowsType, TypeArg, TypeParam, TypeParamType}};
+use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress, r#type::r#type::{FollowsClause, FollowsEntry, FollowsType, FunctionType, PType, TypeArg, TypeParam, TypeParamType}};
 
 use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::ModuleContent, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, Extension, Import, ImportEntry, MemberFunction, MemberFunctionSignature, PFunction, Struct as Struct, ThisArg, TopLevel}};
 
@@ -866,6 +866,31 @@ impl CortexParser {
                 let clause = Self::parse_follows_clause(pairs.next().unwrap(), active_generics)?;
                 Ok(PType::FollowsType(FollowsType {
                     clause,
+                }))
+            },
+            Rule::functionType => {
+                let mut pairs = pair.into_inner();
+                let first = pairs.next().unwrap();
+                let type_params;
+                let next;
+                if matches!(first.as_rule(), Rule::typeParamList) {
+                    type_params = Self::parse_type_param_list(first)?;
+                    next = pairs.next().unwrap();
+                } else {
+                    type_params = Vec::new();
+                    next = first;
+                }
+                let active_generics = Self::convert_to_active_generics(&type_params);
+                let params = next
+                    .into_inner()
+                    .map(|pair| Self::parse_type_pair(pair, active_generics.clone()))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let return_type = Self::parse_type_pair(pairs.next().unwrap(), active_generics.clone())?;
+
+                Ok(PType::FunctionType(FunctionType {
+                    type_params,
+                    param_types: params,
+                    return_type: Box::new(return_type),
                 }))
             },
             Rule::typ => {

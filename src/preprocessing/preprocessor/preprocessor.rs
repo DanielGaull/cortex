@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error, rc::Rc};
 
-use crate::{joint::vtable::{GlobalVTableConcreteRow, GlobalVTableGenericRow, GlobalVTableKey, GlobalVTableMap, VTable}, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{FollowsClause, FollowsEntry, FollowsType, PType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
+use crate::{joint::vtable::{GlobalVTableConcreteRow, GlobalVTableGenericRow, GlobalVTableKey, GlobalVTableMap, VTable}, parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{FollowsClause, FollowsEntry, FollowsType, FunctionType, PType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
 
 use super::{super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RDefinedBody, RFunction}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program}, r#type};
 
@@ -573,8 +573,7 @@ impl CortexPreprocessor {
                 let (atom_exp, atom_type, mut statements) = self.check_exp(*inner, None)?;
                 match &atom_type {
                     RType::BasicType(..) |
-                    RType::RefType(..) | 
-                    RType::GenericType(..) => {
+                    RType::RefType(..) => {
                         if atom_type.is_non_composite() {
                             return Err(Box::new(PreprocessingError::CannotAccessMemberOfNonComposite));
                         }
@@ -592,7 +591,7 @@ impl CortexPreprocessor {
                     },
                     RType::FollowsType(..) => Err(Box::new(PreprocessingError::CannotAccessMemberOfFollowsType)),
                     RType::OptionalType(..) => Err(Box::new(PreprocessingError::CannotAccessMemberOfOptional(inner_as_string))),
-                    RType::NoneType => Err(Box::new(PreprocessingError::CannotAccessMemberOfNonComposite)),
+                    RType::NoneType | RType::FunctionType(..) | RType::GenericType(..) => Err(Box::new(PreprocessingError::CannotAccessMemberOfNonComposite)),
                 }
             },
             PExpression::MemberCall { callee, member, args, type_args } => {
@@ -1039,6 +1038,15 @@ impl CortexPreprocessor {
             PType::OptionalType(inner) => Ok(RType::OptionalType(Box::new(self.validate_type(*inner)?))),
             PType::NoneType => Ok(RType::NoneType),
             PType::GenericType(name) => Ok(RType::GenericType(name)),
+            PType::FunctionType(f) => {
+                Ok(
+                    RType::FunctionType(
+                        f.type_params, 
+                        f.param_types.into_iter().map(|p| self.validate_type(p)).collect::<Result<Vec<_>, _>>()?,
+                        Box::new(self.validate_type(*f.return_type)?)
+                    )
+                )
+            }
         }
     }
     pub(crate) fn validate_type_args(&self, type_params: &Vec<TypeParam>, type_args: Vec<TypeArg>, type_name: String, object_name: &'static str) -> Result<Vec<RTypeArg>, CortexError> {
@@ -1073,6 +1081,15 @@ impl CortexPreprocessor {
             RType::OptionalType(inner) => self.devalidate_type(inner.to_optional()),
             RType::NoneType => PType::NoneType,
             RType::GenericType(name) => PType::GenericType(name),
+            RType::FunctionType(type_param_types, param_types, return_type) => {
+                PType::FunctionType(
+                    FunctionType {
+                        type_params: type_param_types,
+                        param_types: param_types.into_iter().map(|p| self.devalidate_type(p)).collect(),
+                        return_type: Box::new(self.devalidate_type(*return_type)),
+                    }
+                )
+            }
         }
     }
     pub(crate) fn devalidate_type_args(&self, ta: Vec<RTypeArg>) -> Vec<TypeArg> {

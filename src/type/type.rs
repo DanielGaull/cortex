@@ -8,6 +8,8 @@ pub enum TypeError {
     TupleTypeNotValid,
     #[error("Follows clause type: not valid in this context")]
     FollowsTypeNotValid,
+    #[error("Function pointer type: not valid in this context")]
+    FunctionTypeNotValid,
     #[error("Generic type {0} is not defined")]
     GenericNotDefined(String),
 }
@@ -33,6 +35,13 @@ pub struct FollowsType {
     pub(crate) clause: FollowsClause,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FunctionType {
+    pub(crate) type_params: Vec<TypeParam>,
+    pub(crate) param_types: Vec<PType>,
+    pub(crate) return_type: Box<PType>,
+}
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum PType {
     // Represents a simple named type that may or may not have type arguments
@@ -49,6 +58,8 @@ pub enum PType {
     NoneType,
     // Represents a generic type
     GenericType(String),
+    // Represents a function type. For now, only function pointers; but in the future could support closures as well
+    FunctionType(FunctionType),
 }
 
 impl SimpleCodeGen for PType {
@@ -87,6 +98,18 @@ impl SimpleCodeGen for PType {
             },
             PType::NoneType => String::from("none"),
             PType::GenericType(name) => name.clone(),
+            PType::FunctionType(f) => {
+                format!(
+                    "{}({}) => {}",
+                    if f.type_params.len() > 0 {
+                        format!("<{}>", f.type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
+                    } else {
+                        String::new()
+                    },
+                    f.param_types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "),
+                    f.return_type.codegen(0)
+                )
+            },
         }
     }
 }
@@ -109,6 +132,7 @@ impl PType {
             PType::OptionalType(_) => true,
             PType::NoneType => false,
             PType::GenericType(_) => false,
+            PType::FunctionType(_) => true,
         }
     }
 }
@@ -250,6 +274,14 @@ impl PType {
             },
             PType::NoneType => PType::NoneType,
             PType::GenericType(name) => PType::GenericType(name.clone()),
+            PType::FunctionType(f) => 
+                PType::FunctionType(
+                    FunctionType {
+                        type_params: f.type_params.clone(),
+                        param_types: f.param_types.iter().map(|p| p.with_prefix(path)).collect(),
+                        return_type: Box::new(f.return_type.with_prefix(path)),
+                    }
+                )
         }
     }
 
@@ -262,6 +294,7 @@ impl PType {
             PType::OptionalType(t) => t.name(),
             PType::NoneType => Ok(PathIdent::new(vec!["none"])),
             PType::GenericType(g) => Ok(PathIdent::new(vec![g])),
+            PType::FunctionType(_) => Err(TypeError::FunctionTypeNotValid),
         }
     }
 }

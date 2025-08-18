@@ -120,7 +120,7 @@ tupleAssign = { "(" ~ assignName ~ "," ~ (assignName ~ ("," ~ assignName)*)? ~ "
 assignName = { tupleAssign | identExpr | ignoredIdentifier }
 
 typ = { atomType ~ typeTail }
-atomType = _{ basicType | tupleType | followsType | refType | "(" ~ typ ~ ")" }
+atomType = _{ functionType | basicType | tupleType | followsType | refType | "(" ~ typ ~ ")" }
 typeTail = { optionalTail | spanSugarTypeTail | "" }
 refType = { ("&mut" | "&") ~ typ }
 basicType = { pathIdent ~ ("<" ~ typeArgList ~ ">")? }
@@ -128,6 +128,7 @@ tupleType = { "(" ~ typ ~ "," ~ typ? ~ ("," ~ typ)* ~ ")" }
 followsType = { followsClause }
 optionalTail = { "?" }
 spanSugarTypeTail = { "[]" }
+functionType = { ("<" ~ typeParamList ~ ">")? ~ "(" ~ typeList ~ ")" ~ "=>" ~ typ }
 
 typeParam = { ident ~ (": " ~ (typeParamTy | typeParamInt))? }
 typeParamTy = { "ty" }
@@ -139,6 +140,7 @@ param = { ident ~ ":" ~ typ }
 paramList = { (param ~ ",")* ~ param? }
 exprList = { (expr ~ ",")* ~ expr? }
 body = { statement* ~ expr? }
+typeList = { (typ ~ ",")* ~ typ? }
 
 followsClause = { "follows" ~ (followsEntry ~ "+")* ~ followsEntry }
 followsEntry = { pathIdent ~ ("<" ~ typeArgList ~ ">")? }

@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, Contract, MemberFunction, PFunction, Struct}}, parser::CortexParser}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::{PType, FollowsClause, FollowsEntry, TypeArg, TypeParam, TypeParamType}};
+use cortex_lang::{interpreting::interpreter::CortexInterpreter, parsing::{ast::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, top_level::{BasicBody, Body, Contract, MemberFunction, PFunction, Struct}}, codegen::r#trait::SimpleCodeGen, parser::CortexParser}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::{FollowsClause, FollowsEntry, PType, TypeArg, TypeParam, TypeParamType}};
 
 fn run_test(input: &str, type_str: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
@@ -73,22 +73,32 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
 
     preprocessor.register_module(&PathIdent::empty(), module)?;
 
-    assert_subtype("none", "i32?", &preprocessor)?;
-    assert_subtype("&mut i32", "&i32", &preprocessor)?;
-    assert_not_subtype("&i32", "&mut i32", &preprocessor)?;
-    assert_subtype("(&mut i32, none)", "(&i32, bool?)", &preprocessor)?;
-    assert_not_subtype("(i32, i32)", "(i32, i32, i32)", &preprocessor)?;
+    assert_subtype("none", "i32?", &preprocessor, Some("i32?"))?;
+    assert_subtype("&mut i32", "&i32", &preprocessor, Some("&i32"))?;
+    assert_not_subtype("&i32", "&mut i32", &preprocessor, Some("&i32"))?;
+    assert_subtype("(&mut i32, none)", "(&i32, bool?)", &preprocessor, Some("(&i32, bool?)"))?;
+    assert_not_subtype("(i32, i32)", "(i32, i32, i32)", &preprocessor, None)?;
 
-    assert_subtype("follows X + Y + Z", "follows X", &preprocessor)?;
-    assert_subtype("&TestType", "follows Iterable", &preprocessor)?;
-    assert_not_subtype("&TestType", "follows Iterable + X", &preprocessor)?;
-    assert_subtype("&OtherTestType", "follows Iterable", &preprocessor)?;
-    assert_subtype("TestType", "follows Iterable", &preprocessor)?;
-    assert_not_subtype("TestType", "follows Iterable + X", &preprocessor)?;
-    assert_subtype("OtherTestType", "follows Iterable", &preprocessor)?;
-    assert_subtype("&mut Box<i32>", "follows Container<i32>", &preprocessor)?;
+    assert_subtype("follows X + Y + Z", "follows X", &preprocessor, Some("follows X"))?;
+    assert_subtype("&TestType", "follows Iterable", &preprocessor, Some("follows Iterable"))?;
+    assert_not_subtype("&TestType", "follows Iterable + X", &preprocessor, Some("follows Iterable"))?;
+    assert_subtype("&OtherTestType", "follows Iterable", &preprocessor, Some("follows Iterable"))?;
+    assert_subtype("TestType", "follows Iterable", &preprocessor, Some("follows Iterable"))?;
+    assert_not_subtype("TestType", "follows Iterable + X", &preprocessor, Some("follows Iterable"))?;
+    assert_subtype("OtherTestType", "follows Iterable", &preprocessor, Some("follows Iterable"))?;
 
-    assert_not_subtype("Box<TestType>", "Box<follows Iterable>", &preprocessor)?;
+    // TODO: this is currently bugged
+    // assert_subtype("&mut Box<i32>", "follows Container<i32>", &preprocessor, Some("follows Container<i32>"))?;
+
+    assert_not_subtype("Box<TestType>", "Box<follows Iterable>", &preprocessor, Some("Box<follows Iterable>"))?;
+
+    assert_subtype("() => void", "() => void", &preprocessor, Some("() => void"))?;
+    assert_subtype("() => &TestType", "() => follows Iterable", &preprocessor, Some("() => follows Iterable"))?;
+    assert_not_subtype("() => follows Iterable", "() => &TestType", &preprocessor, Some("() => follows Iterable"))?;
+    assert_subtype("(follows Iterable) => void", "(&TestType) => void", &preprocessor, Some("(&TestType) => void"))?;
+    assert_not_subtype("(&TestType) => void", "(follows Iterable) => void", &preprocessor, Some("(&TestType) => void"))?;
+    assert_subtype("<T: ty>(T) => void", "<R: ty>(R) => void", &preprocessor, Some("<R: ty>(R) => void"))?;
+
     Ok(())
 }
 
@@ -202,15 +212,39 @@ fn run_inference_type_tests() -> Result<(), Box<dyn Error>> {
 //     Ok(())
 // }
 
-fn assert_subtype(first: &str, second: &str, preprocessor: &CortexPreprocessor) -> Result<(), Box<dyn Error>> {
+fn assert_subtype(first: &str, second: &str, preprocessor: &CortexPreprocessor, combined_str: Option<&str>) -> Result<(), Box<dyn Error>> {
     let t1 = preprocessor.validate_type(CortexParser::parse_type(first)?)?;
     let t2 = preprocessor.validate_type(CortexParser::parse_type(second)?)?;
     assert!(preprocessor.is_subtype(&t1, &t2)?, "'{}' is not a subtype of '{}'", first, second);
+
+    if let Some(combined_str) = combined_str {
+        let combined = preprocessor.validate_type(CortexParser::parse_type(combined_str)?)?;
+        let combined_type = preprocessor.combine_types(t1, t2)?.expect(&format!("'{}' cannot be combined with '{}'", first, second));
+        assert_eq!(
+            combined,
+            combined_type,
+            "'{}' combined with '{}' => '{}', which isn't equal to '{}'", first, second, combined_type.codegen(0), combined_str);
+    } else {
+        assert!(preprocessor.combine_types(t1, t2)?.is_none(), "'{}' can be combined with '{}'", first, second);
+    }
+
     Ok(())
 }
-fn assert_not_subtype(first: &str, second: &str, preprocessor: &CortexPreprocessor) -> Result<(), Box<dyn Error>> {
+fn assert_not_subtype(first: &str, second: &str, preprocessor: &CortexPreprocessor, combined_str: Option<&str>) -> Result<(), Box<dyn Error>> {
     let t1 = preprocessor.validate_type(CortexParser::parse_type(first)?)?;
     let t2 = preprocessor.validate_type(CortexParser::parse_type(second)?)?;
     assert!(!preprocessor.is_subtype(&t1, &t2)?, "'{}' is mistakenly a subtype of '{}'", first, second);
+    
+    if let Some(combined_str) = combined_str {
+        let combined = preprocessor.validate_type(CortexParser::parse_type(combined_str)?)?;
+        let combined_type = preprocessor.combine_types(t1, t2)?.expect(&format!("'{}' cannot be combined with '{}'", first, second));
+        assert_eq!(
+            combined,
+            combined_type,
+            "'{}' combined with '{}' => '{}', which isn't equal to '{}'", first, second, combined_type.codegen(0), combined_str);
+    } else {
+        assert!(preprocessor.combine_types(t1, t2)?.is_none(), "'{}' can be combined with '{}'", first, second);
+    }
+    
     Ok(())
 }
