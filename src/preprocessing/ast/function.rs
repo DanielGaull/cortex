@@ -98,9 +98,6 @@ impl FunctionDict {
         let func = self.concrete_functions.get(name)?;
         Some(func)
     }
-    pub(crate) fn exists(&self, addr: &FunctionAddress) -> bool {
-        self.concrete_functions.contains_key(addr) || self.generic_functions.contains_key(addr)
-    }
     pub(crate) fn exists_concrete(&self, addr: &FunctionAddress) -> bool {
         self.concrete_functions.contains_key(addr)
     }

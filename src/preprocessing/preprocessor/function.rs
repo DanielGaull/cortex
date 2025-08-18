@@ -155,6 +155,16 @@ impl CortexPreprocessor {
         Ok((RExpression::Call { addr: func_id, args: call.args }, call.return_type, call.statements))
     }
 
+    pub(super) fn check_function_pointer_call(&mut self, (type_params, params, return_type): (Vec<TypeParam>, Vec<RType>, Box<RType>), arg_exps: Vec<PExpression>, name: String, st_str: &String) -> CheckResult<RExpression> {
+        let mock_sig = RFunctionSignature {
+            params: params.into_iter().enumerate().map(|(i, p)| RParameter::named(&format!("p{}", i), p)).collect(),
+            return_type: *return_type,
+            type_params,
+        };
+        let call = self.check_call_base(mock_sig.clone(), name.clone(), arg_exps, None, st_str)?;
+        Ok((RExpression::FunctionPointerCall { ident: name, args: call.args }, call.return_type, call.statements))
+    }
+
     fn check_call_base(&mut self, sig: RFunctionSignature, name: String, arg_exps: Vec<PExpression>, type_args: Option<Vec<RTypeArg>>, st_str: &String) -> Result<ProcessedCall, CortexError> {
         let provided_arg_count = arg_exps.len();
         if provided_arg_count != sig.params.len() {

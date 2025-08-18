@@ -179,6 +179,33 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn function_pointer_tests() -> Result<(), Box<dyn Error>> {
+    let test_body = Body::Basic(BasicBody::new( 
+        vec![
+            CortexParser::parse_statement("let x = 5;")?
+        ],
+        Some(CortexParser::parse_expression("x")?),
+    ));
+    let test_func = PFunction::new(
+        OptionalIdentifier::Ident(String::from("test")),
+        Vec::new(),
+        PType::i32(),
+        test_body,
+        vec![],
+    );
+    let mut interpreter = CortexInterpreter::new()?;
+    let mut module = Module::new();
+    module.add_function(test_func)?;
+    let path = CortexParser::parse_path("simple")?;
+    interpreter.register_module(&path, module)?;
+
+    interpreter.execute_statement(CortexParser::parse_statement("let test_function_pointer = simple::test;")?)?;
+    run_test("test_function_pointer()", "5", &mut interpreter)?;
+
+    Ok(())
+}
+
+#[test]
 fn struct_tests() -> Result<(), Box<dyn Error>> {
     let test_struct = Struct::new("Time", vec![
         ("m", PType::i32()),

@@ -188,6 +188,26 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn run_function_pointer_tests() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    let mut module = Module::new();
+    module.add_function(PFunction::new(
+        OptionalIdentifier::Ident(String::from("call")),
+        vec![
+            Parameter::named("t", PType::OptionalType(Box::new(PType::i32())))
+        ],
+        PType::OptionalType(Box::new(PType::boolean())),
+        Body::Basic(BasicBody::new(vec![], Some(PExpression::None))),
+        vec![],
+    ))?;
+    interpreter.register_module(&PathIdent::simple(String::from("box")), module)?;
+
+    run_test("box::call", "(i32?) => bool?", &mut interpreter)?;
+
+    Ok(())
+}
+
+#[test]
 fn run_inference_type_tests() -> Result<(), Box<dyn Error>> {
     // Tests where absence of an error is all that is expected
     let mut interpreter = CortexInterpreter::new()?;

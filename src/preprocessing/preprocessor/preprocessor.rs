@@ -492,6 +492,20 @@ impl CortexPreprocessor {
                 }
             },
             PExpression::Call { name: addr, args: arg_exps, type_args } => {
+                if addr.target.is_none() && self.has_variable(&addr.own_module_path) {
+                    let var = self.get_variable_type(&addr.own_module_path)?;
+                    if let RType::FunctionType(type_params, params, return_type) = var {
+                        let name = addr.own_module_path.get_back()?.clone(); // fn call above takes care of checking for module constants
+                        let result = self.check_function_pointer_call(
+                            (type_params, params, return_type),
+                            arg_exps,
+                            name,
+                            &st_str
+                        );
+                        return result;
+                    }
+                }
+
                 let result = self.check_call(
                     addr,
                     arg_exps, 
