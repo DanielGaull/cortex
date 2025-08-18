@@ -499,6 +499,7 @@ fn to_string(val: CortexValue, heap: &Heap) -> String {
         CortexValue::Char(c) => (c as char).to_string(),
         CortexValue::Fat(v, _) => to_string(v.borrow().clone(), heap),
         CortexValue::AnonymousBox(v) => to_string(*v, heap),
+        CortexValue::FunctionPointer(addr) => format!("function at 0x{:x}", addr),
     }
 }
 

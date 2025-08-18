@@ -44,6 +44,7 @@ pub enum CortexValue {
     Span(Vec<CortexValue>),
     Fat(Rc<RefCell<CortexValue>>, VTable),
     AnonymousBox(Box<CortexValue>),
+    FunctionPointer(usize),
 }
 impl PartialEq for CortexValue {
     // Manually implemented purely because of fat pointers - the vtables do not have to be equal in that case
@@ -70,6 +71,7 @@ impl PartialEq for CortexValue {
             (Self::Span(l0), Self::Span(r0)) => l0 == r0,
             (Self::Fat(l0, _), Self::Fat(r0, _)) => l0 == r0,
             (Self::AnonymousBox(l0), Self::AnonymousBox(r0)) => l0 == r0,
+            (Self::FunctionPointer(l0), Self::FunctionPointer(l1)) => l0 == l1,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -104,7 +106,7 @@ impl Display for CortexValue {
                         }
                         write!(f, "{{ {} }}", s)
                     },
-            CortexValue::Reference(addr) => write!(f, "&0x{:x}", addr),
+            CortexValue::Reference(addr) => write!(f, "ref(0x{:x})", addr),
             CortexValue::Span(list) => {
                         let _ = write!(f, "[");
                         for (i, item) in list.iter().enumerate() {
@@ -118,6 +120,7 @@ impl Display for CortexValue {
             CortexValue::Char(v) => write!(f, "\'{}\'", *v as char),
             CortexValue::Fat(v, _) => write!(f, "{}", *v.borrow()),
             CortexValue::AnonymousBox(v) => write!(f, "anonymous({})", *v),
+            CortexValue::FunctionPointer(addr) => write!(f, "func(0x{:x})", addr),
         }
     }
 }
@@ -157,6 +160,7 @@ impl CortexValue {
             CortexValue::Char(_) => "char",
             CortexValue::Fat(v, _) => v.borrow().get_variant_name(),
             CortexValue::AnonymousBox(..) => "anonymous box",
+            CortexValue::FunctionPointer(..) => "function pointer",
         }
     }
 
