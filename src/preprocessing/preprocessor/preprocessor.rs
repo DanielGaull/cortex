@@ -11,7 +11,7 @@ pub struct CortexPreprocessor {
     pub(super) current_env: Option<Box<TypeCheckingEnvironment<RType>>>,
     pub(super) current_context: PathIdent,
     pub(super) current_type_env: Option<Box<TypeEnvironment>>,
-    pub(super) function_dict: FunctionDict,
+    pub(crate) function_dict: FunctionDict,
     pub(super) function_signature_map: HashMap<FunctionAddress, RFunctionSignature>,
     pub(super) type_map: HashMap<PathIdent, TypeDefinition>,
     loop_depth: u32,
