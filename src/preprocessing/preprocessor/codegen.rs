@@ -1,4 +1,6 @@
-use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function::RDefinedBody, statement::RStatement, top_level::{RContract, RMemberFunctionSignature}, r#type::RType}, module::TypeDefinition}};
+use std::rc::Rc;
+
+use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function::{DefinedFunction, RBody, RDefinedBody, RFunction, RFunctionSignature}, function_address::FunctionAddress, statement::RStatement, top_level::{RContract, RMemberFunctionSignature}, r#type::RType}, module::TypeDefinition}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -11,6 +13,16 @@ impl CortexPreprocessor {
 
         for (path, typedef) in &self.type_map {
             s.push_str(&self.codegen_typedef(path, typedef, 0));
+        }
+
+        for (address, sig) in &self.function_signature_map {
+            let concrete_func = self.function_dict.get_concrete_by_address(&address);
+            if let Some(f) = concrete_func {
+                s.push_str(&self.codegen_rfunction(address, sig, f, 0));
+            } else {
+                let generic_func = self.function_dict.get_generic_by_address(&address).unwrap();
+                s.push_str(&self.codegen_defined_function(address, sig, generic_func, 0));
+            }
         }
 
         s
@@ -166,9 +178,9 @@ impl CortexPreprocessor {
         s.push_str("fn ");
         s.push_str(&sig.name);
         s.push_str(&format!("<{}>", sig.type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
-        s.push_str("(");
-        s.push_str(&sig.params.iter().map(|p| format!("{}: {}", p.name, self.codegen_type(&p.typ))).collect::<Vec<_>>().join(", "));
-        s.push_str(")");
+        s.push_str(&format!("({})", sig.params.iter().map(|p| format!("{}: {}", p.name, self.codegen_type(&p.typ))).collect::<Vec<_>>().join(", ")));
+        s.push_str(": ");
+        s.push_str(&self.codegen_type(&sig.return_type));
         s
     }
 
@@ -197,6 +209,68 @@ impl CortexPreprocessor {
         s.push_str(&prefix);
         s.push_str("}\n");
 
+        s
+    }
+
+    fn codegen_rfunction(&self, addr: &FunctionAddress, sig: &RFunctionSignature, func: &Rc<RFunction>, indent: usize) -> String {
+        let mut s = String::new();
+        let name;
+        if let Some(target) = &addr.target {
+            name = format!("{}`{}", target.codegen(0), addr.own_module_path.codegen(0));
+        } else {
+            name = addr.own_module_path.codegen(0);
+        }
+
+        let prefix = "    ".repeat(indent);
+        let prefix_plus = "    ".repeat(indent + 1);
+
+        s.push_str(&prefix);
+        s.push_str(&self.codegen_sig(sig, name));
+        s.push_str(" {\n");
+
+        if let RBody::Defined(body) = &func.body {
+            s.push_str(&self.codegen_defined_body(body, indent + 1));
+        } else {
+            s.push_str(&prefix_plus);
+            s.push_str("<extern>");
+        }
+
+        s.push_str(&prefix);
+        s.push_str("}\n");
+
+        s
+    }
+    fn codegen_defined_function(&self, addr: &FunctionAddress, sig: &RFunctionSignature, func: &DefinedFunction, indent: usize) -> String {
+        let mut s = String::new();
+        let name;
+        if let Some(target) = &addr.target {
+            name = format!("{}`{}", target.codegen(0), addr.own_module_path.codegen(0));
+        } else {
+            name = addr.own_module_path.codegen(0);
+        }
+
+        let prefix = "    ".repeat(indent);
+
+        s.push_str(&prefix);
+        s.push_str(&self.codegen_sig(sig, name));
+        s.push_str(" {\n");
+
+        s.push_str(&self.codegen_defined_body(&func.body, indent + 1));
+
+        s.push_str(&prefix);
+        s.push_str("}\n");
+
+        s
+    }
+
+    fn codegen_sig(&self, sig: &RFunctionSignature, name: String) -> String {
+        let mut s = String::new();
+        s.push_str("fn ");
+        s.push_str(&name);
+        s.push_str(&format!("<{}>", sig.type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
+        s.push_str(&format!("({})", sig.params.iter().map(|p| format!("{}: {}", p.name, self.codegen_type(&p.typ))).collect::<Vec<_>>().join(", ")));
+        s.push_str(": ");
+        s.push_str(&self.codegen_type(&sig.return_type));
         s
     }
 }

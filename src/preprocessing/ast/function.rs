@@ -98,6 +98,14 @@ impl FunctionDict {
         let func = self.concrete_functions.get(name)?;
         Some(func)
     }
+    pub(crate) fn get_concrete_by_address(&self, addr: &FunctionAddress) -> Option<&Rc<RFunction>> {
+        let func = self.concrete_functions.get(addr)?;
+        Some(func)
+    }
+    pub(crate) fn get_generic_by_address(&self, addr: &FunctionAddress) -> Option<&DefinedFunction> {
+        let func = self.generic_functions.get(addr)?;
+        Some(func)
+    }
     pub(crate) fn exists_concrete(&self, addr: &FunctionAddress) -> bool {
         self.concrete_functions.contains_key(addr)
     }
