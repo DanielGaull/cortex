@@ -1,4 +1,4 @@
-use crate::{joint::vtable::VTable, parsing::{ast::expression::{BinaryOperator, IdentExpression, UnaryOperator}, codegen::r#trait::SimpleCodeGen}};
+use crate::{parsing::{ast::expression::{BinaryOperator, IdentExpression, UnaryOperator}, codegen::r#trait::SimpleCodeGen}, preprocessing::preprocessor::vtable::VTable};
 
 use super::{function::RDefinedBody, statement::RConditionBody};
 

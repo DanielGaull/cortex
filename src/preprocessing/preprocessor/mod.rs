@@ -4,3 +4,4 @@ pub(crate) mod top_level;
 pub(crate) mod import;
 pub mod r#type;
 pub(crate) mod codegen;
+pub(crate) mod vtable;
