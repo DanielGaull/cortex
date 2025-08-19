@@ -1,9 +1,22 @@
-use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::ast::{expression::RExpression, function::RDefinedBody, statement::RStatement}};
+use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function::RDefinedBody, statement::RStatement, top_level::{RContract, RMemberFunctionSignature}, r#type::RType}, module::TypeDefinition}};
 
 use super::preprocessor::CortexPreprocessor;
 
 impl CortexPreprocessor {
-    pub(crate) fn codegen_exp(&self, exp: &RExpression, indent: usize) -> String {
+    pub fn codegen(&self) -> String {
+        let mut s = String::new();
+        for (path, contract) in &self.contract_map {
+            s.push_str(&self.codegen_contract(path, contract, 0));
+        }
+
+        for (path, typedef) in &self.type_map {
+            s.push_str(&self.codegen_typedef(path, typedef, 0));
+        }
+
+        s
+    }
+
+    fn codegen_exp(&self, exp: &RExpression, indent: usize) -> String {
         match exp {
             RExpression::F32(v) => format!("{}f32", v),
             RExpression::F64(v) => format!("{}f64", v),
@@ -83,7 +96,7 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(crate) fn codegen_statement(&self, statement: &RStatement, indent: usize) -> String {
+    fn codegen_statement(&self, statement: &RStatement, indent: usize) -> String {
         match statement {
             RStatement::Expression(exp) => format!("{};", self.codegen_exp(exp, indent)),
             RStatement::Throw(exp) => {
@@ -111,7 +124,7 @@ impl CortexPreprocessor {
         }
     }
 
-    pub(crate) fn codegen_defined_body(&self, body: &RDefinedBody, indent: usize) -> String {
+    fn codegen_defined_body(&self, body: &RDefinedBody, indent: usize) -> String {
         let prefix = "    ".repeat(indent);
         let mut s = String::new();
         for line in &body.statements {
@@ -122,6 +135,68 @@ impl CortexPreprocessor {
             s.push_str(&prefix);
             s.push_str(&self.codegen_exp(last, indent));
         }
+        s
+    }
+
+    fn codegen_contract(&self, name: &PathIdent, contract: &RContract, indent: usize) -> String {
+        let mut s = String::new();
+        let prefix = "    ".repeat(indent);
+        s.push_str(&prefix);
+        s.push_str("contract ");
+
+        s.push_str(&name.codegen(0));
+        s.push_str("<");
+        s.push_str(&contract.type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "));
+        s.push_str("> {\n");
+
+        for m in &contract.function_sigs {
+            s.push_str(&prefix);
+            s.push_str("    ");
+            s.push_str(&self.codegen_member_fn_sig(m));
+            s.push_str(";\n");
+        }
+
+        s.push_str(&prefix);
+        s.push_str("}\n");
+        s
+    }
+
+    fn codegen_member_fn_sig(&self, sig: &RMemberFunctionSignature) -> String {
+        let mut s = String::new();
+        s.push_str("fn ");
+        s.push_str(&sig.name);
+        s.push_str(&format!("<{}>", sig.type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
+        s.push_str("(");
+        s.push_str(&sig.params.iter().map(|p| format!("{}: {}", p.name, self.codegen_type(&p.typ))).collect::<Vec<_>>().join(", "));
+        s.push_str(")");
+        s
+    }
+
+    fn codegen_type(&self, ty: &RType) -> String {
+        ty.codegen(0)
+    }
+
+    fn codegen_typedef(&self, path: &PathIdent, typedef: &TypeDefinition, indent: usize) -> String {
+        let mut s = String::new();
+        let prefix = "    ".repeat(indent);
+
+        s.push_str(&prefix);
+        s.push_str("struct ");
+        s.push_str(&path.codegen(0));
+        s.push_str(&format!("<{}>", typedef.type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
+        if typedef.followed_contracts.len() > 0 {
+            s.push_str(&format!(" follows {}", typedef.followed_contracts.iter().map(|c| c.codegen(0)).collect::<Vec<_>>().join(" + ")));
+        }
+        s.push_str(" {\n");
+
+        for f in &typedef.fields {
+            s.push_str(&prefix);
+            s.push_str(&format!("{}: {},\n", f.0, self.codegen_type(f.1)));
+        }
+
+        s.push_str(&prefix);
+        s.push_str("}\n");
+
         s
     }
 }
