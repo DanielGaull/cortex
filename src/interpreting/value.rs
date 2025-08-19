@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use thiserror::Error;
 
-use crate::joint::vtable::VTable;
+use crate::preprocessing::preprocessor::vtable::VTable;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ValueError {

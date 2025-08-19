@@ -90,4 +90,6 @@ pub enum PreprocessingError {
     GenericFunctionMustHaveABody,
     #[error("Cannot deanonymize \"{0}\": must be an anonbox")]
     CannotDeanonymize(String),
+    #[error("Cannot dynamically dispatch generic function {0}")]
+    CannotDynamicDispatchGenericFunction(String),
 }

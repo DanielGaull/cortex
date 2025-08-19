@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, Import, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, FollowsEntry, PType, TypeParam}, type_env::TypeEnvironment}};
-use super::vtable::{GlobalVTableConcreteRow, GlobalVTableGenericRow, GlobalVTableKey};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -433,17 +432,6 @@ impl CortexPreprocessor {
                 &validated_member_function_signatures,
                 &validated_follows_entries
             )?;
-
-            for entry in &validated_follows_entries {
-                self.add_contract_follow_to_vtables(
-                    &n,
-                    item.type_params.clone(),
-                    full_path.clone(),
-                    forwarded_type_args(&item.type_params),
-                    &validated_member_function_signatures,
-                    entry
-                )?;
-            }
         }
         Self::handle_member_functions(item.functions, n, &item.type_params, &item.name, funcs_to_add)?;
 
@@ -505,76 +493,6 @@ impl CortexPreprocessor {
         
         Ok(())
     }
-    fn add_contract_follow_to_vtables(
-        &mut self,
-        n: &PathIdent,
-        type_params: Vec<TypeParam>,
-        type_name: PathIdent,
-        type_args: Vec<RTypeArg>,
-        functions: &Vec<RMemberFunctionSignature>,
-        contract_entry: &RFollowsEntry,
-    ) -> Result<(), CortexError> {
-        let contract_name = contract_entry.name.clone().subtract_if_possible(&self.current_context);
-        let contract = self.lookup_contract(&contract_name)?;
-        let mut concrete_vtable_entries = Vec::new();
-        let mut generic_vtable_entries = Vec::new();
-
-        for func in &contract.function_sigs {
-            if func.type_params.is_empty() {
-                for mf in functions {
-                    if mf.name == func.name {
-                        concrete_vtable_entries.push(GlobalVTableConcreteRow::new(
-                            func.name.clone(),
-                            FunctionAddress::new(
-                                PathIdent::concat(n, &PathIdent::simple(func.name.clone())),
-                                Some(type_name.clone())
-                            ),
-                            type_args.clone()
-                        ));
-                    }
-                }
-            } else {
-                for mf in functions {
-                    if mf.name == func.name {
-                        generic_vtable_entries.push(GlobalVTableGenericRow::new(
-                            func.name.clone(),
-                            FunctionAddress::new(
-                                PathIdent::concat(n, &PathIdent::simple(func.name.clone())),
-                                Some(type_name.clone())
-                            ),
-                        ));
-                    }
-                }
-            }
-        }
-
-        if !concrete_vtable_entries.is_empty() {
-            self.global_concrete_vtables.insert(
-                GlobalVTableKey::new(
-                    type_params.clone(), 
-                    contract_name.clone(),
-                    contract_entry.type_args.clone(),
-                    type_name.clone(),
-                    type_args.clone()
-                ),
-                concrete_vtable_entries
-            );
-        }
-        if !generic_vtable_entries.is_empty() {
-            self.global_generic_vtables.insert(
-                GlobalVTableKey::new(
-                    type_params.clone(), 
-                    contract_name.clone(),
-                    contract_entry.type_args.clone(),
-                    type_name.clone(),
-                    type_args.clone()
-                ),
-                generic_vtable_entries
-            );
-        }
-
-        Ok(())
-    }
     
     fn handle_member_functions(functions: Vec<MemberFunction>, n: PathIdent, item_type_params: &Vec<TypeParam>, item_name: &String, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
         for func in functions {
@@ -612,10 +530,8 @@ impl CortexPreprocessor {
         let item_as_type = PType::basic(item.name.clone(), item.type_args.clone());
         let validated = self.validate_type(item_as_type)?;
         let validated_name;
-        let validated_type_args;
-        if let RType::BasicType(n, ta) = validated {
+        if let RType::BasicType(n, ..) = validated {
             validated_name = n;
-            validated_type_args = ta;
         } else {
             unreachable!()
         }
@@ -627,17 +543,6 @@ impl CortexPreprocessor {
                 &validated_member_function_signatures,
                 &validated_follows_entries
             )?;
-
-            for entry in &validated_follows_entries {
-                self.add_contract_follow_to_vtables(
-                    &n,
-                    item.type_params.clone(),
-                    validated_name.clone(),
-                    validated_type_args.clone(),
-                    &validated_member_function_signatures,
-                    entry
-                )?;
-            }
         }
 
         let item_name = validated_name.get_back()?.clone();

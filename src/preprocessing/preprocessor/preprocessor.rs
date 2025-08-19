@@ -2,8 +2,8 @@ use std::{collections::HashMap, error::Error, rc::Rc};
 
 use crate::{parsing::{ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, PathIdent, UnaryOperator}, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, PFunction}}, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::{function::RFunctionSignature, top_level::RContract, r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}}, r#type::{r#type::{FollowsClause, FollowsEntry, FollowsType, FunctionType, PType, TypeArg, TypeParam}, type_checking_env::TypeCheckingEnvironment, type_env::TypeEnvironment}};
 
-use super::vtable::{GlobalVTableConcreteRow, GlobalVTableGenericRow, GlobalVTableKey, GlobalVTableMap, VTable};
-use super::{super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RDefinedBody, RFunction}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program}, r#type};
+use super::vtable::VTable;
+use super::super::{ast::{expression::RExpression, function::{FunctionDict, RBody, RDefinedBody, RFunction}, function_address::FunctionAddress, statement::{RConditionBody, RStatement}}, error::PreprocessingError, module::{Module, TypeDefinition}, program::Program};
 
 type CortexError = Box<dyn Error>;
 pub type CheckResult<T> = Result<(T, RType, Vec<RStatement>), CortexError>;
@@ -23,8 +23,6 @@ pub struct CortexPreprocessor {
     pub(super) stubbed_functions: HashMap<FunctionAddress, Vec<TypeParam>>,
     pub(super) stubbed_structs: HashMap<PathIdent, Vec<TypeParam>>,
     pub(super) stubbed_contracts: HashMap<PathIdent, Vec<TypeParam>>,
-    pub(super) global_generic_vtables: GlobalVTableMap<Vec<GlobalVTableGenericRow>>,
-    pub(super) global_concrete_vtables: GlobalVTableMap<Vec<GlobalVTableConcreteRow>>,
 }
 
 impl CortexPreprocessor {
@@ -44,8 +42,6 @@ impl CortexPreprocessor {
             stubbed_functions: HashMap::new(),
             stubbed_structs: HashMap::new(),
             stubbed_contracts: HashMap::new(),
-            global_generic_vtables: GlobalVTableMap::new(),
-            global_concrete_vtables: GlobalVTableMap::new(),
         };
 
         macro_rules! add_core_type {
@@ -137,7 +133,12 @@ impl CortexPreprocessor {
     
                 let mut vtable = VTable::new(vec![]);
                 for addr in func_addresses {
-                    let id = self.function_dict.add_call(addr, todo!())?;
+                    let (sig, ..) = self.lookup_signature(&addr)?;
+                    if sig.type_params.len() > 0 {
+                        return Err(Box::new(PreprocessingError::CannotDynamicDispatchGenericFunction(addr.codegen(0))));
+                    }
+
+                    let id = self.function_dict.add_call(addr, vec![])?;
                     vtable.add(id);
                 }
     
