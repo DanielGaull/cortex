@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::{error::PreprocessingError, module::ModuleError}, r#type::r#type::TypeParam};
 
-use super::{expression::{RCodeGen, RExpression}, function_address::FunctionAddress, statement::RStatement, top_level::RParameter, r#type::{RType, RTypeArg}};
+use super::{expression::RExpression, function_address::FunctionAddress, statement::RStatement, top_level::RParameter, r#type::{RType, RTypeArg}};
 
 pub enum RBody {
     Extern(Box<dyn Fn(&Environment, &mut Heap) -> Result<CortexValue, CortexError>>),
@@ -27,21 +27,6 @@ impl RDefinedBody {
             statements,
             result,
         }
-    }
-}
-impl RCodeGen for RDefinedBody {
-    fn codegen(&self, indent: usize, preprocessor: &crate::preprocessing::preprocessor::preprocessor::CortexPreprocessor) -> String {
-        let prefix = "    ".repeat(indent);
-        let mut s = String::new();
-        for line in &self.statements {
-            s.push_str(&prefix);
-            s.push_str(&line.codegen(indent, preprocessor));
-        }
-        if let Some(last) = &self.result {
-            s.push_str(&prefix);
-            s.push_str(&last.codegen(indent, preprocessor));
-        }
-        s
     }
 }
 
