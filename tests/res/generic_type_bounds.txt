@@ -1,0 +1,31 @@
+contract Action {
+    fn call(&this): i32;
+}
+
+fn dispatch<T>(action: T): i32 
+where T follows Action {
+    action.call()
+}
+
+struct PassthroughAction follows Action {
+    item: i32,
+
+    fn call(&this): i32 {
+        this.item
+    }
+}
+
+struct NotPassthroughAction {
+    item: i32,
+
+    fn call(&this): i32 {
+        this.item
+    }
+}
+
+struct Dispatcher {
+    fn dispatch<T>(&this, action: T): i32
+    where T follows Action {
+        action.call()
+    }
+}

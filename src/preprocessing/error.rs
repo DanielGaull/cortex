@@ -92,4 +92,6 @@ pub enum PreprocessingError {
     CannotDeanonymize(String),
     #[error("Cannot dynamically dispatch generic function {0}")]
     CannotDynamicDispatchGenericFunction(String),
+    #[error("Type {0} does not follow type bound {1}")]
+    TypeBoundNotSatisfied(String, String),
 }
