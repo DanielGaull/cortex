@@ -89,6 +89,7 @@ pub struct PFunction {
     pub(crate) return_type: PType,
     pub(crate) body: Body,
     pub(crate) type_params: Vec<TypeParam>,
+    pub(crate) where_clause: Option<WhereClause>,
 }
 impl SimpleCodeGen for PFunction {
     fn codegen(&self, indent: usize) -> String {
@@ -119,6 +120,11 @@ impl SimpleCodeGen for PFunction {
         }
         s.push_str("): ");
         s.push_str(&self.return_type.codegen(indent));
+
+        if let Some(where_clause) = &self.where_clause {
+            s.push_str(&format!(" {}", where_clause.codegen(indent)));
+        }
+
         s.push_str(" {\n");
 
         s.push_str(&self.body.codegen(indent + 1));
@@ -136,6 +142,7 @@ impl PFunction {
             return_type: return_type,
             body: body,
             type_params,
+            where_clause: None,
         }
     }
 
@@ -167,6 +174,7 @@ pub struct MemberFunctionSignature {
     pub(crate) params: Vec<Parameter>,
     pub(crate) return_type: PType,
     pub(crate) type_params: Vec<TypeParam>,
+    pub(crate) where_clause: Option<WhereClause>,
 }
 impl MemberFunctionSignature {
     pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: PType, this_arg: ThisArg, type_params: Vec<TypeParam>) -> Self {
@@ -176,6 +184,7 @@ impl MemberFunctionSignature {
             return_type: return_type,
             this_arg: this_arg,
             type_params,
+            where_clause: None,
         }
     }
 }
@@ -215,6 +224,11 @@ impl SimpleCodeGen for MemberFunctionSignature {
         }
         s.push_str("): ");
         s.push_str(&self.return_type.codegen(indent));
+
+        if let Some(where_clause) = &self.where_clause {
+            s.push_str(&format!(" {}", where_clause.codegen(indent)));
+        }
+
         s
     }
 }
@@ -246,6 +260,7 @@ impl MemberFunction {
                 params,
                 return_type,
                 type_params,
+                where_clause: None,
             },
             body,
         }
@@ -469,6 +484,32 @@ impl Contract {
             name: String::from(name),
             type_params,
             function_sigs
+        }
+    }
+}
+
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WhereClause {
+    pub(crate) entries: Vec<(String, FollowsClause)>,
+}
+impl SimpleCodeGen for WhereClause {
+    fn codegen(&self, indent: usize) -> String {
+        format!(
+            "where {}",
+            self
+                .entries
+                .iter()
+                .map(|(name, clause)| format!("{} {}", name, clause.codegen(indent)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+impl WhereClause {
+    pub fn new(entries: Vec<(String, FollowsClause)>) -> Self {
+        Self {
+            entries,
         }
     }
 }

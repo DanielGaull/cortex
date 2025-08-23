@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{constants::{INDEX_GET_FN_NAME, INDEX_SET_FN_NAME}, preprocessing::ast::function_address::FunctionAddress, r#type::r#type::{FollowsClause, FollowsEntry, FollowsType, FunctionType, PType, TypeArg, TypeParam, TypeParamType}};
 
-use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::ModuleContent, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, Extension, Import, ImportEntry, MemberFunction, MemberFunctionSignature, PFunction, Struct as Struct, ThisArg, TopLevel}};
+use super::ast::{expression::{BinaryOperator, IdentExpression, OptionalIdentifier, PConditionBody, PExpression, Parameter, PathIdent, UnaryOperator}, program::ModuleContent, statement::{AssignmentName, DeclarationName, PStatement}, top_level::{BasicBody, Body, Contract, Extension, Import, ImportEntry, MemberFunction, MemberFunctionSignature, PFunction, Struct as Struct, ThisArg, TopLevel, WhereClause}};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"] // relative to src
@@ -61,7 +61,7 @@ impl CortexParser {
     pub fn parse_statement(input: &str) -> Result<PStatement, ParseError> {
         let pair = PestCortexParser::parse(Rule::statement, input);
         match pair {
-            Ok(mut v) => Self::parse_stmt_pair(v.next().unwrap(), Vec::new()),
+            Ok(mut v) => Self::parse_stmt_pair(v.next().unwrap(), &Vec::new()),
             Err(e) => {
                 Err(ParseError::ParseFailure(String::from("statement"), String::from(e.line())))
             },
@@ -70,7 +70,7 @@ impl CortexParser {
     pub fn parse_expression(input: &str) -> Result<PExpression, ParseError> {
         let pair = PestCortexParser::parse(Rule::expr, input);
         match pair {
-            Ok(mut v) => Self::parse_expr_pair(v.next().unwrap(), Vec::new()),
+            Ok(mut v) => Self::parse_expr_pair(v.next().unwrap(), &Vec::new()),
             Err(e) => {
                 Err(ParseError::ParseFailure(String::from("expression"), String::from(e.line())))
             },
@@ -79,7 +79,7 @@ impl CortexParser {
     pub fn parse_type(input: &str) -> Result<PType, ParseError> {
         let pair = PestCortexParser::parse(Rule::typ, input);
         match pair {
-            Ok(mut v) => Self::parse_type_pair(v.next().unwrap(), Vec::new()),
+            Ok(mut v) => Self::parse_type_pair(v.next().unwrap(), &Vec::new()),
             Err(e) => {
                 Err(ParseError::ParseFailure(String::from("type"), String::from(e.line())))
             },
@@ -88,7 +88,7 @@ impl CortexParser {
     pub fn parse_function(input: &str) -> Result<PFunction, ParseError> {
         let pair = PestCortexParser::parse(Rule::function, input);
         match pair {
-            Ok(mut v) => Self::parse_func_pair(v.next().unwrap(), Vec::new()),
+            Ok(mut v) => Self::parse_func_pair(v.next().unwrap(), &Vec::new()),
             Err(e) => {
                 Err(ParseError::ParseFailure(String::from("function"), String::from(e.line())))
             },
@@ -167,7 +167,7 @@ impl CortexParser {
         pair = pair.into_inner().next().unwrap();
         match pair.as_rule() {
             Rule::function => {
-                Ok(TopLevel::Function(Self::parse_func_pair(pair, Vec::new())?))
+                Ok(TopLevel::Function(Self::parse_func_pair(pair, &Vec::new())?))
             },
             Rule::r#struct => {
                 Ok(TopLevel::Struct(Self::parse_struct_pair(pair)?))
@@ -209,7 +209,7 @@ impl CortexParser {
         Ok(ImportEntry { path, alias })
     }
 
-    fn parse_stmt_pair(mut pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PStatement, ParseError> {
+    fn parse_stmt_pair(mut pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PStatement, ParseError> {
         pair = pair.into_inner().next().unwrap();
         let orig = pair.as_str();
         match pair.as_rule() {
@@ -239,7 +239,7 @@ impl CortexParser {
                 let mut typ: Option<PType> = None;
                 let init_value = 
                     if third_pair.as_rule() == Rule::typ {
-                        typ = Some(Self::parse_type_pair(third_pair, active_generics.clone())?);
+                        typ = Some(Self::parse_type_pair(third_pair, active_generics)?);
                         Self::parse_expr_pair(pairs.next().unwrap(), active_generics)?
                     } else {
                         Self::parse_expr_pair(third_pair, active_generics)?
@@ -265,7 +265,7 @@ impl CortexParser {
                 let mut typ: Option<PType> = None;
                 let init_value = 
                     if third_pair.as_rule() == Rule::typ {
-                        typ = Some(Self::parse_type_pair(third_pair, active_generics.clone())?);
+                        typ = Some(Self::parse_type_pair(third_pair, active_generics)?);
                         Self::parse_expr_pair(pairs.next().unwrap(), active_generics)?
                     } else {
                         Self::parse_expr_pair(third_pair, active_generics)?
@@ -308,7 +308,7 @@ impl CortexParser {
             Rule::indexVarAssign => {
                 let mut pairs = pair.into_inner();
                 let left = Self::parse_ident_expr(pairs.next().unwrap())?;
-                let mut args = Self::parse_expr_list(pairs.next().unwrap(), active_generics.clone())?;
+                let mut args = Self::parse_expr_list(pairs.next().unwrap(), active_generics)?;
                 let next = pairs.next().unwrap();
                 let value;
                 match next.as_rule() {
@@ -359,7 +359,7 @@ impl CortexParser {
             },
             Rule::r#while => {
                 let mut pairs = pair.into_inner();
-                let cond = Self::parse_expr_pair(pairs.next().unwrap(), active_generics.clone())?;
+                let cond = Self::parse_expr_pair(pairs.next().unwrap(), active_generics)?;
                 let body = Self::parse_body(pairs.next().unwrap(), active_generics)?;
                 Ok(PStatement::WhileLoop(PConditionBody { condition: cond, body: body }))
             },
@@ -409,15 +409,15 @@ impl CortexParser {
         }
     }
 
-    fn parse_expr_pair(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PExpression, ParseError> {
+    fn parse_expr_pair(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PExpression, ParseError> {
         Self::parse_logic_result(pair, active_generics)
     }
-    fn parse_logic_result(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PExpression, ParseError> {
+    fn parse_logic_result(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PExpression, ParseError> {
         let mut pairs = pair.into_inner().peekable();
-        let mut result = Self::parse_eq_result(pairs.next().unwrap(), active_generics.clone())?;
+        let mut result = Self::parse_eq_result(pairs.next().unwrap(), active_generics)?;
         while pairs.peek() != None {
             let op = Self::parse_binop(pairs.next().unwrap())?;
-            let right = Self::parse_eq_result(pairs.next().unwrap(), active_generics.clone())?;
+            let right = Self::parse_eq_result(pairs.next().unwrap(), active_generics)?;
             result = PExpression::BinaryOperation { 
                 left: Box::new(result), 
                 op, 
@@ -426,12 +426,12 @@ impl CortexParser {
         }
         Ok(result)
     }
-    fn parse_eq_result(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PExpression, ParseError> {
+    fn parse_eq_result(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PExpression, ParseError> {
         let mut pairs = pair.into_inner().peekable();
-        let mut result = Self::parse_sum_result(pairs.next().unwrap(), active_generics.clone())?;
+        let mut result = Self::parse_sum_result(pairs.next().unwrap(), active_generics)?;
         while pairs.peek() != None {
             let op = Self::parse_binop(pairs.next().unwrap())?;
-            let right = Self::parse_sum_result(pairs.next().unwrap(), active_generics.clone())?;
+            let right = Self::parse_sum_result(pairs.next().unwrap(), active_generics)?;
             result = PExpression::BinaryOperation { 
                 left: Box::new(result), 
                 op, 
@@ -440,12 +440,12 @@ impl CortexParser {
         }
         Ok(result)
     }
-    fn parse_sum_result(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PExpression, ParseError> {
+    fn parse_sum_result(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PExpression, ParseError> {
         let mut pairs = pair.into_inner().peekable();
-        let mut result = Self::parse_mul_result(pairs.next().unwrap(), active_generics.clone())?;
+        let mut result = Self::parse_mul_result(pairs.next().unwrap(), active_generics)?;
         while pairs.peek() != None {
             let op = Self::parse_binop(pairs.next().unwrap())?;
-            let right = Self::parse_mul_result(pairs.next().unwrap(), active_generics.clone())?;
+            let right = Self::parse_mul_result(pairs.next().unwrap(), active_generics)?;
             result = PExpression::BinaryOperation { 
                 left: Box::new(result), 
                 op, 
@@ -454,12 +454,12 @@ impl CortexParser {
         }
         Ok(result)
     }
-    fn parse_mul_result(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PExpression, ParseError> {
+    fn parse_mul_result(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PExpression, ParseError> {
         let mut pairs = pair.into_inner().peekable();
-        let mut result = Self::parse_primary(pairs.next().unwrap(), active_generics.clone())?;
+        let mut result = Self::parse_primary(pairs.next().unwrap(), active_generics)?;
         while pairs.peek() != None {
             let op = Self::parse_binop(pairs.next().unwrap())?;
-            let right = Self::parse_primary(pairs.next().unwrap(), active_generics.clone())?;
+            let right = Self::parse_primary(pairs.next().unwrap(), active_generics)?;
             result = PExpression::BinaryOperation { 
                 left: Box::new(result), 
                 op, 
@@ -469,10 +469,10 @@ impl CortexParser {
         Ok(result)
     }
 
-    fn parse_primary(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PExpression, ParseError> {
+    fn parse_primary(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PExpression, ParseError> {
         let mut pairs = pair.into_inner();
         let atom_pair = pairs.next().unwrap();
-        let atom = Self::parse_atom_pair(atom_pair.into_inner().next().unwrap(), active_generics.clone())?;
+        let atom = Self::parse_atom_pair(atom_pair.into_inner().next().unwrap(), active_generics)?;
         let next = pairs.next();
         if next.is_some() {
             let expr_tail_pair = next.unwrap();
@@ -482,7 +482,7 @@ impl CortexParser {
         }
     }
 
-    fn parse_atom_pair(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PExpression, ParseError> {
+    fn parse_atom_pair(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PExpression, ParseError> {
         match pair.as_rule() {
             Rule::u8 => {
                 let value: u8 = pair.as_str().parse().unwrap();
@@ -563,7 +563,7 @@ impl CortexParser {
                 let next_pair = pairs.peek().unwrap();
                 let type_args;
                 if let Rule::typeArgList = next_pair.as_rule() {
-                    type_args = Some(Self::parse_type_arg_list(pairs.next().unwrap(), active_generics.clone())?);
+                    type_args = Some(Self::parse_type_arg_list(pairs.next().unwrap(), active_generics)?);
                 } else {
                     type_args = None;
                 }
@@ -576,7 +576,7 @@ impl CortexParser {
                 let name = Self::parse_path_ident(pairs.next().unwrap())?;
                 let type_args;
                 if pairs.peek().is_some() && pairs.peek().unwrap().as_rule() == Rule::typeArgList {
-                    type_args = Self::parse_type_arg_list(pairs.next().unwrap(), active_generics.clone())?;
+                    type_args = Self::parse_type_arg_list(pairs.next().unwrap(), active_generics)?;
                 } else {
                     type_args = vec![];
                 }
@@ -584,20 +584,20 @@ impl CortexParser {
                 for p in pairs {
                     let mut member_init = p.into_inner();
                     let name = member_init.next().unwrap().as_str();
-                    let expr = Self::parse_expr_pair(member_init.next().unwrap(), active_generics.clone())?;
+                    let expr = Self::parse_expr_pair(member_init.next().unwrap(), active_generics)?;
                     assignments.push((String::from(name), expr));
                 }
                 Ok(PExpression::Construction { name, assignments, type_args })
             },
             Rule::r#if => {
                 let mut pairs = pair.into_inner();
-                let first_cond = Self::parse_expr_pair(pairs.next().unwrap(), active_generics.clone())?;
-                let first_body = Self::parse_body(pairs.next().unwrap(), active_generics.clone())?;
+                let first_cond = Self::parse_expr_pair(pairs.next().unwrap(), active_generics)?;
+                let first_body = Self::parse_body(pairs.next().unwrap(), active_generics)?;
                 let elifs_pair = pairs.next().unwrap();
                 let elifs_pairs = elifs_pair.into_inner();
                 let mut elifs = Vec::<PConditionBody>::new();
                 for p in elifs_pairs {
-                    elifs.push(Self::parse_condition_body(p, active_generics.clone())?);
+                    elifs.push(Self::parse_condition_body(p, active_generics)?);
                 }
                 let op_else_pair = pairs.next();
                 let else_body = 
@@ -664,7 +664,7 @@ impl CortexParser {
             },
             Rule::deanonymize => {
                 let mut pairs = pair.into_inner();
-                let typ = Self::parse_type_pair(pairs.next().unwrap(), active_generics.clone())?;
+                let typ = Self::parse_type_pair(pairs.next().unwrap(), active_generics)?;
                 let inner = Self::parse_expr_pair(pairs.next().unwrap(), active_generics)?;
                 Ok(PExpression::DeAnon(typ, Box::new(inner)))
             },
@@ -672,7 +672,7 @@ impl CortexParser {
         }
     }
 
-    fn handle_expr_tail_pair(pair: Pair<Rule>, exp: PExpression, active_generics: Vec<String>) -> Result<PExpression, ParseError> {
+    fn handle_expr_tail_pair(pair: Pair<Rule>, exp: PExpression, active_generics: &Vec<String>) -> Result<PExpression, ParseError> {
         match pair.as_rule() {
             Rule::exprTail => {
                 if let Some(tail_pair) = pair.into_inner().next() {
@@ -699,12 +699,12 @@ impl CortexParser {
                             let next_pair = pairs.peek().unwrap();
                             let type_args;
                             if let Rule::typeArgList = next_pair.as_rule() {
-                                type_args = Some(Self::parse_type_arg_list(pairs.next().unwrap(), active_generics.clone())?);
+                                type_args = Some(Self::parse_type_arg_list(pairs.next().unwrap(), active_generics)?);
                             } else {
                                 type_args = None;
                             }
                             let args_pair = pairs.next().unwrap();
-                            let args = Self::parse_expr_list(args_pair, active_generics.clone())?;
+                            let args = Self::parse_expr_list(args_pair, active_generics)?;
                             Ok(Self::handle_expr_tail_pair(
                                 pairs.next().unwrap(),
                                 PExpression::MemberCall { callee: Box::new(exp), member: String::from(member), args, type_args },
@@ -714,7 +714,7 @@ impl CortexParser {
                         Rule::indexTail => {
                             let mut pairs = tail_pair.into_inner();
                             let args_pair = pairs.next().unwrap();
-                            let args = Self::parse_expr_list(args_pair, active_generics.clone())?;
+                            let args = Self::parse_expr_list(args_pair, active_generics)?;
                             Ok(Self::handle_expr_tail_pair(
                                 pairs.next().unwrap(),
                                 PExpression::MemberCall { callee: Box::new(exp), member: String::from(INDEX_GET_FN_NAME), args, type_args: None, },
@@ -731,9 +731,9 @@ impl CortexParser {
         }
     }
 
-    fn parse_condition_body(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PConditionBody, ParseError> {
+    fn parse_condition_body(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PConditionBody, ParseError> {
         let mut pairs = pair.into_inner();
-        let cond = Self::parse_expr_pair(pairs.next().unwrap(), active_generics.clone())?;
+        let cond = Self::parse_expr_pair(pairs.next().unwrap(), active_generics)?;
         let body = Self::parse_body(pairs.next().unwrap(), active_generics)?;
         Ok(PConditionBody {
             condition: cond,
@@ -792,7 +792,7 @@ impl CortexParser {
         })
     }
 
-    fn parse_type_arg(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<TypeArg, ParseError> {
+    fn parse_type_arg(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<TypeArg, ParseError> {
         match pair.as_rule() {
             Rule::typ => Ok(TypeArg::Ty(Self::parse_type_pair(pair, active_generics)?)),
             Rule::int => Ok(TypeArg::Int(pair.as_str().parse().unwrap())),
@@ -816,7 +816,7 @@ impl CortexParser {
         Ok(TypeParam::new(name, type_param_type))
     }
 
-    fn parse_type_pair(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PType, ParseError> {
+    fn parse_type_pair(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PType, ParseError> {
         let mut pairs = pair.into_inner();
         let atom = Self::parse_type_atom(pairs.next().unwrap(), active_generics)?;
         let next = pairs.next();
@@ -827,7 +827,7 @@ impl CortexParser {
             Ok(atom)
         }
     }
-    fn parse_type_atom(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<PType, ParseError> {
+    fn parse_type_atom(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PType, ParseError> {
         match pair.as_rule() {
             Rule::basicType => {
                 let mut pairs = pair.into_inner();
@@ -836,7 +836,7 @@ impl CortexParser {
                 if let Some(type_args_top_pair) = pairs.next() {
                     let type_arg_pairs = type_args_top_pair.into_inner();
                     for typ_pair in type_arg_pairs {
-                        type_args.push(Self::parse_type_arg(typ_pair, active_generics.clone())?);
+                        type_args.push(Self::parse_type_arg(typ_pair, active_generics)?);
                     }
                 }
                 if ident.is_final() && ident.get_back().unwrap() == "none" && type_args.len() == 0 {
@@ -857,7 +857,7 @@ impl CortexParser {
                 let pairs = pair.into_inner();
                 let mut types = Vec::new();
                 for p in pairs {
-                    types.push(Self::parse_type_pair(p, active_generics.clone())?);
+                    types.push(Self::parse_type_pair(p, active_generics)?);
                 }
                 Ok(PType::tuple(types))
             },
@@ -883,9 +883,9 @@ impl CortexParser {
                 let active_generics = Self::convert_to_active_generics(&type_params);
                 let params = next
                     .into_inner()
-                    .map(|pair| Self::parse_type_pair(pair, active_generics.clone()))
+                    .map(|pair| Self::parse_type_pair(pair, &active_generics))
                     .collect::<Result<Vec<_>, _>>()?;
-                let return_type = Self::parse_type_pair(pairs.next().unwrap(), active_generics.clone())?;
+                let return_type = Self::parse_type_pair(pairs.next().unwrap(), &active_generics)?;
 
                 Ok(PType::FunctionType(FunctionType {
                     type_params,
@@ -942,13 +942,13 @@ impl CortexParser {
         let active_generics = Self::convert_to_active_generics(&type_params);
 
         if matches!(next.as_rule(), Rule::followsClause) {
-            let clause = Self::parse_follows_clause(next, active_generics.clone())?;
+            let clause = Self::parse_follows_clause(next, &active_generics)?;
             follows_clause = Some(clause);
             next = pairs.next().unwrap();
         }
 
-        field_params = Self::parse_param_list(next, active_generics.clone())?;
-        let functions = Self::parse_member_func_list(pairs.next().unwrap(), active_generics)?;
+        field_params = Self::parse_param_list(next, &active_generics)?;
+        let functions = Self::parse_member_func_list(pairs.next().unwrap(), &active_generics)?;
 
         let mut fields = HashMap::new();
         for p in field_params {
@@ -982,18 +982,18 @@ impl CortexParser {
         let mut type_args = Vec::new();
         next = pairs.next().unwrap();
         if matches!(next.as_rule(), Rule::typeArgList) {
-            type_args = Self::parse_type_arg_list(next, type_params.iter().map(|t| t.name.clone()).collect())?;
+            type_args = Self::parse_type_arg_list(next, &type_params.iter().map(|t| t.name.clone()).collect())?;
             next = pairs.next().unwrap();
         }
         let active_generics = Self::convert_to_active_generics(&type_params);
         
         if matches!(next.as_rule(), Rule::followsClause) {
-            let clause = Self::parse_follows_clause(next, active_generics.clone())?;
+            let clause = Self::parse_follows_clause(next, &active_generics)?;
             follows_clause = Some(clause);
             next = pairs.next().unwrap();
         }
 
-        let functions = Self::parse_member_func_list(next, active_generics)?;
+        let functions = Self::parse_member_func_list(next, &active_generics)?;
         
         Ok(
             Extension { 
@@ -1047,11 +1047,11 @@ impl CortexParser {
         )
     }
 
-    fn parse_follows_clause(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<FollowsClause, ParseError> {
+    fn parse_follows_clause(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<FollowsClause, ParseError> {
         let pairs = pair.into_inner();
         let mut paths = Vec::new();
         for p in pairs {
-            paths.push(Self::parse_follows_entry(p, active_generics.clone())?);
+            paths.push(Self::parse_follows_entry(p, active_generics)?);
         }
         Ok(
             FollowsClause {
@@ -1059,7 +1059,7 @@ impl CortexParser {
             }
         )
     }
-    fn parse_follows_entry(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<FollowsEntry, ParseError> {
+    fn parse_follows_entry(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<FollowsEntry, ParseError> {
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_path_ident(pairs.next().unwrap())?;
         let mut type_args = Vec::new();
@@ -1074,7 +1074,24 @@ impl CortexParser {
         )
     }
 
-    fn parse_func_pair(pair: Pair<Rule>, mut active_generics: Vec<String>) -> Result<PFunction, ParseError> {
+    fn parse_where_clause(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<WhereClause, ParseError> {
+        let mut pairs = pair.into_inner().peekable();
+        let mut entries = Vec::new();
+        while pairs.peek().is_some() {
+            let name = pairs.next().unwrap().as_str();
+            let clause = Self::parse_follows_clause(pairs.next().unwrap(), active_generics)?;
+            entries.push((String::from(name), clause));
+        }
+
+        Ok(
+            WhereClause {
+                entries,
+            }
+        )
+    }
+
+    fn parse_func_pair(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<PFunction, ParseError> {
+        let mut active_generics = active_generics.clone();
         let mut pairs = pair.into_inner().peekable();
         let name = Self::parse_opt_ident(pairs.next().unwrap())?;
 
@@ -1084,30 +1101,39 @@ impl CortexParser {
         if matches!(next.as_rule(), Rule::typeParamList) {
             type_params = Self::parse_type_param_list(next)?;
             active_generics.extend(type_params.iter().map(|t| t.name.clone()));
-            params = Self::parse_param_list(pairs.next().unwrap(), active_generics.clone())?;
+            params = Self::parse_param_list(pairs.next().unwrap(), &active_generics)?;
         } else {
-            params = Self::parse_param_list(next, active_generics.clone())?;
+            params = Self::parse_param_list(next, &active_generics)?;
         }
 
-        let return_type = if matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
-            Self::parse_type_pair(pairs.next().unwrap(), active_generics.clone())?
+        let return_type = if pairs.peek().is_some() && matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
+            Self::parse_type_pair(pairs.next().unwrap(), &active_generics)?
         } else {
             PType::void()
         };
-        let body = Self::parse_body(pairs.next().unwrap(), active_generics)?;
+
+        let where_clause = if pairs.peek().is_some() && matches!(pairs.peek().unwrap().as_rule(), Rule::whereClause) {
+            Some(Self::parse_where_clause(pairs.next().unwrap(), &active_generics)?)
+        } else {
+            None
+        };
+
+        let body = Self::parse_body(pairs.next().unwrap(), &active_generics)?;
         Ok(PFunction {
             name: name,
             params: params,
             return_type: return_type,
             body: Body::Basic(body),
             type_params,
+            where_clause,
         })
     }
-    fn parse_member_function(pair: Pair<Rule>, mut active_generics: Vec<String>) -> Result<MemberFunction, ParseError> {
+    fn parse_member_function(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<MemberFunction, ParseError> {
         let mut pairs = pair.into_inner().peekable();
 
+        let mut active_generics = active_generics.clone();
         let signature = Self::parse_member_function_signature(pairs.next().unwrap(), &mut active_generics)?;
-        let body = Self::parse_body(pairs.next().unwrap(), active_generics)?;
+        let body = Self::parse_body(pairs.next().unwrap(), &active_generics)?;
         Ok(MemberFunction {
             signature,
             body: Body::Basic(body),
@@ -1128,19 +1154,27 @@ impl CortexParser {
             this_arg = Self::parse_this_arg(next)?;
         }
         
-        let params = Self::parse_param_list(pairs.next().unwrap(), active_generics.clone())?;
+        let params = Self::parse_param_list(pairs.next().unwrap(), active_generics)?;
         
-        let return_type = if matches!(pairs.peek(), Some(_)) && matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
-            Self::parse_type_pair(pairs.next().unwrap(), active_generics.clone())?
+        let return_type = if pairs.peek().is_some() && matches!(pairs.peek().unwrap().as_rule(), Rule::typ) {
+            Self::parse_type_pair(pairs.next().unwrap(), active_generics)?
         } else {
             PType::void()
         };
+
+        let where_clause = if pairs.peek().is_some() && matches!(pairs.peek().unwrap().as_rule(), Rule::whereClause) {
+            Some(Self::parse_where_clause(pairs.next().unwrap(), active_generics)?)
+        } else {
+            None
+        };
+
         Ok(MemberFunctionSignature {
             name: name,
             params: params,
             return_type: return_type,
             this_arg: this_arg,
             type_params,
+            where_clause,
         })
     }
 
@@ -1156,29 +1190,29 @@ impl CortexParser {
         }
     }
 
-    fn parse_member_func_list(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<Vec<MemberFunction>, ParseError> {
+    fn parse_member_func_list(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<Vec<MemberFunction>, ParseError> {
         let pairs = pair.into_inner();
         let mut result = Vec::new();
         for p in pairs {
-            result.push(Self::parse_member_function(p, active_generics.clone())?);
+            result.push(Self::parse_member_function(p, active_generics)?);
         }
         Ok(result)
     }
 
-    fn parse_expr_list(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<Vec<PExpression>, ParseError> {
+    fn parse_expr_list(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<Vec<PExpression>, ParseError> {
         let pairs = pair.into_inner();
         let mut result = Vec::new();
         for p in pairs {
-            result.push(Self::parse_expr_pair(p, active_generics.clone())?);
+            result.push(Self::parse_expr_pair(p, active_generics)?);
         }
         Ok(result)
     }
 
-    fn parse_type_arg_list(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<Vec<TypeArg>, ParseError> {
+    fn parse_type_arg_list(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<Vec<TypeArg>, ParseError> {
         let pairs = pair.into_inner();
         let mut result = Vec::new();
         for p in pairs {
-            result.push(Self::parse_type_arg(p, active_generics.clone())?);
+            result.push(Self::parse_type_arg(p, active_generics)?);
         }
         Ok(result)
     }
@@ -1192,15 +1226,15 @@ impl CortexParser {
         Ok(result)
     }
 
-    fn parse_param_list(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<Vec<Parameter>, ParseError> {
+    fn parse_param_list(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<Vec<Parameter>, ParseError> {
         let pairs = pair.into_inner();
         let mut result = Vec::new();
         for p in pairs {
-            result.push(Self::parse_param(p, active_generics.clone())?);
+            result.push(Self::parse_param(p, active_generics)?);
         }
         Ok(result)
     }
-    fn parse_param(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<Parameter, ParseError> {
+    fn parse_param(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<Parameter, ParseError> {
         let mut pairs = pair.into_inner();
         let ident = pairs.next().unwrap().as_str();
         let typ = Self::parse_type_pair(pairs.next().unwrap(), active_generics)?;
@@ -1212,7 +1246,7 @@ impl CortexParser {
         )
     }
 
-    fn parse_body(pair: Pair<Rule>, active_generics: Vec<String>) -> Result<BasicBody, ParseError> {
+    fn parse_body(pair: Pair<Rule>, active_generics: &Vec<String>) -> Result<BasicBody, ParseError> {
         let mut result: Option<PExpression> = None;
         let mut statements = Vec::<PStatement>::new();
 
@@ -1221,12 +1255,12 @@ impl CortexParser {
             let is_last = iter.peek().is_none();
             if is_last {
                 if p.as_rule() == Rule::expr {
-                    result = Some(Self::parse_expr_pair(p, active_generics.clone())?);
+                    result = Some(Self::parse_expr_pair(p, active_generics)?);
                 } else {
-                    statements.push(Self::parse_stmt_pair(p, active_generics.clone())?);
+                    statements.push(Self::parse_stmt_pair(p, active_generics)?);
                 }
             } else {
-                statements.push(Self::parse_stmt_pair(p, active_generics.clone())?);
+                statements.push(Self::parse_stmt_pair(p, active_generics)?);
             }
         }
         Ok(

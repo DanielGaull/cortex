@@ -8,7 +8,7 @@ moduleContent = { import* ~ topLevel* }
 topLevel = { import | function | struct | extension | contract | module }
 module = { "module" ~ ident ~ "{" ~ moduleContent ~ "}" }
 import = { "import" ~ importEntry ~ ("," ~ importEntry)* ~ ";" }
-function = { "fn" ~ optIdentifier ~ ("<" ~ typeParamList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ "{" ~ body ~ "}" }
+function = { "fn" ~ optIdentifier ~ ("<" ~ typeParamList ~ ">")? ~ "(" ~ paramList ~ ")" ~ (":" ~ typ)? ~ whereClause? ~ "{" ~ body ~ "}" }
 struct = { "struct" ~ ident ~ ("<" ~ typeParamList ~ ">")? ~ followsClause? ~ "{" ~ paramList ~ memberFuncList ~ "}" }
 extension = { "extend" ~ ("<" ~ typeParamList ~ ">")? ~ pathIdent ~ ("<" ~ typeArgList ~ ">")? ~ followsClause? ~ "{" ~ memberFuncList ~ "}" }
 contract = { "contract" ~ ident ~ ("<" ~ typeParamList ~ ">")? ~ "{" ~ (memberFunctionSignature ~ ";")* ~ "}" }
@@ -145,12 +145,14 @@ typeList = { (typ ~ ",")* ~ typ? }
 followsClause = { "follows" ~ (followsEntry ~ "+")* ~ followsEntry }
 followsEntry = { pathIdent ~ ("<" ~ typeArgList ~ ">")? }
 
+whereClause = { "where" ~ (ident ~ followsClause ~ ",")* ~ (ident ~ followsClause) }
+
 directThis = { "this" }
 refThis = { "&this" }
 refMutThis = { "&mut this" }
 
 memberParamList = { ("," ~ param)* }
-memberFunctionSignature = { "fn" ~ optIdentifier ~ ("<" ~ typeParamList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ memberParamList ~ ")" ~ (":" ~ typ)? }
+memberFunctionSignature = { "fn" ~ optIdentifier ~ ("<" ~ typeParamList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ memberParamList ~ ")" ~ (":" ~ typ)? ~ whereClause? }
 memberFunction = { memberFunctionSignature ~ "{" ~ body ~ "}" }
 memberFuncList = { memberFunction* }
 

@@ -127,15 +127,15 @@ fn test_types() -> Result<(), Box<dyn Error>> {
     run_type_test("(&mut Box<i32>, &list<string>)?")?;
     run_type_test("(follows X<T> + Y<R> + Z<A, B>)?")?;
     run_type_test_expected("Box<i32>[]", "span<Box<i32>>")?;
-    // run_type_test("() => void")?;
-    // run_type_test("(i32, string) => void")?;
+    run_type_test("() => void")?;
+    run_type_test("(i32, string) => void")?;
     run_type_test("<T: ty, N: int>(i32, string) => void")?;
     Ok(())
 }
 
 #[test]
 fn test_statements() -> Result<(), Box<dyn Error>> {
-    run_statement_test("stop;")?;
+    run_statement_test("throw;")?;
     run_statement_test("none;")?;
     run_statement_test("print(hello, \"hi\");")?;
     run_statement_test("let x = 5;")?;
@@ -158,7 +158,7 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_functions() -> Result<(), Box<dyn Error>> {
-    run_function_test("fn test(x: i32): void {\n    stop;\n}")?;
+    run_function_test("fn test(x: i32): void {\n    throw;\n}")?;
     run_function_test("fn test(x: i32): void {\n    const x: i32 = 5;\n    x;\n}")?;
     run_function_test("fn test(x: i32): i32 {\n    const x: i32 = 5;\n    x\n}")?;
     run_function_test("fn ~(x: i32): void {\n    throw;\n}")?;
@@ -167,6 +167,7 @@ fn test_functions() -> Result<(), Box<dyn Error>> {
     run_function_test_expected("fn test() {\n    throw;\n}", "fn test(): void {\n    throw;\n}")?;
     run_function_test_expected("fn ~() {\n    throw;\n}", "fn ~(): void {\n    throw;\n}")?;
     run_function_test_expected("fn test<T>() {\n    throw;\n}", "fn test<T: ty>(): void {\n    throw;\n}")?;
+    run_function_test_expected("fn test<T>(arg: T) where T follows Add<i32> {\n    throw;\n}", "fn test<T: ty>(arg: T): void where T follows Add<i32> {\n    throw;\n}")?;
     Ok(())
 }
 
@@ -174,14 +175,14 @@ fn test_functions() -> Result<(), Box<dyn Error>> {
 fn test_import() -> Result<(), Box<dyn Error>> {
     run_import_test("import hello;")?;
     run_import_test("import foo::bar::baz;")?;
-    // run_import_test("import foo::bar::Box as Box;")?;
+    run_import_test("import foo::bar::Box as Box;")?;
     Ok(())
 }
 
 #[test]
 fn test_top_level() -> Result<(), Box<dyn Error>> {
-    run_top_level_test("fn test(x: i32): void {\n    stop;\n}")?;
-    run_top_level_test("module myMod {\n    fn test(x: i32): void {\n        stop;\n    }\n}")?;
+    run_top_level_test("fn test(x: i32): void {\n    throw;\n}")?;
+    run_top_level_test("module myMod {\n    fn test(x: i32): void {\n        throw;\n    }\n}")?;
     run_top_level_test_or(
         "struct Point {\n    x: i32,\n    y: i32,\n}\n",
         "struct Point {\n    y: i32,\n    x: i32,\n}\n"
@@ -195,6 +196,10 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
         "struct Box<T> {\n    fn doAThing<U>(&this): void {\n    }\n}\n",
         "struct Box<T: ty> {\n    fn doAThing<U: ty>(&this): void {\n    }\n}\n"
     )?;
+    run_top_level_test_expected(
+        "struct Box<T> {\n    fn doAThing<U>(&this): void where U follows MyC {\n    }\n}\n",
+        "struct Box<T: ty> {\n    fn doAThing<U: ty>(&this): void where U follows MyC {\n    }\n}\n"
+    )?;
     run_top_level_test("extend string {\n}\n")?;
     run_top_level_test("extend string {\n    fn len(&this): i32 {\n        5\n    }\n}\n")?;
     run_top_level_test("extend i32 follows Add<i32> {\n}\n")?;
@@ -206,6 +211,11 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
         "contract Iterator<T> {\n    fn next(&mut this): T;\n    fn hasNext(&this): bool;\n}\n",
         "contract Iterator<T: ty> {\n    fn next(&mut this): T;\n    fn hasNext(&this): bool;\n}\n"
     )?;
+    run_top_level_test_expected(
+        "contract Requester {\n    fn request<T>(&mut this): string where T follows MyC;\n}\n",
+        "contract Requester {\n    fn request<T: ty>(&mut this): string where T follows MyC;\n}\n"
+    )?;
+
     run_top_level_test_expected(
         "struct Box<T> follows Iterator<T> {\n}\n",
         "struct Box<T: ty> follows Iterator<T> {\n}\n"
