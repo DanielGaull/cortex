@@ -39,14 +39,6 @@ impl TypeEnvironment {
         }
     }
 
-    pub fn fill_type_args(args: Vec<RTypeArg>, bindings: &HashMap<TypeParam, RTypeArg>) -> Vec<RTypeArg> {
-        let mut result = Vec::new();
-        for t in args {
-            result.push(Self::fill_type_arg(t, bindings));
-        }
-        result
-    }
-
     pub fn fill_type_arg(arg: RTypeArg, bindings: &HashMap<TypeParam, RTypeArg>) -> RTypeArg {
         match arg {
             RTypeArg::Ty(ty) => RTypeArg::Ty(Self::fill_type(ty, bindings)),
