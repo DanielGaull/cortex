@@ -907,13 +907,14 @@ impl CortexPreprocessor {
     }
 
     fn check_operator(&self, first: RType, op: &BinaryOperator, second: RType) -> Result<RType, CortexError> {
-        let number_i32 = RType::i32();
+        // TODO: sloppy. Can't even compare two diff. num types. Replace once ready
+        let numbers = vec![RType::i32(), RType::usz()];
         let string = RType::string();
         let boolean = RType::boolean();
         match op {
             BinaryOperator::Add => {
-                if first == number_i32 && second == number_i32 {
-                    Ok(number_i32)
+                if numbers.contains(&first) && numbers.contains(&second) && first == second {
+                    Ok(first)
                 } else if first == string && second == string {
                     Ok(string)
                 } else {
@@ -921,33 +922,33 @@ impl CortexPreprocessor {
                 }
             },
             BinaryOperator::Subtract => {
-                if first == number_i32 && second == number_i32 {
-                    Ok(number_i32)
+                if numbers.contains(&first) && numbers.contains(&second) && first == second {
+                    Ok(first)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "-", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::Multiply => {
-                if first == number_i32 && second == number_i32 {
-                    Ok(number_i32)
-                } else if first == number_i32 && second == string {
+                if numbers.contains(&first) && numbers.contains(&second) && first == second {
+                    Ok(first)
+                } else if numbers.contains(&first) && second == string {
                     Ok(string)
-                } else if first == string && second == number_i32 {
+                } else if first == string && numbers.contains(&second) {
                     Ok(string)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "string", "*", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::Divide => {
-                if first == number_i32 && second == number_i32 {
-                    Ok(number_i32)
+                if numbers.contains(&first) && numbers.contains(&second) && first == second {
+                    Ok(first)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "/", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::Remainder => {
-                if first == number_i32 && second == number_i32 {
-                    Ok(number_i32)
+                if numbers.contains(&first) && numbers.contains(&second) && first == second {
+                    Ok(first)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "%", first.codegen(0), second.codegen(0))))
                 }
@@ -973,28 +974,28 @@ impl CortexPreprocessor {
                 Ok(boolean)
             },
             BinaryOperator::IsLessThan => {
-                if first == number_i32 && second == number_i32 {
+                if numbers.contains(&first) && numbers.contains(&second) && first == second {
                     Ok(boolean)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "<", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::IsGreaterThan => {
-                if first == number_i32 && second == number_i32 {
+                if numbers.contains(&first) && numbers.contains(&second) && first == second {
                     Ok(boolean)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", ">", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::IsLessThanOrEqualTo => {
-                if first == number_i32 && second == number_i32 {
+                if numbers.contains(&first) && numbers.contains(&second) && first == second {
                     Ok(boolean)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", "<=", first.codegen(0), second.codegen(0))))
                 }
             },
             BinaryOperator::IsGreaterThanOrEqualTo => {
-                if first == number_i32 && second == number_i32 {
+                if numbers.contains(&first) && numbers.contains(&second) && first == second {
                     Ok(boolean)
                 } else {
                     Err(Box::new(PreprocessingError::InvalidOperator("number", "number", ">=", first.codegen(0), second.codegen(0))))

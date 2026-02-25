@@ -188,10 +188,14 @@ impl CortexInterpreter {
     }
 
     fn evaluate_op(&mut self, first: CortexValue, op: &BinaryOperator, second: CortexValue) -> Result<CortexValue, CortexError> {
+        // TODO: better support for numbers...
         match op {
             BinaryOperator::Add => {
                 match (first, second) {
                     (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::I32(n1 + n2)),
+                    (CortexValue::USZ(n1), CortexValue::I32(n2)) => Ok(CortexValue::USZ(n1 + (n2 as usize))),
+                    (CortexValue::I32(n1), CortexValue::USZ(n2)) => Ok(CortexValue::USZ((n1 as usize) + n2)),
+                    (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::USZ(n1 + n2)),
                     (CortexValue::String(s1), CortexValue::String(s2)) => {
                         let mut s = String::new();
                         s.push_str(&s1);
@@ -258,31 +262,31 @@ impl CortexInterpreter {
                 Ok(CortexValue::Boolean(first != second))
             },
             BinaryOperator::IsLessThan => {
-                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
-                    Ok(CortexValue::Boolean(n1 < n2))
-                } else {
-                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
+                match (first, second) {
+                    (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 < n2)),
+                    (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 < n2)),
+                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::IsGreaterThan => {
-                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
-                    Ok(CortexValue::Boolean(n1 > n2))
-                } else {
-                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
+                match (first, second) {
+                    (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 > n2)),
+                    (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 > n2)),
+                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::IsLessThanOrEqualTo => {
-                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
-                    Ok(CortexValue::Boolean(n1 <= n2))
-                } else {
-                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
+                match (first, second) {
+                    (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 <= n2)),
+                    (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 <= n2)),
+                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
             BinaryOperator::IsGreaterThanOrEqualTo => {
-                if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
-                    Ok(CortexValue::Boolean(n1 >= n2))
-                } else {
-                    Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
+                match (first, second) {
+                    (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 >= n2)),
+                    (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 >= n2)),
+                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
             },
         }

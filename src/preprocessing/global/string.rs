@@ -460,7 +460,7 @@ impl CortexPreprocessor {
     }
 }
 
-fn to_string(val: CortexValue, heap: &Heap) -> String {
+pub(crate) fn cortex_value_to_string(val: CortexValue, heap: &Heap) -> String {
     match val {
         CortexValue::F32(v) => v.to_string(),
         CortexValue::F64(v) => v.to_string(),
@@ -483,7 +483,7 @@ fn to_string(val: CortexValue, heap: &Heap) -> String {
             s.push_str("{");
             s.push_str(&field_values
                 .iter()
-                .map(|(f, v)| format!("{}: {}", f, to_string(v.borrow().clone(), heap)))
+                .map(|(f, v)| format!("{}: {}", f, cortex_value_to_string(v.borrow().clone(), heap)))
                 .collect::<Vec<_>>()
                 .join(", ")
             );
@@ -491,14 +491,14 @@ fn to_string(val: CortexValue, heap: &Heap) -> String {
             s
         },
         CortexValue::Reference(addr) => {
-            format!("&({})", to_string(heap.get(addr).borrow().clone(), heap))
+            format!("&({})", cortex_value_to_string(heap.get(addr).borrow().clone(), heap))
         },
         CortexValue::Span(items) => {
-            format!("[{}]", items.iter().map(|i| to_string(i.clone(), heap)).collect::<Vec<_>>().join(", "))
+            format!("[{}]", items.iter().map(|i| cortex_value_to_string(i.clone(), heap)).collect::<Vec<_>>().join(", "))
         },
         CortexValue::Char(c) => (c as char).to_string(),
-        CortexValue::Fat(v, _) => to_string(v.borrow().clone(), heap),
-        CortexValue::AnonymousBox(v) => to_string(*v, heap),
+        CortexValue::Fat(v, _) => cortex_value_to_string(v.borrow().clone(), heap),
+        CortexValue::AnonymousBox(v) => cortex_value_to_string(*v, heap),
         CortexValue::FunctionPointer(addr) => format!("function at 0x{:x}", addr),
     }
 }

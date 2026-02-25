@@ -2,7 +2,7 @@ use std::error::Error;
 
 use thiserror::Error;
 
-use crate::{interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, PFunction}}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::PType};
+use crate::{interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, PFunction}}, preprocessing::{global::string::cortex_value_to_string, module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::PType};
 
 #[derive(Error, Debug)]
 pub enum CoreLibError {
@@ -69,6 +69,42 @@ impl CortexPreprocessor {
                     }
                 } else {
                     Err(Box::new(CoreLibError::MismatchedTypes(String::from("span<T>, usz"))))
+                }
+            })),
+            vec![]
+        ))?;
+        corelib.add_function(PFunction::new(
+            OptionalIdentifier::Ident(String::from("spanAllocAnonymous")),
+            vec![Parameter::named("size", PType::usz())],
+            PType::reference(PType::span(PType::anonbox()), true),
+            Body::Native(Box::new(|env, heap| {
+                let size = env.get_value("size")?;
+                if let CortexValue::USZ(size) = size {
+                    let mut values = Vec::new();
+                    for _i in 0..size {
+                        values.push(CortexValue::AnonymousBox(Box::new(CortexValue::None)));
+                    }
+
+                    let addr = heap.allocate(CortexValue::Span(values));
+                    Ok(CortexValue::Reference(addr))
+                } else {
+                    Err(Box::new(CoreLibError::MismatchedTypes(String::from("usz"))))
+                }
+            })),
+            vec![]
+        ))?;
+
+        corelib.add_function(PFunction::new(
+            OptionalIdentifier::Ident(String::from("toStringAnonymous")),
+            vec![Parameter::named("value", PType::anonbox())],
+            PType::string(),
+            Body::Native(Box::new(|env, heap| {
+                let value = env.get_value("value")?;
+                if let CortexValue::AnonymousBox(value) = value {
+                    let str = cortex_value_to_string(*value, heap);
+                    Ok(CortexValue::String(str))
+                } else {
+                    Err(Box::new(CoreLibError::MismatchedTypes(String::from("usz"))))
                 }
             })),
             vec![]

@@ -40,6 +40,8 @@ parse_test!(import);
 #[test]
 fn test_parse_literals() -> Result<(), Box<dyn Error>> {
     run_expression_test("5")?;
+    run_expression_test("-5")?;
+    run_expression_test_expected("+5", "5")?;
     run_expression_test("1.7")?;
     run_expression_test("\"hello\"")?;
     run_expression_test("\"true\"")?;

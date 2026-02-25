@@ -1397,7 +1397,7 @@ impl CortexParser {
     where
         <T as FromStr>::Err: std::fmt::Debug,
     {
-        let re = Regex::new(r"(?P<num>[\d._]+)(?P<suffix>[a-z]\w*)?").unwrap();
+        let re = Regex::new(r"(?P<num>[\d._-]+)(?P<suffix>[a-z]\w*)?").unwrap();
         if let Some(caps) = re.captures(input) {
             let number_part = &caps["num"];
             let cleaned: String = number_part.replace('_', "");

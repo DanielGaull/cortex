@@ -13,7 +13,6 @@ module stdlib {
         }
     }
 
-    /*
     module collections {
         struct List<T: ty> {
             _items: &mut span<T>,
@@ -22,12 +21,27 @@ module stdlib {
 
             fn add(&mut this, item: T) {
                 if this._len >= this._capacity {
-                    // TODO: finish writing this
-                    // Would be nice to have for loops first to help w/ copying values
-                } else {
-                    _items[this._len] = item;
-                    this._len += 1;
-                }
+                    // TODO: search for "bad casts" in here (deanon<T> anon)
+                    // TODO: spanAllocAnonymous should take in a usz
+                    let nextCapacity = this._capacity * 2usz;
+                    let nextSpan = corelib::spanAllocAnonymous(nextCapacity);
+                    let i = 0usz;
+                    while i < this._len {
+                        // TODO: this is solely to fix some pathing issues... should fix later
+                        let currentVal = corelib::spanIndexGetSingleAnonymous(anon this._items, i);
+                        corelib::spanIndexAssignSingleAnonymous(anon nextSpan, i, currentVal);
+                        //nextSpan[i] = this[i];
+                        i += 1usz;
+                    }
+                    this._capacity = nextCapacity;
+                    this._items = deanon<&mut span<T>> anon nextSpan;
+                };
+
+                // TODO: this is solely to fix some pathing issues... should fix later
+                corelib::spanIndexAssignSingleAnonymous(anon this._items, this._len, anon item);
+                //this._items[this._len] = item;
+
+                this._len += 1usz;
             }
 
             fn len(&this): usz {
@@ -36,7 +50,24 @@ module stdlib {
             fn capacity(&this): usz {
                 this._capacity
             }
+
+            /*
+            fn __indexGet(&mut this, index: usz): T {
+                // TODO: these checks can't be done until we fix comparing diff. number types
+                if index >= this._len {
+                    throw "Index out of range: " + corelib::toStringAnonymous(anon index) + " for list of length " + corelib::toStringAnonymous(anon this._len);
+                };
+
+                this._items[index]
+            }
+            fn __indexSet(&mut this, index: usz, value: T): void {
+                if index >= this._len {
+                    throw "Index out of range: " + corelib::toStringAnonymous(anon index) + " for list of length " + corelib::toStringAnonymous(anon this._len);
+                };
+
+                this._items[index] = value;
+            }
+            */
         }
     }
-    */
 }
