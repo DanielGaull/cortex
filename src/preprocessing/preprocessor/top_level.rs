@@ -393,11 +393,10 @@ impl CortexPreprocessor {
     }
     fn add_function(&mut self, addr: FunctionAddress, f: PFunction) -> Result<(), CortexError> {
         let name = f.name().clone();
-        let type_params = f.type_params.clone();
         let processed = self.preprocess_function(f)?;
         match name {
             OptionalIdentifier::Ident(_) => {
-                self.function_dict.add_function(addr, processed, type_params)?;
+                self.function_dict.add_function(addr, processed)?;
             },
             OptionalIdentifier::Ignore => {},
         }

@@ -55,6 +55,12 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
     run_expression_test("1:")?;
     run_expression_test(":10")?;
     run_expression_test(":")?;
+
+    run_expression_test_expected("1i32", "1")?;
+    run_expression_test("5usz")?;
+    run_expression_test("2f32")?;
+    run_expression_test("2.3f32")?;
+    run_expression_test_expected("2.3f64", "2.3")?;
     
     Ok(())
 }

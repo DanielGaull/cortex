@@ -8,7 +8,6 @@ struct ProcessedCall {
     args: Vec<RExpression>,
     return_type: RType,
     statements: Vec<RStatement>,
-    actual_type_args: Vec<RTypeArg>,
 }
 
 impl CortexPreprocessor {
@@ -151,7 +150,7 @@ impl CortexPreprocessor {
         };
         let full_path = FunctionAddress::concat(&sig_prefix_used, &addr);
         let call = self.check_call_base(sig.clone(), full_path.codegen(0), arg_exps, type_args, st_str)?;
-        let func_id = self.function_dict.add_call(full_path, call.actual_type_args)?;
+        let func_id = self.function_dict.add_call(full_path)?;
         Ok((RExpression::Call { addr: func_id, args: call.args }, call.return_type, call.statements))
     }
 
@@ -237,7 +236,6 @@ impl CortexPreprocessor {
             args: final_args,
             return_type,
             statements,
-            actual_type_args: bindings.keys().map(|k| bindings.get(k).unwrap().clone()).collect(),
         })
     }
 

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function::{DefinedFunction, RBody, RDefinedBody, RFunction, RFunctionSignature}, function_address::FunctionAddress, statement::RStatement, top_level::{RContract, RMemberFunctionSignature}, r#type::RType}, module::TypeDefinition}};
+use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{expression::RExpression, function::{RBody, RDefinedBody, RFunction, RFunctionSignature}, function_address::FunctionAddress, statement::RStatement, top_level::{RContract, RMemberFunctionSignature}, r#type::RType}, module::TypeDefinition}};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -16,13 +16,8 @@ impl CortexPreprocessor {
         }
 
         for (address, sig) in &self.function_signature_map {
-            let concrete_func = self.function_dict.get_concrete_by_address(&address);
-            if let Some(f) = concrete_func {
-                s.push_str(&self.codegen_rfunction(address, sig, f, 0));
-            } else {
-                let generic_func = self.function_dict.get_generic_by_address(&address).unwrap();
-                s.push_str(&self.codegen_defined_function(address, sig, generic_func, 0));
-            }
+            let func = self.function_dict.get_id(&address).map(|id| self.function_dict.get(id)).flatten().unwrap();
+            s.push_str(&self.codegen_rfunction(address, sig, func, 0));
         }
 
         s
@@ -234,28 +229,6 @@ impl CortexPreprocessor {
             s.push_str(&prefix_plus);
             s.push_str("<extern>");
         }
-
-        s.push_str(&prefix);
-        s.push_str("}\n");
-
-        s
-    }
-    fn codegen_defined_function(&self, addr: &FunctionAddress, sig: &RFunctionSignature, func: &DefinedFunction, indent: usize) -> String {
-        let mut s = String::new();
-        let name;
-        if let Some(target) = &addr.target {
-            name = format!("{}`{}", target.codegen(0), addr.own_module_path.codegen(0));
-        } else {
-            name = addr.own_module_path.codegen(0);
-        }
-
-        let prefix = "    ".repeat(indent);
-
-        s.push_str(&prefix);
-        s.push_str(&self.codegen_sig(sig, name));
-        s.push_str(" {\n");
-
-        s.push_str(&self.codegen_defined_body(&func.body, indent + 1));
 
         s.push_str(&prefix);
         s.push_str("}\n");

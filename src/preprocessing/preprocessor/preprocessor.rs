@@ -133,12 +133,7 @@ impl CortexPreprocessor {
     
                 let mut vtable = VTable::new(vec![]);
                 for addr in func_addresses {
-                    let (sig, ..) = self.lookup_signature(&addr)?;
-                    if sig.type_params.len() > 0 {
-                        return Err(Box::new(PreprocessingError::CannotDynamicDispatchGenericFunction(addr.codegen(0))));
-                    }
-
-                    let id = self.function_dict.add_call(addr, vec![])?;
+                    let id = self.function_dict.add_call(addr)?;
                     vtable.add(id);
                 }
     
@@ -476,13 +471,14 @@ impl CortexPreprocessor {
                     Ok((RExpression::Identifier(path_ident.get_back()?.clone()), self.get_variable_type(&path_ident)?, vec![]))
                 } else {
                     // TODO: if we add static functions, this will need to change
+                    // (Attempting to create a function pointer)
                     let function_addr = FunctionAddress::new(path_ident.clone(), None);
                     let (sig, sig_prefix_used) = self.lookup_signature(&function_addr)?;
                     let function_addr = FunctionAddress::concat(&sig_prefix_used, &function_addr);
-                    if self.function_dict.exists_concrete(&function_addr) {
+                    if self.function_dict.exists(&function_addr) {
                         let params = sig.params.iter().map(|p| p.typ.clone()).collect();
                         let return_type = Box::new(sig.return_type.clone());
-                        let addr = self.function_dict.add_call(function_addr, vec![])?;
+                        let addr = self.function_dict.add_call(function_addr)?;
                         Ok((
                             RExpression::MakeFunctionPointer(addr),
                             RType::FunctionType(vec![], params, return_type),
