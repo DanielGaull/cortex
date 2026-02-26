@@ -338,6 +338,7 @@ fn recursive_function_test() -> Result<(), Box<dyn Error>> {
             }\
         }";
     interpreter.run_top_level(CortexParser::parse_top_level(f)?)?;
+    interpreter.process_added_modules()?;
     run_test("factorial(3)", "6", &mut interpreter)?;
     run_test("factorial(5)", "120", &mut interpreter)?;
     Ok(())

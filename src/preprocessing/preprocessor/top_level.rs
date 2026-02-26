@@ -44,7 +44,7 @@ impl CortexPreprocessor {
             Ok(r) => Ok(r),
             Err(e) => {
                 let mut valid_prefixes = self.imported_paths.clone();
-                valid_prefixes.append(&mut self.current_context.subpaths());
+                valid_prefixes.extend(self.current_context.subpaths().into_iter());
                 for prefix in &valid_prefixes {
                     let res = self.lookup_type_with(path, prefix);
                     if let Ok(r) = res {
@@ -87,7 +87,7 @@ impl CortexPreprocessor {
         }
 
         let mut all_valid_prefixes = self.current_context.subpaths();
-        all_valid_prefixes.append(&mut self.imported_paths.clone());
+        all_valid_prefixes.extend(self.imported_paths.clone().into_iter());
         for prefix in &all_valid_prefixes {
             let res = self.get_struct_stub_with(path, prefix);
             if let Some(res) = res {
@@ -120,7 +120,7 @@ impl CortexPreprocessor {
             Ok(r) => Ok(r),
             Err(e) => {
                 let mut valid_prefixes = self.imported_paths.clone();
-                valid_prefixes.append(&mut self.current_context.subpaths());
+                valid_prefixes.extend(self.current_context.subpaths().into_iter());
                 for prefix in &valid_prefixes {
                     let res = self.lookup_contract_with(path, prefix);
                     if let Ok(r) = res {
@@ -161,7 +161,7 @@ impl CortexPreprocessor {
         }
 
         let mut all_valid_prefixes = self.current_context.subpaths();
-        all_valid_prefixes.append(&mut self.imported_paths.clone());
+        all_valid_prefixes.extend(self.imported_paths.clone().into_iter());
         for prefix in &all_valid_prefixes {
             let res = self.get_contract_stub_with(path, prefix);
             if let Some(res) = res {
@@ -214,7 +214,7 @@ impl CortexPreprocessor {
             Ok(res) => Ok((res, self.current_context.clone())),
             Err(e) => {
                 let mut valid_prefixes = self.imported_paths.clone();
-                valid_prefixes.append(&mut self.current_context.subpaths());
+                valid_prefixes.extend(self.current_context.subpaths().into_iter());
                 for prefix in &valid_prefixes {
                     let res = self.lookup_signature_with(&path, prefix);
                     if let Ok(res) = res {
@@ -261,7 +261,7 @@ impl CortexPreprocessor {
         }
 
         let mut all_valid_prefixes = self.current_context.subpaths();
-        all_valid_prefixes.append(&mut self.imported_paths.clone());
+        all_valid_prefixes.extend(self.imported_paths.clone().into_iter());
         for prefix in &all_valid_prefixes {
             let res = self.get_function_stub_with(path, prefix);
             if let Some(res) = res {
@@ -343,7 +343,7 @@ impl CortexPreprocessor {
 
     pub fn run_top_level(&mut self, top_level: TopLevel) -> Result<(), CortexError> {
         let module = self.construct_module(vec![], vec![top_level], true)?;
-        self.register_module(&PathIdent::empty(), module)?;
+        self.add_module(PathIdent::empty(), module);
         Ok(())
     }
 
@@ -356,8 +356,78 @@ impl CortexPreprocessor {
             self.stub_module(path, module)?;
         }
 
-        for (path, module) in modules {
-            self.register_module(&path, module)?;
+        let mut functions = vec![];
+        let mut structs = vec![];
+        let mut extensions = vec![];
+        let mut contracts = vec![];
+        for (path, mut module) in modules {
+            let mfunctions = module
+                .take_functions()?
+                .into_iter()
+                .map(|f| match &f.name {
+                    OptionalIdentifier::Ident(func_name) => {
+                        let addr = FunctionAddress {
+                            own_module_path: PathIdent::continued(path.clone(), func_name.clone()),
+                            target: None,
+                        };
+                        Some((addr, f))
+                    }
+                    OptionalIdentifier::Ignore => None,
+                })
+                .filter_map(|x| x)
+                .collect::<Vec<(FunctionAddress, PFunction)>>();
+            let mstructs = module.take_structs()?;
+            let mextensions = module.take_extensions()?;
+            let mcontracts = module.take_contracts()?;
+            functions.extend(mfunctions.into_iter().map(|data| (path.clone(), data)));
+            structs.extend(mstructs.into_iter().map(|data| (path.clone(), data)));
+            contracts.extend(mcontracts.into_iter().map(|data| (path.clone(), data)));
+            extensions.extend(mextensions.into_iter().map(|data| (path.clone(), data)));
+            // self.register_module(&path, module)?;
+        }
+
+        for (path, item) in contracts {
+            let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
+            self.add_contract(path, item)?;
+            self.current_context = context_to_return_to;
+        }
+
+        let mut structs_to_check_for_loops = vec![];
+        for (path, item) in structs {
+            let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
+            self.add_struct(path, item, &mut functions, &mut structs_to_check_for_loops)?;
+            self.current_context = context_to_return_to;
+        }
+        for (path, name, type_args, fields) in structs_to_check_for_loops {
+            let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
+            let name = PathIdent::simple(name);
+            let full_path = PathIdent::concat(&path, &name);
+            let stype = RType::basic(name, type_args);
+            let has_loop = self.search_struct_for_loops(stype, fields)?;
+            if has_loop {
+                return Err(Box::new(PreprocessingError::StructContainsCircularFields(
+                    full_path.codegen(0),
+                )));
+            }
+            self.current_context = context_to_return_to;
+        }
+
+        for (path, item) in extensions {
+            let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
+            self.add_extension(path.clone(), item, &mut functions)?;
+            self.current_context = context_to_return_to;
+        }
+
+        for (path, (addr, f)) in &functions {
+            let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
+            self.add_signature(addr, &f)?;
+            self.current_context = context_to_return_to;
+        }
+
+        for (path, (addr, f)) in functions {
+            let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
+            self.add_function(addr, f)?;
+            self.current_context = context_to_return_to;
         }
 
         Ok(())
@@ -455,74 +525,6 @@ impl CortexPreprocessor {
 
         Ok(())
     }
-    fn register_module(&mut self, path: &PathIdent, mut module: Module) -> Result<(), CortexError> {
-        for (path_end, m) in module.children_iter() {
-            let this_path = PathIdent::continued(path.clone(), path_end);
-            self.register_module(&this_path, m)?;
-        }
-
-        let mut functions = module
-            .take_functions()?
-            .into_iter()
-            .map(|f| match &f.name {
-                OptionalIdentifier::Ident(func_name) => {
-                    let addr = FunctionAddress {
-                        own_module_path: PathIdent::continued(path.clone(), func_name.clone()),
-                        target: None,
-                    };
-                    Some((addr, f))
-                }
-                OptionalIdentifier::Ignore => None,
-            })
-            .filter_map(|x| x)
-            .collect::<Vec<(FunctionAddress, PFunction)>>();
-        let structs = module.take_structs()?;
-        let extensions = module.take_extensions()?;
-        let contracts = module.take_contracts()?;
-
-        let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
-
-        for item in contracts {
-            self.add_contract(path.clone(), item)?;
-        }
-
-        let mut structs_to_check_for_loops = Vec::new();
-        for item in structs {
-            self.add_struct(
-                path.clone(),
-                item,
-                &mut functions,
-                &mut structs_to_check_for_loops,
-            )?;
-        }
-        for (name, type_args, fields) in structs_to_check_for_loops {
-            let name = PathIdent::simple(name);
-            let full_path = PathIdent::concat(&path, &name);
-            let stype = RType::basic(name, type_args);
-            let has_loop = self.search_struct_for_loops(stype, fields)?;
-            if has_loop {
-                return Err(Box::new(PreprocessingError::StructContainsCircularFields(
-                    full_path.codegen(0),
-                )));
-            }
-        }
-
-        for item in extensions {
-            self.add_extension(path.clone(), item, &mut functions)?;
-        }
-
-        for (addr, f) in &functions {
-            self.add_signature(addr, &f)?;
-        }
-
-        for (addr, f) in functions {
-            self.add_function(addr, f)?;
-        }
-
-        self.current_context = context_to_return_to;
-
-        Ok(())
-    }
 
     fn add_signature(&mut self, addr: &FunctionAddress, f: &PFunction) -> Result<(), CortexError> {
         let sig = f.signature();
@@ -571,8 +573,8 @@ impl CortexPreprocessor {
         &mut self,
         n: PathIdent,
         item: Struct,
-        funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>,
-        structs_to_search: &mut Vec<(String, Vec<RTypeArg>, Vec<RType>)>,
+        funcs_to_add: &mut Vec<(PathIdent, (FunctionAddress, PFunction))>,
+        structs_to_search: &mut Vec<(PathIdent, String, Vec<RTypeArg>, Vec<RType>)>,
     ) -> Result<(), CortexError> {
         let full_path = PathIdent::continued(n.clone(), item.name.clone());
         let mut fields = HashMap::new();
@@ -580,6 +582,7 @@ impl CortexPreprocessor {
             fields.insert(f.0.clone(), self.validate_type(f.1.clone())?);
         }
         structs_to_search.push((
+            n.clone(),
             item.name.clone(),
             forwarded_type_args(&item.type_params),
             fields.values().cloned().into_iter().collect(),
@@ -688,7 +691,7 @@ impl CortexPreprocessor {
         n: PathIdent,
         item_type_params: &Vec<TypeParam>,
         item_name: &String,
-        funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>,
+        funcs_to_add: &mut Vec<(PathIdent, (FunctionAddress, PFunction))>,
     ) -> Result<(), CortexError> {
         for func in functions {
             match func.signature.name {
@@ -724,7 +727,7 @@ impl CortexPreprocessor {
                         own_module_path: PathIdent::continued(n.clone(), func_name),
                         target: Some(PathIdent::continued(n.clone(), item_name.clone())),
                     };
-                    funcs_to_add.push((addr, new_func));
+                    funcs_to_add.push((n.clone(), (addr, new_func)));
                 }
                 OptionalIdentifier::Ignore => (),
             }
@@ -736,7 +739,7 @@ impl CortexPreprocessor {
         &mut self,
         n: PathIdent,
         item: Extension,
-        funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>,
+        funcs_to_add: &mut Vec<(PathIdent, (FunctionAddress, PFunction))>,
     ) -> Result<(), CortexError> {
         let item_as_type = PType::basic(item.name.clone(), item.type_args.clone());
         let validated = self.validate_type(item_as_type)?;
@@ -798,7 +801,7 @@ impl CortexPreprocessor {
                         own_module_path: PathIdent::continued(n.clone(), func_name),
                         target: Some(validated_name.clone()),
                     };
-                    funcs_to_add.push((addr, new_func));
+                    funcs_to_add.push((n.clone(), (addr, new_func)));
                 }
                 OptionalIdentifier::Ignore => (),
             }

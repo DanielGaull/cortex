@@ -161,6 +161,7 @@ fn test_contract_errors() -> Result<(), Box<dyn Error>> {
         }
     }",
     )?)?;
+    interpreter.process_added_modules()?;
 
     assert_err_toplevel(
         "struct NumList1 follows Iterator<i32> {}",
