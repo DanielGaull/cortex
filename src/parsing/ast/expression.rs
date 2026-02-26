@@ -473,6 +473,17 @@ impl PathIdent {
         }
     }
 
+    // Returns all subpaths, including the empty path
+    // Ex for apple::banana::carrot, returns:
+    // '', 'apple', 'apple::banana', 'apple::banana::carrot'
+    pub fn subpaths(&self) -> Vec<Self> {
+        let result = (0..=self.path.len())
+            .map(|i| self.path[0..i].to_vec())
+            .map(|path| PathIdent { path })
+            .collect();
+        return result;
+    }
+
     pub fn pop_front(&self) -> Result<PathIdent, PathError> {
         if self.path.len() <= 0 {
             Err(PathError::PathEmpty)

@@ -1,22 +1,11 @@
 use std::error::Error;
 
-use crate::{constants::INDEX_GET_FN_NAME, interpreting::{heap::Heap, value::CortexValue}, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, PFunction, ThisArg}}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::{PType, TypeParam}};
+use crate::{constants::INDEX_GET_FN_NAME, interpreting::{heap::Heap, value::CortexValue}, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, Extension, MemberFunction, ThisArg}}, preprocessing::{module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::PType};
 
 use super::runtime_error::RuntimeError;
 
 impl CortexPreprocessor {
     pub(crate) fn add_string_funcs(global: &mut Module) -> Result<(), Box<dyn Error>> {
-        // global.add_function(PFunction::new(
-        //     OptionalIdentifier::Ident(String::from("toString")),
-        //     vec![Parameter::named("item", CortexType::generic("T"))],
-        //     CortexType::string(),
-        //     Body::Native(Box::new(move |env, heap| {
-        //         let item = env.get_value("item")?;
-        //         Ok(CortexValue::String(to_string(item, heap)))
-        //     })),
-        //     vec![TypeParam::ty("T")],
-        // ))?;
-
         global.add_extension(Extension {
             name: PathIdent::simple(String::from("string")),
             type_params: vec![],
@@ -500,14 +489,6 @@ pub(crate) fn cortex_value_to_string(val: CortexValue, heap: &Heap) -> String {
         CortexValue::Fat(v, _) => cortex_value_to_string(v.borrow().clone(), heap),
         CortexValue::AnonymousBox(v) => cortex_value_to_string(*v, heap),
         CortexValue::FunctionPointer(addr) => format!("function at 0x{:x}", addr),
-    }
-}
-
-fn f64_to_usize(value: f64) -> Option<usize> {
-    if value.is_finite() && value >= 0.0 && value.fract() == 0.0 && value <= usize::MAX as f64 {
-        Some(value as usize)
-    } else {
-        None
     }
 }
 

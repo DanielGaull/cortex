@@ -51,20 +51,16 @@ impl CortexPreprocessor {
                 return self.get_struct_stub_with(resolved, &PathIdent::empty());
             }
         }
-        let res = self.get_struct_stub_with(path, &self.current_context);
-        if let Some(res) = res {
-            Some(res)
-        } else {
-            let mut valid_prefixes = self.imported_paths.clone();
-            valid_prefixes.push(PathIdent::empty());
-            for prefix in &valid_prefixes {
-                let res = self.get_struct_stub_with(path, prefix);
-                if let Some(res) = res {
-                    return Some(res);
-                }
+
+        let mut all_valid_prefixes = self.current_context.subpaths();
+        all_valid_prefixes.append(&mut self.imported_paths.clone());
+        for prefix in &all_valid_prefixes {
+            let res = self.get_struct_stub_with(path, prefix);
+            if let Some(res) = res {
+                return Some(res);
             }
-            None
         }
+        None
     }
     fn get_struct_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
         let full_path = if is_path_a_core_type(path) {
@@ -116,20 +112,16 @@ impl CortexPreprocessor {
                 return self.get_contract_stub_with(resolved, &PathIdent::empty());
             }
         }
-        let res = self.get_contract_stub_with(path, &self.current_context);
-        if let Some(res) = res {
-            Some(res)
-        } else {
-            let mut valid_prefixes = self.imported_paths.clone();
-            valid_prefixes.push(PathIdent::empty());
-            for prefix in &valid_prefixes {
-                let res = self.get_contract_stub_with(path, prefix);
-                if let Some(res) = res {
-                    return Some(res);
-                }
+        
+        let mut all_valid_prefixes = self.current_context.subpaths();
+        all_valid_prefixes.append(&mut self.imported_paths.clone());
+        for prefix in &all_valid_prefixes {
+            let res = self.get_contract_stub_with(path, prefix);
+            if let Some(res) = res {
+                return Some(res);
             }
-            None
         }
+        None
     }
     fn get_contract_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
         let full_path = if is_path_a_core_type(path) {
@@ -193,21 +185,16 @@ impl CortexPreprocessor {
                 }
             }
         }
-        
-        let res = self.get_function_stub_with(path, &self.current_context);
-        if let Some(res) = res {
-            Some(res)
-        } else {
-            let mut valid_prefixes = self.imported_paths.clone();
-            valid_prefixes.push(PathIdent::empty());
-            for prefix in &valid_prefixes {
-                let res = self.get_function_stub_with(path, prefix);
-                if let Some(res) = res {
-                    return Some(res);
-                }
+
+        let mut all_valid_prefixes = self.current_context.subpaths();
+        all_valid_prefixes.append(&mut self.imported_paths.clone());
+        for prefix in &all_valid_prefixes {
+            let res = self.get_function_stub_with(path, prefix);
+            if let Some(res) = res {
+                return Some(res);
             }
-            None
         }
+        None
     }
     fn get_function_stub_with(&self, path: &FunctionAddress, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, FunctionAddress)> {
         let full_path = FunctionAddress::concat(prefix, &path);
