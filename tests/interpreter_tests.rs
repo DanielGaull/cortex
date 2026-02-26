@@ -1,6 +1,17 @@
 use std::error::Error;
 
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{BasicBody, Body, PFunction, Struct}}, parser::CortexParser}, preprocessing::module::Module, r#type::r#type::PType};
+use cortex_lang::{
+    interpreting::{interpreter::CortexInterpreter, value::CortexValue},
+    parsing::{
+        ast::{
+            expression::{OptionalIdentifier, Parameter, PathIdent},
+            top_level::{BasicBody, Body, PFunction, Struct},
+        },
+        parser::CortexParser,
+    },
+    preprocessing::module::Module,
+    r#type::r#type::PType,
+};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -9,7 +20,11 @@ enum TestError {
     Err(&'static str),
 }
 
-fn run_test(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+fn run_test(
+    input: &str,
+    expected: &str,
+    interpreter: &mut CortexInterpreter,
+) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
     let value = interpreter.execute_expression(ast)?;
     let value_string = format!("{}", value);
@@ -74,7 +89,11 @@ fn complex_expr_tests() -> Result<(), Box<dyn Error>> {
     run_test("if true{1} else {0}", "1", &mut interpreter)?;
     run_test("if false{1}elif true{2} else {0}", "2", &mut interpreter)?;
     run_test("if false{1}elif 0 == 1{2} else {0}", "0", &mut interpreter)?;
-    run_test("if false{1}elif 0 == 1{2} else {none}", "none", &mut interpreter)?;
+    run_test(
+        "if false{1}elif 0 == 1{2} else {none}",
+        "none",
+        &mut interpreter,
+    )?;
     Ok(())
 }
 
@@ -84,12 +103,16 @@ fn loop_tests() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
 
     interpreter.execute_statement(CortexParser::parse_statement("let x = 0;")?)?;
-    interpreter.execute_statement(CortexParser::parse_statement("while x < 10 { x += 1; if x == 5 { break; }; }")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement(
+        "while x < 10 { x += 1; if x == 5 { break; }; }",
+    )?)?;
     run_test("x", "5", &mut interpreter)?;
 
     interpreter.execute_statement(CortexParser::parse_statement("let i = 0;")?)?;
     interpreter.execute_statement(CortexParser::parse_statement("let x = 0;")?)?;
-    interpreter.execute_statement(CortexParser::parse_statement("while i < 10 { i += 1; if x == 7 { continue; }; x += 1; }")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement(
+        "while i < 10 { i += 1; if x == 7 { continue; }; x += 1; }",
+    )?)?;
     run_test("x", "7", &mut interpreter)?;
 
     Ok(())
@@ -103,11 +126,12 @@ fn loop_tests() -> Result<(), Box<dyn Error>> {
 //     mod_env.add_const(String::from("optionalBoolean"), CortexType::boolean(true), CortexValue::None)?;
 //     let path = CortexParser::parse_path("simple")?;
 //     let module = Module::new(mod_env);
-//     interpreter.register_module(&path, module)?;
+//     interpreter.add_module(path, module);
+//     interpreter.process_added_modules()?;
 
 //     run_test("simple::myBoolean", "true", &mut interpreter)?;
 //     run_test("simple::optionalBoolean", "none", &mut interpreter)?;
-    
+
 //     Ok(())
 // }
 
@@ -131,7 +155,7 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
         OptionalIdentifier::Ident(String::from("add")),
         vec![
             Parameter::named("a", PType::i32()),
-            Parameter::named("b", PType::i32())
+            Parameter::named("b", PType::i32()),
         ],
         PType::i32(),
         add_body,
@@ -141,7 +165,8 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
     let mut module = Module::new();
     module.add_function(add_func)?;
     let path = CortexParser::parse_path("simple")?;
-    interpreter.register_module(&path, module)?;
+    interpreter.add_module(path, module);
+    interpreter.process_added_modules()?;
 
     run_test("simple::add(5,2)", "7", &mut interpreter)?;
     run_test("simple::add(-5,2)", "-3", &mut interpreter)?;
@@ -154,10 +179,8 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn basic_function_tests() -> Result<(), Box<dyn Error>> {
-    let test_body = Body::Basic(BasicBody::new( 
-        vec![
-            CortexParser::parse_statement("let x = 5;")?
-        ],
+    let test_body = Body::Basic(BasicBody::new(
+        vec![CortexParser::parse_statement("let x = 5;")?],
         Some(CortexParser::parse_expression("x")?),
     ));
     let test_func = PFunction::new(
@@ -171,7 +194,8 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
     let mut module = Module::new();
     module.add_function(test_func)?;
     let path = CortexParser::parse_path("simple")?;
-    interpreter.register_module(&path, module)?;
+    interpreter.add_module(path, module);
+    interpreter.process_added_modules()?;
 
     run_test("simple::test()", "5", &mut interpreter)?;
 
@@ -180,10 +204,8 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn function_pointer_tests() -> Result<(), Box<dyn Error>> {
-    let test_body = Body::Basic(BasicBody::new( 
-        vec![
-            CortexParser::parse_statement("let x = 5;")?
-        ],
+    let test_body = Body::Basic(BasicBody::new(
+        vec![CortexParser::parse_statement("let x = 5;")?],
         Some(CortexParser::parse_expression("x")?),
     ));
     let test_func = PFunction::new(
@@ -197,9 +219,12 @@ fn function_pointer_tests() -> Result<(), Box<dyn Error>> {
     let mut module = Module::new();
     module.add_function(test_func)?;
     let path = CortexParser::parse_path("simple")?;
-    interpreter.register_module(&path, module)?;
+    interpreter.add_module(path, module);
+    interpreter.process_added_modules()?;
 
-    interpreter.execute_statement(CortexParser::parse_statement("let test_function_pointer = simple::test;")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement(
+        "let test_function_pointer = simple::test;",
+    )?)?;
     run_test("test_function_pointer()", "5", &mut interpreter)?;
 
     Ok(())
@@ -207,21 +232,31 @@ fn function_pointer_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn struct_tests() -> Result<(), Box<dyn Error>> {
-    let test_struct = Struct::new("Time", vec![
-        ("m", PType::i32()),
-        ("s", PType::i32()),
-    ], vec![], vec![], None);
-    let date_struct = Struct::new("Date", vec![
-        ("t", PType::basic(PathIdent::new(vec!["Time"]), vec![])),
-    ], vec![], vec![], None);
+    let test_struct = Struct::new(
+        "Time",
+        vec![("m", PType::i32()), ("s", PType::i32())],
+        vec![],
+        vec![],
+        None,
+    );
+    let date_struct = Struct::new(
+        "Date",
+        vec![("t", PType::basic(PathIdent::new(vec!["Time"]), vec![]))],
+        vec![],
+        vec![],
+        None,
+    );
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_struct(test_struct)?;
     module.add_struct(date_struct)?;
     let path = CortexParser::parse_path("simple")?;
-    interpreter.register_module(&path, module)?;
+    interpreter.add_module(path, module);
+    interpreter.process_added_modules()?;
 
-    interpreter.execute_statement(CortexParser::parse_statement("let time = simple::Time{m:5,s:10};")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement(
+        "let time = simple::Time{m:5,s:10};",
+    )?)?;
     run_test("time.m", "5", &mut interpreter)?;
     run_test("time.s", "10", &mut interpreter)?;
 
@@ -230,7 +265,9 @@ fn struct_tests() -> Result<(), Box<dyn Error>> {
     interpreter.execute_statement(CortexParser::parse_statement("time.m += 7;")?)?;
     run_test("time.m", "14", &mut interpreter)?;
 
-    interpreter.execute_statement(CortexParser::parse_statement("let date = simple::Date{t:time};")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement(
+        "let date = simple::Date{t:time};",
+    )?)?;
     run_test("date.t.m", "14", &mut interpreter)?;
     interpreter.execute_statement(CortexParser::parse_statement("date.t.s = 100;")?)?;
     run_test("date.t.s", "100", &mut interpreter)?;
@@ -242,21 +279,34 @@ fn struct_tests() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn heap_struct_tests() -> Result<(), Box<dyn Error>> {
-    let test_struct1 = Struct::new("Time", vec![
-        ("m", PType::i32()),
-        ("s", PType::i32()),
-    ], vec![], vec![], None);
-    let date_struct = Struct::new("Date", vec![
-        ("t", PType::reference(PType::basic(PathIdent::new(vec!["Time"]), vec![]), true)),
-    ], vec![], vec![], None);
+    let test_struct1 = Struct::new(
+        "Time",
+        vec![("m", PType::i32()), ("s", PType::i32())],
+        vec![],
+        vec![],
+        None,
+    );
+    let date_struct = Struct::new(
+        "Date",
+        vec![(
+            "t",
+            PType::reference(PType::basic(PathIdent::new(vec!["Time"]), vec![]), true),
+        )],
+        vec![],
+        vec![],
+        None,
+    );
     let mut interpreter = CortexInterpreter::new()?;
     let mut module = Module::new();
     module.add_struct(test_struct1)?;
     module.add_struct(date_struct)?;
     let path = CortexParser::parse_path("simple")?;
-    interpreter.register_module(&path, module)?;
+    interpreter.add_module(path, module);
+    interpreter.process_added_modules()?;
 
-    interpreter.execute_statement(CortexParser::parse_statement("let time = heap simple::Time{m:5,s:10};")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement(
+        "let time = heap simple::Time{m:5,s:10};",
+    )?)?;
     run_test("time.m", "5", &mut interpreter)?;
     run_test("time.s", "10", &mut interpreter)?;
 
@@ -265,7 +315,9 @@ fn heap_struct_tests() -> Result<(), Box<dyn Error>> {
     interpreter.execute_statement(CortexParser::parse_statement("time.m += 7;")?)?;
     run_test("time.m", "14", &mut interpreter)?;
 
-    interpreter.execute_statement(CortexParser::parse_statement("let date = heap simple::Date{t:time};")?)?;
+    interpreter.execute_statement(CortexParser::parse_statement(
+        "let date = heap simple::Date{t:time};",
+    )?)?;
     run_test("date.t.m", "14", &mut interpreter)?;
     interpreter.execute_statement(CortexParser::parse_statement("date.t.s = 100;")?)?;
     run_test("date.t.s", "100", &mut interpreter)?;
@@ -278,8 +330,7 @@ fn heap_struct_tests() -> Result<(), Box<dyn Error>> {
 #[test]
 fn recursive_function_test() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
-    let f = 
-        "fn factorial(n: i32): i32 {\
+    let f = "fn factorial(n: i32): i32 {\
             if n <= 0 {\
                 1\
             } else {\

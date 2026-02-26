@@ -2,7 +2,13 @@ use std::collections::{HashMap, HashSet};
 
 use thiserror::Error;
 
-use crate::{parsing::ast::{expression::{OptionalIdentifier, PathError, PathIdent}, top_level::{Contract, Extension, PFunction, Struct}}, r#type::r#type::TypeParam};
+use crate::{
+    parsing::ast::{
+        expression::{OptionalIdentifier, PathError, PathIdent},
+        top_level::{Contract, Extension, PFunction, Struct},
+    },
+    r#type::r#type::TypeParam,
+};
 
 use super::ast::r#type::{RFollowsEntry, RType};
 
@@ -35,7 +41,11 @@ pub struct TypeDefinition {
     pub(crate) followed_contracts: Vec<RFollowsEntry>,
 }
 impl TypeDefinition {
-    pub fn new(fields: HashMap<String, RType>, type_params: Vec<TypeParam>, followed_contracts: Vec<RFollowsEntry>) -> Self {
+    pub fn new(
+        fields: HashMap<String, RType>,
+        type_params: Vec<TypeParam>,
+        followed_contracts: Vec<RFollowsEntry>,
+    ) -> Self {
         TypeDefinition {
             fields,
             type_params,
@@ -106,9 +116,16 @@ impl Module {
         children.into_iter()
     }
 
+    pub fn children_iter_ref(&self) -> impl Iterator<Item = (&String, &Module)> {
+        self.children.iter()
+    }
+
     pub fn add_module(&mut self, path: &PathIdent, module: Module) -> Result<(), ModuleError> {
         if path.is_final() {
-            let name = path.get_front().map_err(|e| ModuleError::PathError(e))?.clone();
+            let name = path
+                .get_front()
+                .map_err(|e| ModuleError::PathError(e))?
+                .clone();
             self.add_child(name, module)?;
             return Ok(());
         }
@@ -122,6 +139,9 @@ impl Module {
         }
     }
 
+    pub fn borrow_functions(&self) -> Vec<&PFunction> {
+        self.functions.values().collect()
+    }
     pub fn take_functions(&mut self) -> Result<Vec<PFunction>, ModuleError> {
         let res = std::mem::take(&mut self.functions).into_values().collect();
         Ok(res)
@@ -143,11 +163,14 @@ impl Module {
                     self.functions.insert(name.clone(), func);
                     Ok(())
                 }
-            },
+            }
             OptionalIdentifier::Ignore => Ok(()),
         }
     }
 
+    pub fn borrow_structs(&self) -> Vec<&Struct> {
+        self.structs.values().collect()
+    }
     pub fn take_structs(&mut self) -> Result<Vec<Struct>, ModuleError> {
         let res = std::mem::take(&mut self.structs).into_values().collect();
         Ok(res)
@@ -169,6 +192,9 @@ impl Module {
         }
     }
 
+    pub fn borrow_extensions(&self) -> Vec<&Extension> {
+        self.extensions.iter().collect()
+    }
     pub fn take_extensions(&mut self) -> Result<Vec<Extension>, ModuleError> {
         let res = std::mem::take(&mut self.extensions);
         Ok(res)
@@ -186,6 +212,9 @@ impl Module {
         Ok(())
     }
 
+    pub fn borrow_contracts(&self) -> Vec<&Contract> {
+        self.contracts.values().collect()
+    }
     pub fn take_contracts(&mut self) -> Result<Vec<Contract>, ModuleError> {
         let res = std::mem::take(&mut self.contracts).into_values().collect();
         Ok(res)

@@ -1,6 +1,17 @@
-use cortex_lang::{interpreting::{interpreter::CortexInterpreter, value::CortexValue}, parsing::{ast::{expression::{OptionalIdentifier, Parameter}, top_level::{Body, PFunction}}, parser::CortexParser}, preprocessing::module::Module, r#type::r#type::PType};
-use thiserror::Error;
+use cortex_lang::{
+    interpreting::{interpreter::CortexInterpreter, value::CortexValue},
+    parsing::{
+        ast::{
+            expression::{OptionalIdentifier, Parameter},
+            top_level::{Body, PFunction},
+        },
+        parser::CortexParser,
+    },
+    preprocessing::module::Module,
+    r#type::r#type::PType,
+};
 use std::error::Error;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 enum TestError {
@@ -13,7 +24,11 @@ fn run_statement(input: &str, interpreter: &mut CortexInterpreter) -> Result<(),
     interpreter.execute_statement(ast)?;
     Ok(())
 }
-fn assert_expression(input: &str, expected: &str, interpreter: &mut CortexInterpreter) -> Result<(), Box<dyn Error>> {
+fn assert_expression(
+    input: &str,
+    expected: &str,
+    interpreter: &mut CortexInterpreter,
+) -> Result<(), Box<dyn Error>> {
     let ast = CortexParser::parse_expression(input)?;
     let value = interpreter.execute_expression(ast)?;
     let value_string = format!("{}", value);
@@ -40,7 +55,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
         OptionalIdentifier::Ident(String::from("add")),
         vec![
             Parameter::named("a", PType::i32()),
-            Parameter::named("b", PType::i32())
+            Parameter::named("b", PType::i32()),
         ],
         PType::i32(),
         add_body,
@@ -50,7 +65,8 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     let mut module = Module::new();
     module.add_function(add_func)?;
     let path = CortexParser::parse_path("simple")?;
-    interpreter.register_module(&path, module)?;
+    interpreter.add_module(path, module);
+    interpreter.process_added_modules()?;
     Ok(interpreter)
 }
 
@@ -112,7 +128,10 @@ fn tuple_assign_tests() -> Result<(), Box<dyn Error>> {
 
     run_statement("let z = 0;", &mut interpreter)?;
     run_statement("let w = 0;", &mut interpreter)?;
-    run_statement("((x, y), z, ((w,),)) = ((1, 2), 7, ((6,),));", &mut interpreter)?;
+    run_statement(
+        "((x, y), z, ((w,),)) = ((1, 2), 7, ((6,),));",
+        &mut interpreter,
+    )?;
     assert_expression("x", "1", &mut interpreter)?;
     assert_expression("y", "2", &mut interpreter)?;
     assert_expression("z", "7", &mut interpreter)?;
@@ -132,7 +151,10 @@ fn tuple_declaration_tests() -> Result<(), Box<dyn Error>> {
     assert_expression("x", "3", &mut interpreter)?;
     assert_expression("y", "5", &mut interpreter)?;
 
-    run_statement("let (tx, ty, tz): (i32, i32, i32) = (1, 2, 3);", &mut interpreter)?;
+    run_statement(
+        "let (tx, ty, tz): (i32, i32, i32) = (1, 2, 3);",
+        &mut interpreter,
+    )?;
     assert_expression("tx", "1", &mut interpreter)?;
     assert_expression("ty", "2", &mut interpreter)?;
     assert_expression("tz", "3", &mut interpreter)?;

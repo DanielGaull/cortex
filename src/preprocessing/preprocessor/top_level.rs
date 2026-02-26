@@ -1,6 +1,34 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::{interpreting::error::CortexError, parsing::{ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Contract, Extension, FunctionSignature, Import, MemberFunction, MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel}}, codegen::r#trait::SimpleCodeGen}, preprocessing::{ast::{function::RFunctionSignature, function_address::FunctionAddress, top_level::{RContract, RMemberFunctionSignature, RParameter}, r#type::{is_path_a_core_type, RFollowsEntry, RType, RTypeArg}}, error::PreprocessingError, module::{Module, ModuleError, TypeDefinition}}, r#type::{r#type::{forwarded_type_args, forwarded_type_args_unvalidated, FollowsEntry, PType, TypeParam}, type_env::TypeEnvironment}};
+use crate::{
+    interpreting::error::CortexError,
+    parsing::{
+        ast::{
+            expression::{OptionalIdentifier, Parameter, PathIdent},
+            top_level::{
+                Contract, Extension, FunctionSignature, Import, MemberFunction,
+                MemberFunctionSignature, PFunction, Struct, ThisArg, TopLevel,
+            },
+        },
+        codegen::r#trait::SimpleCodeGen,
+    },
+    preprocessing::{
+        ast::{
+            function::RFunctionSignature,
+            function_address::FunctionAddress,
+            top_level::{RContract, RMemberFunctionSignature, RParameter},
+            r#type::{RFollowsEntry, RType, RTypeArg, is_path_a_core_type},
+        },
+        error::PreprocessingError,
+        module::{Module, ModuleError, TypeDefinition},
+    },
+    r#type::{
+        r#type::{
+            FollowsEntry, PType, TypeParam, forwarded_type_args, forwarded_type_args_unvalidated,
+        },
+        type_env::TypeEnvironment,
+    },
+};
 
 use super::preprocessor::CortexPreprocessor;
 
@@ -23,12 +51,16 @@ impl CortexPreprocessor {
                         return Ok(r);
                     }
                 }
-    
+
                 Err(e)
-            },
+            }
         }
     }
-    fn lookup_type_with(&self, path: &PathIdent, prefix: &PathIdent) -> Result<&TypeDefinition, CortexError> {
+    fn lookup_type_with(
+        &self,
+        path: &PathIdent,
+        prefix: &PathIdent,
+    ) -> Result<&TypeDefinition, CortexError> {
         let full_path = if is_path_a_core_type(path) {
             path.clone()
         } else {
@@ -37,10 +69,12 @@ impl CortexPreprocessor {
         if let Some(c) = self.type_map.get(&full_path) {
             Ok(c)
         } else {
-            Err(Box::new(PreprocessingError::TypeDoesNotExist(full_path.codegen(0))))
+            Err(Box::new(PreprocessingError::TypeDoesNotExist(
+                full_path.codegen(0),
+            )))
         }
     }
-    
+
     pub(super) fn has_struct(&self, path: &PathIdent) -> bool {
         self.get_struct_stub(path).is_some()
     }
@@ -62,7 +96,11 @@ impl CortexPreprocessor {
         }
         None
     }
-    fn get_struct_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
+    fn get_struct_stub_with(
+        &self,
+        path: &PathIdent,
+        prefix: &PathIdent,
+    ) -> Option<(&Vec<TypeParam>, PathIdent)> {
         let full_path = if is_path_a_core_type(path) {
             path.clone()
         } else {
@@ -89,30 +127,39 @@ impl CortexPreprocessor {
                         return Ok(r);
                     }
                 }
-    
+
                 Err(e)
-            },
+            }
         }
     }
-    fn lookup_contract_with(&self, path: &PathIdent, prefix: &PathIdent) -> Result<&RContract, CortexError> {
+    fn lookup_contract_with(
+        &self,
+        path: &PathIdent,
+        prefix: &PathIdent,
+    ) -> Result<&RContract, CortexError> {
         let full_path = PathIdent::concat(&prefix, &path);
         if let Some(c) = self.contract_map.get(&full_path) {
             Ok(c)
         } else {
-            Err(Box::new(PreprocessingError::ContractDoesNotExist(full_path.codegen(0))))
+            Err(Box::new(PreprocessingError::ContractDoesNotExist(
+                full_path.codegen(0),
+            )))
         }
     }
 
     pub(super) fn has_contract(&self, path: &PathIdent) -> bool {
         self.get_contract_stub(path).is_some()
     }
-    pub(super) fn get_contract_stub(&self, path: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
+    pub(super) fn get_contract_stub(
+        &self,
+        path: &PathIdent,
+    ) -> Option<(&Vec<TypeParam>, PathIdent)> {
         if path.is_final() {
             if let Some(resolved) = self.imported_aliases.get(path.get_back().unwrap()) {
                 return self.get_contract_stub_with(resolved, &PathIdent::empty());
             }
         }
-        
+
         let mut all_valid_prefixes = self.current_context.subpaths();
         all_valid_prefixes.append(&mut self.imported_paths.clone());
         for prefix in &all_valid_prefixes {
@@ -123,16 +170,25 @@ impl CortexPreprocessor {
         }
         None
     }
-    fn get_contract_stub_with(&self, path: &PathIdent, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, PathIdent)> {
+    fn get_contract_stub_with(
+        &self,
+        path: &PathIdent,
+        prefix: &PathIdent,
+    ) -> Option<(&Vec<TypeParam>, PathIdent)> {
         let full_path = if is_path_a_core_type(path) {
             path.clone()
         } else {
             PathIdent::concat(prefix, &path)
         };
-        self.stubbed_contracts.get(&full_path).map(|c| (c, full_path))
+        self.stubbed_contracts
+            .get(&full_path)
+            .map(|c| (c, full_path))
     }
 
-    pub(super) fn lookup_signature(&self, path: &FunctionAddress) -> Result<(&RFunctionSignature, PathIdent), CortexError> {
+    pub(super) fn lookup_signature(
+        &self,
+        path: &FunctionAddress,
+    ) -> Result<(&RFunctionSignature, PathIdent), CortexError> {
         // If target is None, then this is as simple as the struct/contract lookup system
         // Because member functions cannot be directly imported, if target is Some, then we have these restrictions:
         // own_module_path must come from the same module as the target (since extensions are handled separately)
@@ -141,9 +197,15 @@ impl CortexPreprocessor {
             // Simple case mentioned above
             let own_module_path = &path.own_module_path;
             if own_module_path.is_final() {
-                if let Some(resolved) = self.imported_aliases.get(own_module_path.get_back().unwrap()) {
+                if let Some(resolved) = self
+                    .imported_aliases
+                    .get(own_module_path.get_back().unwrap())
+                {
                     let sig = FunctionAddress::simple(resolved.clone());
-                    return Ok((self.lookup_signature_with(&sig, &PathIdent::empty())?, PathIdent::empty()));
+                    return Ok((
+                        self.lookup_signature_with(&sig, &PathIdent::empty())?,
+                        PathIdent::empty(),
+                    ));
                 }
             }
         }
@@ -160,26 +222,38 @@ impl CortexPreprocessor {
                     }
                 }
                 Err(e)
-            },
+            }
         }
     }
-    fn lookup_signature_with(&self, path: &FunctionAddress, prefix: &PathIdent) -> Result<&RFunctionSignature, CortexError> {
+    fn lookup_signature_with(
+        &self,
+        path: &FunctionAddress,
+        prefix: &PathIdent,
+    ) -> Result<&RFunctionSignature, CortexError> {
         let full_path: FunctionAddress = FunctionAddress::concat(prefix, &path);
         if let Some(sig) = self.function_signature_map.get(&full_path) {
             Ok(sig)
         } else {
-            Err(Box::new(PreprocessingError::FunctionDoesNotExist(full_path.codegen(0))))
+            Err(Box::new(PreprocessingError::FunctionDoesNotExist(
+                full_path.codegen(0),
+            )))
         }
     }
 
     pub(super) fn has_function(&self, path: &FunctionAddress) -> bool {
         self.get_function_stub(path).is_some()
     }
-    pub(super) fn get_function_stub(&self, path: &FunctionAddress) -> Option<(&Vec<TypeParam>, FunctionAddress)> {
+    pub(super) fn get_function_stub(
+        &self,
+        path: &FunctionAddress,
+    ) -> Option<(&Vec<TypeParam>, FunctionAddress)> {
         if path.target.is_none() {
             let own_module_path = &path.own_module_path;
             if own_module_path.is_final() {
-                if let Some(resolved) = self.imported_aliases.get(own_module_path.get_back().unwrap()) {
+                if let Some(resolved) = self
+                    .imported_aliases
+                    .get(own_module_path.get_back().unwrap())
+                {
                     let sig = FunctionAddress::simple(resolved.clone());
                     return self.get_function_stub_with(&sig, &PathIdent::empty());
                 }
@@ -196,39 +270,62 @@ impl CortexPreprocessor {
         }
         None
     }
-    fn get_function_stub_with(&self, path: &FunctionAddress, prefix: &PathIdent) -> Option<(&Vec<TypeParam>, FunctionAddress)> {
+    fn get_function_stub_with(
+        &self,
+        path: &FunctionAddress,
+        prefix: &PathIdent,
+    ) -> Option<(&Vec<TypeParam>, FunctionAddress)> {
         let full_path = FunctionAddress::concat(prefix, &path);
-        self.stubbed_functions.get(&full_path).map(|f| (f, full_path))
+        self.stubbed_functions
+            .get(&full_path)
+            .map(|f| (f, full_path))
     }
 
-    fn construct_module_helper(&mut self, imports: Vec<Import>, contents: Vec<TopLevel>, maintain_imports: bool) -> Result<Module, CortexError> {
+    fn construct_module_helper(
+        &mut self,
+        imports: Vec<Import>,
+        contents: Vec<TopLevel>,
+        maintain_imports: bool,
+    ) -> Result<Module, CortexError> {
         let mut module = Module::new();
         for import in imports {
             self.handle_import(import)?;
         }
         for item in contents.into_iter() {
             match item {
-                TopLevel::Module { name: submod_name, contents } => {
-                    let new_module = self.construct_module(contents.imports, contents.content, maintain_imports)?;
+                TopLevel::Module {
+                    name: submod_name,
+                    contents,
+                } => {
+                    let new_module = self.construct_module(
+                        contents.imports,
+                        contents.content,
+                        maintain_imports,
+                    )?;
                     module.add_child(submod_name, new_module)?;
-                },
+                }
                 TopLevel::Function(function) => {
                     module.add_function(function)?;
-                },
+                }
                 TopLevel::Struct(item) => {
                     module.add_struct(item)?;
-                },
+                }
                 TopLevel::Extension(item) => {
                     module.add_extension(item)?;
-                },
+                }
                 TopLevel::Contract(item) => {
                     module.add_contract(item)?;
-                },
+                }
             }
         }
         Ok(module)
     }
-    pub(crate) fn construct_module(&mut self, imports: Vec<Import>, contents: Vec<TopLevel>, maintain_imports: bool) -> Result<Module, CortexError> {
+    pub(crate) fn construct_module(
+        &mut self,
+        imports: Vec<Import>,
+        contents: Vec<TopLevel>,
+        maintain_imports: bool,
+    ) -> Result<Module, CortexError> {
         if maintain_imports {
             self.construct_module_helper(imports, contents, maintain_imports)
         } else {
@@ -250,7 +347,115 @@ impl CortexPreprocessor {
         Ok(())
     }
 
-    pub fn register_module(&mut self, path: &PathIdent, mut module: Module) -> Result<(), CortexError> {
+    pub fn add_module(&mut self, path: PathIdent, module: Module) {
+        self.modules.push((path, module));
+    }
+    pub fn process_added_modules(&mut self) -> Result<(), CortexError> {
+        let modules = std::mem::take(&mut self.modules);
+        for (path, module) in &modules {
+            self.stub_module(path, module)?;
+        }
+
+        for (path, module) in modules {
+            self.register_module(&path, module)?;
+        }
+
+        Ok(())
+    }
+    fn stub_module(&mut self, path: &PathIdent, module: &Module) -> Result<(), CortexError> {
+        for (path_end, m) in module.children_iter_ref() {
+            let this_path = PathIdent::continued(path.clone(), path_end.clone());
+            self.stub_module(&this_path, m)?;
+        }
+
+        let functions = module
+            .borrow_functions()
+            .into_iter()
+            .map(|f| match &f.name {
+                OptionalIdentifier::Ident(func_name) => {
+                    let addr = FunctionAddress {
+                        own_module_path: PathIdent::continued(path.clone(), func_name.clone()),
+                        target: None,
+                    };
+                    Some((addr, f))
+                }
+                OptionalIdentifier::Ignore => None,
+            })
+            .filter_map(|x| x)
+            .collect::<Vec<(FunctionAddress, &PFunction)>>();
+        let structs = module.borrow_structs();
+        let extensions = module.borrow_extensions();
+        let contracts = module.borrow_contracts();
+        for s in structs {
+            let struct_path = PathIdent::continued(path.clone(), s.name.clone());
+            if self.stubbed_structs.contains_key(&struct_path) {
+                return Err(Box::new(ModuleError::StructAlreadyExists(
+                    struct_path.codegen(0),
+                )));
+            }
+            self.stubbed_structs
+                .insert(struct_path.clone(), s.type_params.clone());
+
+            for mf in &s.functions {
+                if let OptionalIdentifier::Ident(name) = &mf.signature.name {
+                    let function_path = FunctionAddress::member_func(
+                        PathIdent::continued(path.clone(), name.clone()),
+                        struct_path.clone(),
+                    );
+                    if self.stubbed_functions.contains_key(&function_path) {
+                        return Err(Box::new(ModuleError::FunctionAlreadyExists(
+                            function_path.codegen(0),
+                        )));
+                    }
+
+                    self.stubbed_functions
+                        .insert(function_path, mf.signature.type_params.clone());
+                }
+            }
+        }
+        for c in contracts {
+            let contract_path = PathIdent::continued(path.clone(), c.name.clone());
+            if self.stubbed_contracts.contains_key(&contract_path) {
+                return Err(Box::new(ModuleError::ContractAlreadyExists(
+                    contract_path.codegen(0),
+                )));
+            }
+            self.stubbed_contracts
+                .insert(contract_path, c.type_params.clone());
+        }
+        for (addr, f) in functions {
+            let function_path = FunctionAddress::concat(path, &addr);
+            if self.stubbed_functions.contains_key(&function_path) {
+                return Err(Box::new(ModuleError::FunctionAlreadyExists(
+                    function_path.codegen(0),
+                )));
+            }
+            self.stubbed_functions
+                .insert(function_path, f.type_params.clone());
+        }
+        for e in extensions {
+            let struct_path = &e.name;
+            for mf in &e.functions {
+                if let OptionalIdentifier::Ident(name) = &mf.signature.name {
+                    let function_path = FunctionAddress::member_func(
+                        PathIdent::continued(path.clone(), name.clone()),
+                        struct_path.clone(),
+                    );
+                    if self.stubbed_functions.contains_key(&function_path) {
+                        return Err(Box::new(ModuleError::FunctionAlreadyExists(
+                            function_path.codegen(0),
+                        )));
+                    }
+
+                    self.stubbed_functions
+                        .insert(function_path, mf.signature.type_params.clone());
+                }
+            }
+        }
+
+        Ok(())
+    }
+    fn register_module(&mut self, path: &PathIdent, mut module: Module) -> Result<(), CortexError> {
         for (path_end, m) in module.children_iter() {
             let this_path = PathIdent::continued(path.clone(), path_end);
             self.register_module(&this_path, m)?;
@@ -259,75 +464,21 @@ impl CortexPreprocessor {
         let mut functions = module
             .take_functions()?
             .into_iter()
-            .map(|f| {
-                match &f.name {
-                    OptionalIdentifier::Ident(func_name) => {
-                        let addr = FunctionAddress {
-                            own_module_path: PathIdent::continued(path.clone(), func_name.clone()),
-                            target: None,
-                        };
-                        Some((addr, f))
-                    },
-                    OptionalIdentifier::Ignore => None,
+            .map(|f| match &f.name {
+                OptionalIdentifier::Ident(func_name) => {
+                    let addr = FunctionAddress {
+                        own_module_path: PathIdent::continued(path.clone(), func_name.clone()),
+                        target: None,
+                    };
+                    Some((addr, f))
                 }
+                OptionalIdentifier::Ignore => None,
             })
             .filter_map(|x| x)
             .collect::<Vec<(FunctionAddress, PFunction)>>();
         let structs = module.take_structs()?;
         let extensions = module.take_extensions()?;
         let contracts = module.take_contracts()?;
-
-        for s in &structs {
-            let struct_path = PathIdent::continued(path.clone(), s.name.clone());
-            if self.stubbed_structs.contains_key(&struct_path) {
-                return Err(Box::new(ModuleError::StructAlreadyExists(struct_path.codegen(0))));
-            }
-            self.stubbed_structs.insert(struct_path.clone(), s.type_params.clone());
-
-            for mf in &s.functions {
-                if let OptionalIdentifier::Ident(name) = &mf.signature.name {
-                    let function_path = FunctionAddress::member_func(
-                        PathIdent::continued(path.clone(), name.clone()),
-                        struct_path.clone()
-                    );
-                    if self.stubbed_functions.contains_key(&function_path) {
-                        return Err(Box::new(ModuleError::FunctionAlreadyExists(function_path.codegen(0))));
-                    }
-
-                    self.stubbed_functions.insert(function_path, mf.signature.type_params.clone());
-                }
-            }
-        }
-        for c in &contracts {
-            let contract_path = PathIdent::continued(path.clone(), c.name.clone());
-            if self.stubbed_contracts.contains_key(&contract_path) {
-                return Err(Box::new(ModuleError::ContractAlreadyExists(contract_path.codegen(0))));
-            }
-            self.stubbed_contracts.insert(contract_path, c.type_params.clone());
-        }
-        for (addr, f) in &functions {
-            let function_path = FunctionAddress::concat(path, addr);
-            if self.stubbed_functions.contains_key(&function_path) {
-                return Err(Box::new(ModuleError::FunctionAlreadyExists(function_path.codegen(0))));
-            }
-            self.stubbed_functions.insert(function_path, f.type_params.clone());
-        }
-        for e in &extensions {
-            let struct_path = &e.name;
-            for mf in &e.functions {
-                if let OptionalIdentifier::Ident(name) = &mf.signature.name {
-                    let function_path = FunctionAddress::member_func(
-                        PathIdent::continued(path.clone(), name.clone()),
-                        struct_path.clone()
-                    );
-                    if self.stubbed_functions.contains_key(&function_path) {
-                        return Err(Box::new(ModuleError::FunctionAlreadyExists(function_path.codegen(0))));
-                    }
-
-                    self.stubbed_functions.insert(function_path, mf.signature.type_params.clone());
-                }
-            }
-        }
 
         let context_to_return_to = std::mem::replace(&mut self.current_context, path.clone());
 
@@ -337,7 +488,12 @@ impl CortexPreprocessor {
 
         let mut structs_to_check_for_loops = Vec::new();
         for item in structs {
-            self.add_struct(path.clone(), item, &mut functions, &mut structs_to_check_for_loops)?;
+            self.add_struct(
+                path.clone(),
+                item,
+                &mut functions,
+                &mut structs_to_check_for_loops,
+            )?;
         }
         for (name, type_args, fields) in structs_to_check_for_loops {
             let name = PathIdent::simple(name);
@@ -345,7 +501,9 @@ impl CortexPreprocessor {
             let stype = RType::basic(name, type_args);
             let has_loop = self.search_struct_for_loops(stype, fields)?;
             if has_loop {
-                return Err(Box::new(PreprocessingError::StructContainsCircularFields(full_path.codegen(0))));
+                return Err(Box::new(PreprocessingError::StructContainsCircularFields(
+                    full_path.codegen(0),
+                )));
             }
         }
 
@@ -371,11 +529,14 @@ impl CortexPreprocessor {
         let mut seen_type_param_names = HashSet::new();
         for t in &sig.type_params {
             if seen_type_param_names.contains(t) {
-                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.name.clone())));
+                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(
+                    t.name.clone(),
+                )));
             }
             seen_type_param_names.insert(t);
         }
-        self.function_signature_map.insert(addr.clone(), self.validate_function_signature(sig)?);
+        self.function_signature_map
+            .insert(addr.clone(), self.validate_function_signature(sig)?);
         Ok(())
     }
     fn add_function(&mut self, addr: FunctionAddress, f: PFunction) -> Result<(), CortexError> {
@@ -384,8 +545,8 @@ impl CortexPreprocessor {
         match name {
             OptionalIdentifier::Ident(_) => {
                 self.function_dict.add_function(addr, processed)?;
-            },
-            OptionalIdentifier::Ignore => {},
+            }
+            OptionalIdentifier::Ignore => {}
         }
         Ok(())
     }
@@ -396,35 +557,58 @@ impl CortexPreprocessor {
             members.push(self.validate_member_function_signature(m)?);
         }
 
-        self.contract_map.insert(full_path, RContract {
-            type_params: item.type_params,
-            function_sigs: members,
-        });
+        self.contract_map.insert(
+            full_path,
+            RContract {
+                type_params: item.type_params,
+                function_sigs: members,
+            },
+        );
         Ok(())
     }
-    
-    fn add_struct(&mut self, n: PathIdent, item: Struct, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>, structs_to_search: &mut Vec<(String, Vec<RTypeArg>, Vec<RType>)>) -> Result<(), CortexError> {
+
+    fn add_struct(
+        &mut self,
+        n: PathIdent,
+        item: Struct,
+        funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>,
+        structs_to_search: &mut Vec<(String, Vec<RTypeArg>, Vec<RType>)>,
+    ) -> Result<(), CortexError> {
         let full_path = PathIdent::continued(n.clone(), item.name.clone());
         let mut fields = HashMap::new();
         for f in &item.fields {
             fields.insert(f.0.clone(), self.validate_type(f.1.clone())?);
         }
-        structs_to_search.push((item.name.clone(), forwarded_type_args(&item.type_params), fields.values().cloned().into_iter().collect()));
-        
+        structs_to_search.push((
+            item.name.clone(),
+            forwarded_type_args(&item.type_params),
+            fields.values().cloned().into_iter().collect(),
+        ));
+
         if let Some(clause) = &item.follows_clause {
-            let validated_member_function_signatures = self.validate_member_function_signatures(&item.functions)?;
-            let validated_follows_entries = self.validate_follows_entries(clause.contracts.clone())?;
+            let validated_member_function_signatures =
+                self.validate_member_function_signatures(&item.functions)?;
+            let validated_follows_entries =
+                self.validate_follows_entries(clause.contracts.clone())?;
             self.check_contract_follows(
                 &validated_member_function_signatures,
-                &validated_follows_entries
+                &validated_follows_entries,
             )?;
         }
-        Self::handle_member_functions(item.functions, n, &item.type_params, &item.name, funcs_to_add)?;
+        Self::handle_member_functions(
+            item.functions,
+            n,
+            &item.type_params,
+            &item.name,
+            funcs_to_add,
+        )?;
 
         let mut seen_type_param_names = HashSet::new();
         for t in &item.type_params {
             if seen_type_param_names.contains(t) {
-                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(t.name.clone())));
+                return Err(Box::new(ModuleError::DuplicateTypeArgumentName(
+                    t.name.clone(),
+                )));
             }
             seen_type_param_names.insert(t);
         }
@@ -435,29 +619,46 @@ impl CortexPreprocessor {
             vec![]
         };
 
-        self.type_map.insert(full_path, TypeDefinition {
-            fields: fields,
-            type_params: item.type_params,
-            followed_contracts,
-        });
+        self.type_map.insert(
+            full_path,
+            TypeDefinition {
+                fields: fields,
+                type_params: item.type_params,
+                followed_contracts,
+            },
+        );
         Ok(())
     }
-    fn check_contract_follows(&self, functions: &Vec<RMemberFunctionSignature>, contracts: &Vec<RFollowsEntry>) -> Result<(), CortexError> {
+    fn check_contract_follows(
+        &self,
+        functions: &Vec<RMemberFunctionSignature>,
+        contracts: &Vec<RFollowsEntry>,
+    ) -> Result<(), CortexError> {
         let mut methods_to_contain = Vec::new();
         let mut method_names = HashSet::new();
         let mut contract_paths = HashSet::new();
 
         for entry in contracts {
-            let name = entry.name.clone().subtract_if_possible(&self.current_context);
+            let name = entry
+                .name
+                .clone()
+                .subtract_if_possible(&self.current_context);
             if contract_paths.contains(&name) {
-                return Err(Box::new(PreprocessingError::DuplicateInFollowsClause(name.codegen(0))));
+                return Err(Box::new(PreprocessingError::DuplicateInFollowsClause(
+                    name.codegen(0),
+                )));
             }
             contract_paths.insert(name.clone());
             let contract = self.lookup_contract(&name)?;
-            let type_bindings = TypeEnvironment::create_bindings(&contract.type_params, &entry.type_args);
+            let type_bindings =
+                TypeEnvironment::create_bindings(&contract.type_params, &entry.type_args);
             for func in &contract.function_sigs {
                 if method_names.contains(&func.name) {
-                    return Err(Box::new(PreprocessingError::AmbiguousFunctionFromMultipleContracts(func.name.clone())));
+                    return Err(Box::new(
+                        PreprocessingError::AmbiguousFunctionFromMultipleContracts(
+                            func.name.clone(),
+                        ),
+                    ));
                 }
                 method_names.insert(func.name.clone());
                 methods_to_contain.push(func.clone().fill_all(&type_bindings)?);
@@ -474,23 +675,42 @@ impl CortexPreprocessor {
                 .map(|m| m.name.clone())
                 .collect::<Vec<_>>()
                 .join(", ");
-            return Err(Box::new(PreprocessingError::ContractFunctionsMissing(joint)));
+            return Err(Box::new(PreprocessingError::ContractFunctionsMissing(
+                joint,
+            )));
         }
-        
+
         Ok(())
     }
-    
-    fn handle_member_functions(functions: Vec<MemberFunction>, n: PathIdent, item_type_params: &Vec<TypeParam>, item_name: &String, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
+
+    fn handle_member_functions(
+        functions: Vec<MemberFunction>,
+        n: PathIdent,
+        item_type_params: &Vec<TypeParam>,
+        item_name: &String,
+        funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>,
+    ) -> Result<(), CortexError> {
         for func in functions {
             match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, item_name, item_type_params));
+                    let new_param = Parameter::named(
+                        "this",
+                        Self::this_arg_to_type(
+                            func.signature.this_arg,
+                            item_name,
+                            item_type_params,
+                        ),
+                    );
                     let mut param_list = vec![new_param];
                     param_list.extend(func.signature.params);
                     let mut type_param_names = func.signature.type_params;
-                    let intersecting_type_param = item_type_params.iter().find(|t| type_param_names.contains(t));
+                    let intersecting_type_param = item_type_params
+                        .iter()
+                        .find(|t| type_param_names.contains(t));
                     if let Some(p) = intersecting_type_param {
-                        return Err(Box::new(ModuleError::DuplicateTypeArgumentName(p.name.clone())));
+                        return Err(Box::new(ModuleError::DuplicateTypeArgumentName(
+                            p.name.clone(),
+                        )));
                     }
                     type_param_names.extend(item_type_params.clone());
                     let new_func = PFunction::new(
@@ -505,14 +725,19 @@ impl CortexPreprocessor {
                         target: Some(PathIdent::continued(n.clone(), item_name.clone())),
                     };
                     funcs_to_add.push((addr, new_func));
-                },
+                }
                 OptionalIdentifier::Ignore => (),
             }
         }
         Ok(())
     }
-    
-    fn add_extension(&mut self, n: PathIdent, item: Extension, funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>) -> Result<(), CortexError> {
+
+    fn add_extension(
+        &mut self,
+        n: PathIdent,
+        item: Extension,
+        funcs_to_add: &mut Vec<(FunctionAddress, PFunction)>,
+    ) -> Result<(), CortexError> {
         let item_as_type = PType::basic(item.name.clone(), item.type_args.clone());
         let validated = self.validate_type(item_as_type)?;
         let validated_name;
@@ -523,11 +748,13 @@ impl CortexPreprocessor {
         }
 
         if let Some(clause) = &item.follows_clause {
-            let validated_member_function_signatures = self.validate_member_function_signatures(&item.functions)?;
-            let validated_follows_entries = self.validate_follows_entries(clause.contracts.clone())?;
+            let validated_member_function_signatures =
+                self.validate_member_function_signatures(&item.functions)?;
+            let validated_follows_entries =
+                self.validate_follows_entries(clause.contracts.clone())?;
             self.check_contract_follows(
                 &validated_member_function_signatures,
-                &validated_follows_entries
+                &validated_follows_entries,
             )?;
         }
 
@@ -537,13 +764,26 @@ impl CortexPreprocessor {
         for func in item.functions {
             match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named("this", Self::this_arg_to_type(func.signature.this_arg, &item_name, &item.type_params).with_prefix(&item_prefix));
+                    let new_param = Parameter::named(
+                        "this",
+                        Self::this_arg_to_type(
+                            func.signature.this_arg,
+                            &item_name,
+                            &item.type_params,
+                        )
+                        .with_prefix(&item_prefix),
+                    );
                     let mut param_list = vec![new_param];
                     param_list.extend(func.signature.params);
                     let mut type_param_names = func.signature.type_params;
-                    let intersecting_type_param = item.type_params.iter().find(|t| type_param_names.contains(t));
+                    let intersecting_type_param = item
+                        .type_params
+                        .iter()
+                        .find(|t| type_param_names.contains(t));
                     if let Some(type_param) = intersecting_type_param {
-                        return Err(Box::new(ModuleError::DuplicateTypeArgumentName(type_param.name.clone())));
+                        return Err(Box::new(ModuleError::DuplicateTypeArgumentName(
+                            type_param.name.clone(),
+                        )));
                     }
                     type_param_names.extend(item.type_params.clone());
                     let new_func = PFunction::new(
@@ -559,14 +799,15 @@ impl CortexPreprocessor {
                         target: Some(validated_name.clone()),
                     };
                     funcs_to_add.push((addr, new_func));
-                },
+                }
                 OptionalIdentifier::Ignore => (),
             }
         }
 
-        let followed_contracts = self.validate_follows_entries(item.follows_clause
-            .map(|f| f.contracts.clone())
-            .unwrap_or(vec![])
+        let followed_contracts = self.validate_follows_entries(
+            item.follows_clause
+                .map(|f| f.contracts.clone())
+                .unwrap_or(vec![]),
         )?;
         self.type_map
             .get_mut(&PathIdent::concat(&n, &item.name))
@@ -575,23 +816,38 @@ impl CortexPreprocessor {
         Ok(())
     }
 
-    fn this_arg_to_type(this_arg: ThisArg, item_name: &String, type_params: &Vec<TypeParam>) -> PType {
+    fn this_arg_to_type(
+        this_arg: ThisArg,
+        item_name: &String,
+        type_params: &Vec<TypeParam>,
+    ) -> PType {
         match this_arg {
-            ThisArg::RefThis => 
-            PType::reference(
-                PType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
-                    false,
+            ThisArg::RefThis => PType::reference(
+                PType::basic(
+                    PathIdent::simple(item_name.clone()),
+                    forwarded_type_args_unvalidated(type_params),
                 ),
-            ThisArg::RefMutThis => 
-            PType::reference(
-                PType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
-                    true,
+                false,
+            ),
+            ThisArg::RefMutThis => PType::reference(
+                PType::basic(
+                    PathIdent::simple(item_name.clone()),
+                    forwarded_type_args_unvalidated(type_params),
                 ),
-            ThisArg::DirectThis => PType::basic(PathIdent::simple(item_name.clone()), forwarded_type_args_unvalidated(type_params)),
+                true,
+            ),
+            ThisArg::DirectThis => PType::basic(
+                PathIdent::simple(item_name.clone()),
+                forwarded_type_args_unvalidated(type_params),
+            ),
         }
     }
 
-    fn search_struct_for_loops(&self, struct_type: RType, fields: Vec<RType>) -> Result<bool, CortexError> {
+    fn search_struct_for_loops(
+        &self,
+        struct_type: RType,
+        fields: Vec<RType>,
+    ) -> Result<bool, CortexError> {
         let mut q = VecDeque::new();
         for field in fields {
             q.push_back(field);
@@ -624,12 +880,15 @@ impl CortexPreprocessor {
         Ok(false)
     }
 
-    fn validate_function_signature(&self, sig: FunctionSignature) -> Result<RFunctionSignature, CortexError> {
+    fn validate_function_signature(
+        &self,
+        sig: FunctionSignature,
+    ) -> Result<RFunctionSignature, CortexError> {
         let mut params = Vec::new();
         for p in sig.params {
             params.push(RParameter {
                 name: p.name,
-                typ: self.validate_type(p.typ)?
+                typ: self.validate_type(p.typ)?,
             });
         }
         let return_type = self.validate_type(sig.return_type)?;
@@ -640,12 +899,15 @@ impl CortexPreprocessor {
         };
         Ok(sig)
     }
-    fn validate_member_function_signature(&self, sig: MemberFunctionSignature) -> Result<RMemberFunctionSignature, CortexError> {
+    fn validate_member_function_signature(
+        &self,
+        sig: MemberFunctionSignature,
+    ) -> Result<RMemberFunctionSignature, CortexError> {
         let mut params = Vec::new();
         for p in sig.params {
             params.push(RParameter {
                 name: p.name,
-                typ: self.validate_type(p.typ)?
+                typ: self.validate_type(p.typ)?,
             });
         }
         let return_type = self.validate_type(sig.return_type)?;
@@ -662,24 +924,37 @@ impl CortexPreprocessor {
         Ok(sig)
     }
 
-    fn validate_follows_entries(&self, clause: Vec<FollowsEntry>) -> Result<Vec<RFollowsEntry>, CortexError> {
+    fn validate_follows_entries(
+        &self,
+        clause: Vec<FollowsEntry>,
+    ) -> Result<Vec<RFollowsEntry>, CortexError> {
         let mut entries = Vec::new();
         for entry in clause {
             let result = self.get_contract_stub(&entry.name);
             if result.is_none() {
-                return Err(Box::new(PreprocessingError::ContractDoesNotExist(entry.name.codegen(0))));
+                return Err(Box::new(PreprocessingError::ContractDoesNotExist(
+                    entry.name.codegen(0),
+                )));
             }
             let (contract_type_params, path) = result.unwrap();
             let path_name = path.codegen(0);
             entries.push(RFollowsEntry {
                 name: path,
-                type_args: self.validate_type_args(contract_type_params, entry.type_args, path_name, "Contract")?,
+                type_args: self.validate_type_args(
+                    contract_type_params,
+                    entry.type_args,
+                    path_name,
+                    "Contract",
+                )?,
             });
         }
         Ok(entries)
     }
 
-    fn validate_member_function_signatures(&self, sigs: &Vec<MemberFunction>) -> Result<Vec<RMemberFunctionSignature>, CortexError> {
+    fn validate_member_function_signatures(
+        &self,
+        sigs: &Vec<MemberFunction>,
+    ) -> Result<Vec<RMemberFunctionSignature>, CortexError> {
         let mut result = Vec::new();
         for item in sigs {
             result.push(self.validate_member_function_signature(item.signature.clone())?);

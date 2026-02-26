@@ -1,7 +1,38 @@
-use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
-use crate::{parsing::{ast::{expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator}, program::ModuleContent, statement::PStatement, top_level::{BasicBody, Import, PFunction, TopLevel}}, parser::CortexParser}, preprocessing::{ast::{expression::RExpression, function::{RBody, RFunction, RDefinedBody}, statement::RStatement, r#type::RType}, module::Module, preprocessor::preprocessor::CortexPreprocessor, program::Program}, r#type::r#type::PType};
-use super::{env::Environment, error::{CortexError, InterpreterError}, heap::Heap, value::{CortexValue, ValueError}};
+use super::{
+    env::Environment,
+    error::{CortexError, InterpreterError},
+    heap::Heap,
+    value::{CortexValue, ValueError},
+};
+use crate::{
+    parsing::{
+        ast::{
+            expression::{BinaryOperator, PExpression, PathIdent, UnaryOperator},
+            program::ModuleContent,
+            statement::PStatement,
+            top_level::{BasicBody, Import, PFunction, TopLevel},
+        },
+        parser::CortexParser,
+    },
+    preprocessing::{
+        ast::{
+            expression::RExpression,
+            function::{RBody, RDefinedBody, RFunction},
+            statement::RStatement,
+            r#type::RType,
+        },
+        module::Module,
+        preprocessor::preprocessor::CortexPreprocessor,
+        program::Program,
+    },
+    r#type::r#type::PType,
+};
 
 const STDLIB: &str = include_str!("..\\..\\res\\stdlib.cortex");
 const PREAMBLE: &str = include_str!("..\\..\\res\\preamble.cortex");
@@ -47,7 +78,10 @@ impl CortexInterpreter {
     pub fn execute(&mut self, program: Program) -> Result<CortexValue, CortexError> {
         Ok(self.evaluate_interpreted_body(&program.code)?)
     }
-    pub fn execute_expression(&mut self, expression: PExpression) -> Result<CortexValue, CortexError> {
+    pub fn execute_expression(
+        &mut self,
+        expression: PExpression,
+    ) -> Result<CortexValue, CortexError> {
         let body = BasicBody::new(vec![], Some(expression));
         let program = self.preprocessor.preprocess(body)?;
         Ok(self.execute(program)?)
@@ -68,7 +102,9 @@ impl CortexInterpreter {
         // and those struct's fields, etc.
         let mut roots = HashSet::<usize>::new();
         if let Some(env) = &self.current_env {
-            env.foreach(|_name, value| self.find_reachables(&mut roots, Rc::new(RefCell::new(value.clone()))));
+            env.foreach(|_name, value| {
+                self.find_reachables(&mut roots, Rc::new(RefCell::new(value.clone())))
+            });
         }
         self.heap.gc(roots);
     }
@@ -90,8 +126,11 @@ impl CortexInterpreter {
         self.heap.get(addr).borrow().clone()
     }
 
-    pub fn register_module(&mut self, path: &PathIdent, module: Module) -> Result<(), CortexError> {
-        self.preprocessor.register_module(path, module)
+    pub fn add_module(&mut self, path: PathIdent, module: Module) {
+        self.preprocessor.add_module(path, module)
+    }
+    pub fn process_added_modules(&mut self) -> Result<(), CortexError> {
+        self.preprocessor.process_added_modules()
     }
 
     pub fn run_program(&mut self, program: ModuleContent) -> Result<(), CortexError> {
@@ -100,13 +139,17 @@ impl CortexInterpreter {
         }
 
         let mut module = Module::new();
-        
+
         for tl in program.content {
             match tl {
                 TopLevel::Module { name, contents } => {
-                    let submodule = self.preprocessor.construct_module(contents.imports, contents.content, false)?;
+                    let submodule = self.preprocessor.construct_module(
+                        contents.imports,
+                        contents.content,
+                        false,
+                    )?;
                     module.add_child(name, submodule)?;
-                },
+                }
                 TopLevel::Function(function) => module.add_function(function)?,
                 TopLevel::Struct(struc) => module.add_struct(struc)?,
                 TopLevel::Extension(extension) => module.add_extension(extension)?,
@@ -114,7 +157,8 @@ impl CortexInterpreter {
             }
         }
 
-        self.preprocessor.register_module(&PathIdent::empty(), module)?;
+        self.preprocessor.add_module(PathIdent::empty(), module);
+        self.preprocessor.process_added_modules()?;
         Ok(())
     }
     pub fn finish_running_program(&mut self) {
@@ -130,7 +174,7 @@ impl CortexInterpreter {
             RStatement::Expression(expression) => {
                 self.evaluate_expression(expression)?;
                 Ok(())
-            },
+            }
             RStatement::Throw(expr) => {
                 if let Some(ex) = expr {
                     let val = self.evaluate_expression(ex)?;
@@ -138,23 +182,34 @@ impl CortexInterpreter {
                 } else {
                     Err(Box::new(InterpreterError::ProgramThrow(CortexValue::Void)))
                 }
-            },
-            RStatement::VariableDeclaration { 
-                name, is_const, initial_value 
+            }
+            RStatement::VariableDeclaration {
+                name,
+                is_const,
+                initial_value,
             } => {
                 let value = self.evaluate_expression(initial_value)?;
                 if *is_const {
-                    self.current_env.as_mut().unwrap().add_const(name.clone(), value)?;
+                    self.current_env
+                        .as_mut()
+                        .unwrap()
+                        .add_const(name.clone(), value)?;
                 } else {
-                    self.current_env.as_mut().unwrap().add_var(name.clone(), value)?;
+                    self.current_env
+                        .as_mut()
+                        .unwrap()
+                        .add_var(name.clone(), value)?;
                 }
                 Ok(())
-            },
+            }
             RStatement::Assignment { name, value } => {
                 if name.is_simple() {
                     let var_name = &name.base;
                     let value = self.evaluate_expression(value)?;
-                    self.current_env.as_mut().unwrap().set_value(var_name, value)?;
+                    self.current_env
+                        .as_mut()
+                        .unwrap()
+                        .set_value(var_name, value)?;
                     Ok(())
                 } else {
                     let var_name = &name.base;
@@ -164,7 +219,7 @@ impl CortexInterpreter {
                     self.set_field_path(base, chain, value)?;
                     Ok(())
                 }
-            },
+            }
             RStatement::WhileLoop(condition_body) => {
                 loop {
                     let cond = self.evaluate_expression(&condition_body.condition)?;
@@ -177,33 +232,40 @@ impl CortexInterpreter {
                     }
                 }
                 Ok(())
-            },
+            }
             RStatement::Break => {
                 todo!()
-            },
+            }
             RStatement::Continue => {
                 todo!()
-            },
+            }
         }
     }
 
-    fn evaluate_op(&mut self, first: CortexValue, op: &BinaryOperator, second: CortexValue) -> Result<CortexValue, CortexError> {
+    fn evaluate_op(
+        &mut self,
+        first: CortexValue,
+        op: &BinaryOperator,
+        second: CortexValue,
+    ) -> Result<CortexValue, CortexError> {
         // TODO: better support for numbers...
         match op {
-            BinaryOperator::Add => {
-                match (first, second) {
-                    (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::I32(n1 + n2)),
-                    (CortexValue::USZ(n1), CortexValue::I32(n2)) => Ok(CortexValue::USZ(n1 + (n2 as usize))),
-                    (CortexValue::I32(n1), CortexValue::USZ(n2)) => Ok(CortexValue::USZ((n1 as usize) + n2)),
-                    (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::USZ(n1 + n2)),
-                    (CortexValue::String(s1), CortexValue::String(s2)) => {
-                        let mut s = String::new();
-                        s.push_str(&s1);
-                        s.push_str(&s2);
-                        Ok(CortexValue::String(s))
-                    },
-                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess)),
+            BinaryOperator::Add => match (first, second) {
+                (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::I32(n1 + n2)),
+                (CortexValue::USZ(n1), CortexValue::I32(n2)) => {
+                    Ok(CortexValue::USZ(n1 + (n2 as usize)))
                 }
+                (CortexValue::I32(n1), CortexValue::USZ(n2)) => {
+                    Ok(CortexValue::USZ((n1 as usize) + n2))
+                }
+                (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::USZ(n1 + n2)),
+                (CortexValue::String(s1), CortexValue::String(s2)) => {
+                    let mut s = String::new();
+                    s.push_str(&s1);
+                    s.push_str(&s2);
+                    Ok(CortexValue::String(s))
+                }
+                _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess)),
             },
             BinaryOperator::Subtract => {
                 if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
@@ -211,7 +273,7 @@ impl CortexInterpreter {
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
-            },
+            }
             BinaryOperator::Multiply => {
                 if let CortexValue::I32(n1) = first {
                     if let CortexValue::I32(n2) = second {
@@ -226,68 +288,56 @@ impl CortexInterpreter {
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
-            },
+            }
             BinaryOperator::Divide => {
                 if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
                     Ok(CortexValue::I32(n1 / n2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
-            },
+            }
             BinaryOperator::Remainder => {
                 if let (CortexValue::I32(n1), CortexValue::I32(n2)) = (first, second) {
                     Ok(CortexValue::I32(n1 % n2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
-            },
+            }
             BinaryOperator::LogicAnd => {
                 if let (CortexValue::Boolean(b1), CortexValue::Boolean(b2)) = (first, second) {
                     Ok(CortexValue::Boolean(b1 && b2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
-            },
+            }
             BinaryOperator::LogicOr => {
                 if let (CortexValue::Boolean(b1), CortexValue::Boolean(b2)) = (first, second) {
                     Ok(CortexValue::Boolean(b1 || b2))
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
+            }
+            BinaryOperator::IsEqual => Ok(CortexValue::Boolean(first == second)),
+            BinaryOperator::IsNotEqual => Ok(CortexValue::Boolean(first != second)),
+            BinaryOperator::IsLessThan => match (first, second) {
+                (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 < n2)),
+                (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 < n2)),
+                _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess)),
             },
-            BinaryOperator::IsEqual => {
-                Ok(CortexValue::Boolean(first == second))
+            BinaryOperator::IsGreaterThan => match (first, second) {
+                (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 > n2)),
+                (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 > n2)),
+                _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess)),
             },
-            BinaryOperator::IsNotEqual => {
-                Ok(CortexValue::Boolean(first != second))
+            BinaryOperator::IsLessThanOrEqualTo => match (first, second) {
+                (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 <= n2)),
+                (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 <= n2)),
+                _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess)),
             },
-            BinaryOperator::IsLessThan => {
-                match (first, second) {
-                    (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 < n2)),
-                    (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 < n2)),
-                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
-                }
-            },
-            BinaryOperator::IsGreaterThan => {
-                match (first, second) {
-                    (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 > n2)),
-                    (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 > n2)),
-                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
-                }
-            },
-            BinaryOperator::IsLessThanOrEqualTo => {
-                match (first, second) {
-                    (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 <= n2)),
-                    (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 <= n2)),
-                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
-                }
-            },
-            BinaryOperator::IsGreaterThanOrEqualTo => {
-                match (first, second) {
-                    (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 >= n2)),
-                    (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 >= n2)),
-                    _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
-                }
+            BinaryOperator::IsGreaterThanOrEqualTo => match (first, second) {
+                (CortexValue::I32(n1), CortexValue::I32(n2)) => Ok(CortexValue::Boolean(n1 >= n2)),
+                (CortexValue::USZ(n1), CortexValue::USZ(n2)) => Ok(CortexValue::Boolean(n1 >= n2)),
+                _ => Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess)),
             },
         }
     }
@@ -295,8 +345,8 @@ impl CortexInterpreter {
         match exp {
             RExpression::Boolean(v) => Ok(CortexValue::Boolean(*v)),
             RExpression::F32(v) => Ok(CortexValue::F32(*v)),
-            RExpression::F64(v) =>  Ok(CortexValue::F64(*v)),
-            RExpression::I8(v) =>  Ok(CortexValue::I8(*v)),
+            RExpression::F64(v) => Ok(CortexValue::F64(*v)),
+            RExpression::I8(v) => Ok(CortexValue::I8(*v)),
             RExpression::U8(v) => Ok(CortexValue::U8(*v)),
             RExpression::I16(v) => Ok(CortexValue::I16(*v)),
             RExpression::U16(v) => Ok(CortexValue::U16(*v)),
@@ -311,12 +361,8 @@ impl CortexInterpreter {
             RExpression::Void => Ok(CortexValue::Void),
             RExpression::None => Ok(CortexValue::None),
             RExpression::Identifier(path) => Ok(self.lookup_value(path)?),
-            RExpression::Call { addr, args } => {
-                Ok(self.call_function_addr(*addr, args)?)
-            },
-            RExpression::Construction { assignments } => {
-                Ok(self.construct_struct(assignments)?)
-            },
+            RExpression::Call { addr, args } => Ok(self.call_function_addr(*addr, args)?),
+            RExpression::Construction { assignments } => Ok(self.construct_struct(assignments)?),
             RExpression::IfStatement { first, conds, last } => {
                 let cond = self.evaluate_expression(&first.condition)?;
                 if let CortexValue::Boolean(b) = cond {
@@ -342,7 +388,7 @@ impl CortexInterpreter {
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
-            },
+            }
             RExpression::UnaryOperation { op, exp } => {
                 let val = self.evaluate_expression(exp)?;
                 match op {
@@ -352,23 +398,23 @@ impl CortexInterpreter {
                         } else {
                             Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                         }
-                    },
+                    }
                     UnaryOperator::Invert => {
                         if let CortexValue::Boolean(b) = val {
                             Ok(CortexValue::Boolean(!b))
                         } else {
                             Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                         }
-                    },
+                    }
                     UnaryOperator::Deref => {
                         if let CortexValue::Reference(addr) = val {
                             Ok(self.heap.get(addr).borrow().clone())
                         } else {
                             Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                         }
-                    },
+                    }
                 }
-            },
+            }
             RExpression::CollectionLiteral(items) => {
                 let values = items
                     .iter()
@@ -376,7 +422,7 @@ impl CortexInterpreter {
                     .collect::<Result<Vec<_>, _>>()?;
                 let addr = self.heap.allocate(CortexValue::Span(values));
                 Ok(CortexValue::Reference(addr))
-            },
+            }
             RExpression::Bang(inner) => {
                 let inner = self.evaluate_expression(inner)?;
                 if let CortexValue::None = inner {
@@ -384,17 +430,17 @@ impl CortexInterpreter {
                 } else {
                     Ok(inner)
                 }
-            },
+            }
             RExpression::MemberAccess(inner, member) => {
                 let inner = self.evaluate_expression(inner)?;
                 Ok(self.access_member(Rc::new(RefCell::new(inner)), member)?)
-            },
+            }
             RExpression::BinaryOperation { left, op, right } => {
                 let left = self.evaluate_expression(left)?;
                 let right = self.evaluate_expression(right)?;
                 let result = self.evaluate_op(left, op, right)?;
                 Ok(result)
-            },
+            }
             RExpression::Tuple(items) => {
                 let values = items
                     .iter()
@@ -409,11 +455,9 @@ impl CortexInterpreter {
                     .map(|(i, _)| format!("t{}", i))
                     .collect::<Vec<_>>();
                 let field_values = keys.into_iter().zip(values).collect::<HashMap<_, _>>();
-                
-                Ok(CortexValue::Composite {
-                    field_values,
-                })
-            },
+
+                Ok(CortexValue::Composite { field_values })
+            }
             RExpression::MakeFat(exp, vtable) => {
                 let val = self.evaluate_expression(&*exp)?;
                 if val == CortexValue::None {
@@ -421,8 +465,12 @@ impl CortexInterpreter {
                 } else {
                     Ok(CortexValue::Fat(Rc::new(RefCell::new(val)), vtable.clone()))
                 }
-            },
-            RExpression::FatCall { callee, index_in_vtable, args } => {
+            }
+            RExpression::FatCall {
+                callee,
+                index_in_vtable,
+                args,
+            } => {
                 let val = self.evaluate_expression(&*callee)?;
                 if let CortexValue::Fat(_, vtable) = val {
                     let index = vtable.get(*index_in_vtable);
@@ -441,32 +489,40 @@ impl CortexInterpreter {
                         Err(Box::new(InterpreterError::FunctionNotFoundDynamicDispatch))
                     }
                 } else {
-                    Err(Box::new(InterpreterError::ExpectedFatPointer(String::from(val.get_variant_name()))))
+                    Err(Box::new(InterpreterError::ExpectedFatPointer(
+                        String::from(val.get_variant_name()),
+                    )))
                 }
-            },
+            }
             RExpression::HeapAlloc(inner) => {
                 let value = self.evaluate_expression(&*inner)?;
                 let addr = self.allocate(value);
                 Ok(CortexValue::Reference(addr))
-            },
+            }
             RExpression::DerefFat(inner) => {
                 let value = self.evaluate_expression(inner)?;
                 if let CortexValue::Fat(val, _) = value {
                     let val = val.borrow().clone();
                     Ok(val)
                 } else {
-                    Err(Box::new(InterpreterError::ExpectedFatPointer(String::from(value.get_variant_name()))))
+                    Err(Box::new(InterpreterError::ExpectedFatPointer(
+                        String::from(value.get_variant_name()),
+                    )))
                 }
-            },
-            RExpression::MakeAnon(v) => Ok(CortexValue::AnonymousBox(Box::new(self.evaluate_expression(v)?))),
+            }
+            RExpression::MakeAnon(v) => Ok(CortexValue::AnonymousBox(Box::new(
+                self.evaluate_expression(v)?,
+            ))),
             RExpression::DeAnon(v) => {
                 let boxed = self.evaluate_expression(v)?;
                 if let CortexValue::AnonymousBox(value) = boxed {
                     Ok(*value)
                 } else {
-                    Err(Box::new(InterpreterError::ExpectedAnonBox(String::from(boxed.get_variant_name()))))
+                    Err(Box::new(InterpreterError::ExpectedAnonBox(String::from(
+                        boxed.get_variant_name(),
+                    ))))
                 }
-            },
+            }
             RExpression::FunctionPointerCall { ident, args } => {
                 let value = self.lookup_value(ident)?;
                 if let CortexValue::FunctionPointer(addr) = value {
@@ -474,19 +530,28 @@ impl CortexInterpreter {
                 } else {
                     Err(Box::new(InterpreterError::MismatchedTypeNoPreprocess))
                 }
-            },
+            }
             RExpression::MakeFunctionPointer(addr) => Ok(CortexValue::FunctionPointer(*addr)),
         }
     }
 
-    fn call_function_addr(&mut self, addr: usize, args: &Vec<RExpression>) -> Result<CortexValue, CortexError> {
+    fn call_function_addr(
+        &mut self,
+        addr: usize,
+        args: &Vec<RExpression>,
+    ) -> Result<CortexValue, CortexError> {
         let func = self.lookup_function(addr)?.clone();
         let func_result = self.run_function(&func, args.iter().collect());
         Ok(func_result?)
     }
-    fn access_member(&self, inner: Rc<RefCell<CortexValue>>, member: &String) -> Result<CortexValue, CortexError> {
+    fn access_member(
+        &self,
+        inner: Rc<RefCell<CortexValue>>,
+        member: &String,
+    ) -> Result<CortexValue, CortexError> {
         if let CortexValue::Reference(addr) = *inner.borrow() {
-            let val = self.heap
+            let val = self
+                .heap
                 .get(addr)
                 .borrow()
                 .get_field(member)?
@@ -516,14 +581,17 @@ impl CortexInterpreter {
             let assigned_value = self.evaluate_expression(value)?;
             values.insert(fname.clone(), Rc::new(RefCell::new(assigned_value)));
         }
-        Ok(
-            CortexValue::Composite {
-                field_values: values,
-            }
-        )
+        Ok(CortexValue::Composite {
+            field_values: values,
+        })
     }
-    
-    fn set_field_path(&mut self, mut base: Rc<RefCell<CortexValue>>, mut path: Vec<String>, value: CortexValue) -> Result<(), ValueError> {
+
+    fn set_field_path(
+        &mut self,
+        mut base: Rc<RefCell<CortexValue>>,
+        mut path: Vec<String>,
+        value: CortexValue,
+    ) -> Result<(), ValueError> {
         let first_option = path.get(0);
         base = self.unwrap(base);
         if let Some(first) = first_option {
@@ -551,7 +619,11 @@ impl CortexInterpreter {
         }
     }
 
-    fn run_function(&mut self, func: &Rc<RFunction>, args: Vec<&RExpression>) -> Result<CortexValue, CortexError> {
+    fn run_function(
+        &mut self,
+        func: &Rc<RFunction>,
+        args: Vec<&RExpression>,
+    ) -> Result<CortexValue, CortexError> {
         let mut arg_values = Vec::<CortexValue>::new();
         for arg in args {
             arg_values.push(self.evaluate_expression(arg)?);
@@ -560,7 +632,11 @@ impl CortexInterpreter {
         self.call_function(func, arg_values)
     }
 
-    pub fn call_function(&mut self, func: &RFunction, mut args: Vec<CortexValue>) -> Result<CortexValue, CortexError> {
+    pub fn call_function(
+        &mut self,
+        func: &RFunction,
+        mut args: Vec<CortexValue>,
+    ) -> Result<CortexValue, CortexError> {
         let body = &func.body;
         let mut param_names = Vec::<String>::with_capacity(func.params.len());
         for param in &func.params {
@@ -574,12 +650,18 @@ impl CortexInterpreter {
         // 4. Return the saved-off value
 
         if args.len() != param_names.len() {
-            return Err(Box::new(InterpreterError::InvalidArgCountNoPreprocess(param_names.len(), args.len())));
+            return Err(Box::new(InterpreterError::InvalidArgCountNoPreprocess(
+                param_names.len(),
+                args.len(),
+            )));
         }
-        
+
         // Create new env
         // Get ownership sorted first before adding values to the new environment
-        let parent_env = self.current_env.take().ok_or(InterpreterError::NoParentEnv)?;
+        let parent_env = self
+            .current_env
+            .take()
+            .ok_or(InterpreterError::NoParentEnv)?;
         let mut new_env = Environment::new(*parent_env);
         for i in 0..args.len() {
             let value = args.remove(0);
@@ -596,7 +678,8 @@ impl CortexInterpreter {
             self.current_env
                 .take()
                 .ok_or(InterpreterError::NoParentEnv)?
-                .exit()?));
+                .exit()?,
+        ));
 
         // Return result
         Ok(result)
@@ -604,25 +687,31 @@ impl CortexInterpreter {
 
     fn evaluate_body(&mut self, body: &RBody) -> Result<CortexValue, CortexError> {
         match body {
-            RBody::Defined(b) => {
-                Ok(self.evaluate_interpreted_body(b)?)
-            },
+            RBody::Defined(b) => Ok(self.evaluate_interpreted_body(b)?),
             RBody::Extern(func) => {
                 let res = func(self.current_env.as_ref().unwrap(), &mut self.heap)?;
                 Ok(res)
-            },
+            }
         }
     }
-    fn evaluate_interpreted_body_handle_env(&mut self, b: &RDefinedBody) -> Result<CortexValue, CortexError> {
-        let parent_env = self.current_env.take().ok_or(InterpreterError::NoParentEnv)?;
+    fn evaluate_interpreted_body_handle_env(
+        &mut self,
+        b: &RDefinedBody,
+    ) -> Result<CortexValue, CortexError> {
+        let parent_env = self
+            .current_env
+            .take()
+            .ok_or(InterpreterError::NoParentEnv)?;
         self.current_env = Some(Box::new(Environment::new(*parent_env)));
 
         let result = self.evaluate_interpreted_body(b);
 
-        self.current_env = Some(Box::new(self.current_env
+        self.current_env = Some(Box::new(
+            self.current_env
                 .take()
                 .ok_or(InterpreterError::NoParentEnv)?
-                .exit()?));
+                .exit()?,
+        ));
 
         result
     }
