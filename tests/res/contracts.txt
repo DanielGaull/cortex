@@ -4,7 +4,7 @@ contract Iterator<T> {
 }
 
 struct ListWrapper<D> follows Iterator<D> {
-    items: &mut List<D>,
+    items: &mut stdlib::collections::List<D>,
     index: usz,
 
     fn next(&mut this): D {
@@ -29,8 +29,8 @@ struct AddMapFn follows MapFn<i32, i32> {
     }
 }
 
-fn mapper<T, R>(iter: follows Iterator<T>, function: follows MapFn<T, R>): &mut List<R> {
-    let result: &mut List<R> = [];
+fn mapper<T, R>(iter: follows Iterator<T>, function: follows MapFn<T, R>): &mut stdlib::collections::List<R> {
+    let result: &mut stdlib::collections::List<R> = [];
     while iter.hasNext() {
         let item = function.map(iter.next());
         result.add(item);
@@ -66,10 +66,10 @@ struct Box<T> {
 }
 
 struct OtherListWrapper<D> {
-    items: &mut List<D>,
+    items: &mut stdlib::collections::List<D>,
 
-    fn map<R>(&this, mapper: follows MapFn<D, R>): &mut List<R> {
-        let result: &mut List<R> = [];
+    fn map<R>(&this, mapper: follows MapFn<D, R>): &mut stdlib::collections::List<R> {
+        let result: &mut stdlib::collections::List<R> = [];
         let index = 0;
         while index < this.items.len() {
             result.add(mapper.map(this.items[index]));
@@ -83,7 +83,7 @@ struct IteratorMapper<T, R> {
     iter: follows Iterator<T>,
     mapper: follows MapFn<T, R>,
 
-    fn map(&this): &mut List<R> {
+    fn map(&this): &mut stdlib::collections::List<R> {
         mapper(this.iter, this.mapper)
     }
 }

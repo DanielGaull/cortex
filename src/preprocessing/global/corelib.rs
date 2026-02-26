@@ -2,7 +2,18 @@ use std::error::Error;
 
 use thiserror::Error;
 
-use crate::{interpreting::value::CortexValue, parsing::ast::{expression::{OptionalIdentifier, Parameter, PathIdent}, top_level::{Body, PFunction}}, preprocessing::{global::string::cortex_value_to_string, module::Module, preprocessor::preprocessor::CortexPreprocessor}, r#type::r#type::PType};
+use crate::{
+    interpreting::value::CortexValue,
+    parsing::ast::{
+        expression::{OptionalIdentifier, Parameter, PathIdent},
+        top_level::{Body, Contract, MemberFunctionSignature, PFunction, ThisArg},
+    },
+    preprocessing::{
+        global::string::cortex_value_to_string, module::Module,
+        preprocessor::preprocessor::CortexPreprocessor,
+    },
+    r#type::r#type::{PType, TypeParam, TypeParamType},
+};
 
 #[derive(Error, Debug)]
 pub enum CoreLibError {
@@ -22,15 +33,20 @@ impl CortexPreprocessor {
     // When they truly expect a certain type (ex. corelib used to circumvent rules around generic functions)
     pub(crate) fn add_corelib(global: &mut Module) -> Result<(), Box<dyn Error>> {
         let mut corelib = Module::new();
-        
+
         corelib.add_function(PFunction::new(
             OptionalIdentifier::Ident(String::from("spanIndexGetSingleAnonymous")),
-            vec![Parameter::named("inputSpan", PType::anonbox()), Parameter::named("index", PType::usz())],
+            vec![
+                Parameter::named("inputSpan", PType::anonbox()),
+                Parameter::named("index", PType::usz()),
+            ],
             PType::anonbox(),
             Body::Native(Box::new(|env, heap| {
                 let span = env.get_value("inputSpan")?;
                 let index = env.get_value("index")?;
-                if let (CortexValue::Reference(span_address), CortexValue::USZ(index)) = (span, index) {
+                if let (CortexValue::Reference(span_address), CortexValue::USZ(index)) =
+                    (span, index)
+                {
                     let span = heap.get(span_address).borrow().clone();
                     if let CortexValue::Span(span) = span {
                         let value = span.get(index);
@@ -41,22 +57,32 @@ impl CortexPreprocessor {
                             Err(Box::new(CoreLibError::InvalidIndex(format!("{}", index))))
                         }
                     } else {
-                        Err(Box::new(CoreLibError::MismatchedTypes(String::from("span<T>, usz"))))
+                        Err(Box::new(CoreLibError::MismatchedTypes(String::from(
+                            "span<T>, usz",
+                        ))))
                     }
                 } else {
-                    Err(Box::new(CoreLibError::MismatchedTypes(String::from("span<T>, usz"))))
+                    Err(Box::new(CoreLibError::MismatchedTypes(String::from(
+                        "span<T>, usz",
+                    ))))
                 }
             })),
-            vec![]
+            vec![],
         ))?;
         corelib.add_function(PFunction::new(
             OptionalIdentifier::Ident(String::from("spanIndexAssignSingleAnonymous")),
-            vec![Parameter::named("inputSpan", PType::anonbox()), Parameter::named("index", PType::usz()), Parameter::named("value", PType::anonbox())],
+            vec![
+                Parameter::named("inputSpan", PType::anonbox()),
+                Parameter::named("index", PType::usz()),
+                Parameter::named("value", PType::anonbox()),
+            ],
             PType::void(),
             Body::Native(Box::new(|env, heap| {
                 let span = env.get_value("inputSpan")?;
                 let index = env.get_value("index")?;
-                if let (CortexValue::Reference(span_address), CortexValue::USZ(index)) = (span, index) {
+                if let (CortexValue::Reference(span_address), CortexValue::USZ(index)) =
+                    (span, index)
+                {
                     if let CortexValue::Span(items) = &mut *heap.get(span_address).borrow_mut() {
                         if index >= items.len() {
                             items[index] = env.get_value("value")?;
@@ -65,13 +91,17 @@ impl CortexPreprocessor {
                             Err(Box::new(CoreLibError::InvalidIndex(format!("{}", index))))
                         }
                     } else {
-                        Err(Box::new(CoreLibError::MismatchedTypes(String::from("span<T>, usz"))))
+                        Err(Box::new(CoreLibError::MismatchedTypes(String::from(
+                            "span<T>, usz",
+                        ))))
                     }
                 } else {
-                    Err(Box::new(CoreLibError::MismatchedTypes(String::from("span<T>, usz"))))
+                    Err(Box::new(CoreLibError::MismatchedTypes(String::from(
+                        "span<T>, usz",
+                    ))))
                 }
             })),
-            vec![]
+            vec![],
         ))?;
         corelib.add_function(PFunction::new(
             OptionalIdentifier::Ident(String::from("spanAllocAnonymous")),
@@ -91,7 +121,7 @@ impl CortexPreprocessor {
                     Err(Box::new(CoreLibError::MismatchedTypes(String::from("usz"))))
                 }
             })),
-            vec![]
+            vec![],
         ))?;
 
         corelib.add_function(PFunction::new(
@@ -107,7 +137,25 @@ impl CortexPreprocessor {
                     Err(Box::new(CoreLibError::MismatchedTypes(String::from("usz"))))
                 }
             })),
-            vec![]
+            vec![],
+        ))?;
+
+        // TODO: shouldn't need to parameterize Result
+        corelib.add_contract(Contract::new(
+            "CoreFromSpan",
+            vec![
+                TypeParam::new("T", TypeParamType::Ty),
+            ],
+            vec![MemberFunctionSignature::new(
+                OptionalIdentifier::Ident(String::from("fromSpan")),
+                vec![
+                    Parameter::named("collection", PType::span(PType::generic("T"))),
+                    Parameter::named("length", PType::usz()),
+                ],
+                PType::void(),
+                ThisArg::RefMutThis, // TODO: should be a static fn, rn it mutates the list
+                vec![],
+            )],
         ))?;
 
         global.add_module(&PathIdent::simple(String::from("corelib")), corelib)?;

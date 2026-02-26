@@ -14,7 +14,7 @@ module stdlib {
     }
 
     module collections {
-        struct List<T: ty> {
+        struct List<T: ty> follows corelib::CoreFromSpan<T> {
             _items: &mut span<T>,
             _len: usz,
             _capacity: usz,
@@ -68,6 +68,17 @@ module stdlib {
                 this._items[index] = value;
             }
             */
+
+            fn fromSpan(&mut this, collection: span<T>, length: usz) {
+                let i = 0usz;
+                while i < length {
+                    // TODO: this is solely to fix some pathing issues... should fix later
+                    let currentVal = corelib::spanIndexGetSingleAnonymous(anon collection, i);
+                    this.add(currentVal);
+                    //nextSpan[i] = this[i];
+                    i += 1usz;
+                }
+            }
         }
     }
 }
