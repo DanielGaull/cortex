@@ -1,7 +1,11 @@
-use thiserror::Error;
 use std::error::Error;
+use thiserror::Error;
 
-use crate::{parsing::codegen::r#trait::SimpleCodeGen, preprocessing::ast::function_address::FunctionAddress, r#type::r#type::{PType, TypeArg}};
+use crate::{
+    parsing::codegen::r#trait::SimpleCodeGen,
+    preprocessing::ast::function_address::FunctionAddress,
+    r#type::r#type::{PType, TypeArg},
+};
 
 use super::top_level::BasicBody;
 
@@ -43,7 +47,7 @@ pub enum PExpression {
     Char(u8),
     PathIdent(PathIdent),
     Call {
-        name: FunctionAddress, 
+        name: FunctionAddress,
         args: Vec<PExpression>,
         type_args: Option<Vec<TypeArg>>,
     },
@@ -106,7 +110,11 @@ impl SimpleCodeGen for PExpression {
             PExpression::Void => String::from("void"),
             PExpression::None => String::from("none"),
             PExpression::PathIdent(path) => path.codegen(indent),
-            PExpression::Call{ name, args, type_args } => {
+            PExpression::Call {
+                name,
+                args,
+                type_args,
+            } => {
                 let mut s = String::new();
                 if let Some(target) = &name.target {
                     s.push_str(&format!("{}::", target.codegen(indent)));
@@ -114,7 +122,13 @@ impl SimpleCodeGen for PExpression {
                 s.push_str(&name.own_module_path.codegen(indent));
                 if let Some(type_args) = type_args {
                     s.push_str("<");
-                    s.push_str(&type_args.iter().map(|t| t.codegen(indent)).collect::<Vec<_>>().join(", "));
+                    s.push_str(
+                        &type_args
+                            .iter()
+                            .map(|t| t.codegen(indent))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    );
                     s.push_str(">");
                 }
                 s.push_str("(");
@@ -126,13 +140,23 @@ impl SimpleCodeGen for PExpression {
                 }
                 s.push_str(")");
                 s
-            },
-            PExpression::Construction { name, type_args, assignments } => {
+            }
+            PExpression::Construction {
+                name,
+                type_args,
+                assignments,
+            } => {
                 let mut s = String::new();
                 s.push_str(&name.codegen(0));
                 if type_args.len() > 0 {
                     s.push_str("<");
-                    s.push_str(&type_args.iter().map(|s| s.codegen(0)).collect::<Vec<_>>().join(","));
+                    s.push_str(
+                        &type_args
+                            .iter()
+                            .map(|s| s.codegen(0))
+                            .collect::<Vec<_>>()
+                            .join(","),
+                    );
                     s.push_str(">");
                 }
                 s.push_str(" { ");
@@ -144,7 +168,7 @@ impl SimpleCodeGen for PExpression {
                 }
                 s.push_str("}");
                 s
-            },
+            }
             PExpression::IfStatement { first, conds, last } => {
                 let mut s = String::new();
                 let indent_prefix = "    ".repeat(indent);
@@ -162,10 +186,10 @@ impl SimpleCodeGen for PExpression {
                     s.push_str("}");
                 }
                 s
-            },
+            }
             PExpression::UnaryOperation { op, exp } => {
                 format!("{}{}", op.codegen(indent), exp.codegen_as_sub(indent))
-            },
+            }
             PExpression::CollectionLiteral(items) => {
                 let mut s = String::new();
                 s.push_str("[");
@@ -174,42 +198,73 @@ impl SimpleCodeGen for PExpression {
                         .iter()
                         .map(|e| e.codegen(0))
                         .collect::<Vec<_>>()
-                        .join(", ")
+                        .join(", "),
                 );
                 s.push_str("]");
                 s
-            },
+            }
             PExpression::Bang(ex) => format!("{}!", ex.codegen(indent)),
             PExpression::BinaryOperation { left, op, right } => {
-                format!("{} {} {}", left.codegen_as_sub(indent), op.codegen(indent), right.codegen_as_sub(indent))
-            },
-            PExpression::MemberAccess(ex, member) => format!("{}.{}", ex.codegen_as_sub(indent), member),
-            PExpression::MemberCall { callee, member: member_name, args, type_args } => {
+                format!(
+                    "{} {} {}",
+                    left.codegen_as_sub(indent),
+                    op.codegen(indent),
+                    right.codegen_as_sub(indent)
+                )
+            }
+            PExpression::MemberAccess(ex, member) => {
+                format!("{}.{}", ex.codegen_as_sub(indent), member)
+            }
+            PExpression::MemberCall {
+                callee,
+                member: member_name,
+                args,
+                type_args,
+            } => {
                 if let Some(type_args) = type_args {
-                    format!("{}.{}<{}>({})", 
-                        callee.codegen_as_sub(indent), 
-                        member_name, 
-                        type_args.iter().map(|t| t.codegen(indent)).collect::<Vec<_>>().join(", "),
-                        args.iter().map(|a| a.codegen(indent)).collect::<Vec<_>>().join(", ")
+                    format!(
+                        "{}.{}<{}>({})",
+                        callee.codegen_as_sub(indent),
+                        member_name,
+                        type_args
+                            .iter()
+                            .map(|t| t.codegen(indent))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        args.iter()
+                            .map(|a| a.codegen(indent))
+                            .collect::<Vec<_>>()
+                            .join(", ")
                     )
                 } else {
-                    format!("{}.{}({})", 
-                        callee.codegen_as_sub(indent), 
-                        member_name, 
-                        args.iter().map(|a| a.codegen(indent)).collect::<Vec<_>>().join(", ")
+                    format!(
+                        "{}.{}({})",
+                        callee.codegen_as_sub(indent),
+                        member_name,
+                        args.iter()
+                            .map(|a| a.codegen(indent))
+                            .collect::<Vec<_>>()
+                            .join(", ")
                     )
                 }
-            },
+            }
             PExpression::Tuple(items) => {
                 if items.len() == 1 {
                     format!("({},)", items.get(0).unwrap().codegen(indent))
                 } else {
-                    format!("({})", items.iter().map(|i| i.codegen(indent)).collect::<Vec<_>>().join(", "))
+                    format!(
+                        "({})",
+                        items
+                            .iter()
+                            .map(|i| i.codegen(indent))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
                 }
-            },
+            }
             PExpression::Char(c) => {
                 format!("'{}'", *c as char)
-            },
+            }
             PExpression::Range { start, end, step } => {
                 fn ts(v: &Option<isize>) -> String {
                     match v {
@@ -223,41 +278,53 @@ impl SimpleCodeGen for PExpression {
                 } else {
                     format!("{}:{}", ts(start), ts(end))
                 }
-            },
+            }
             PExpression::HeapAlloc(exp) => format!("heap {}", exp.codegen(indent)),
             PExpression::DerefFat(exp) => exp.codegen(indent),
             PExpression::MakeAnon(exp) => format!("anon {}", exp.codegen(indent)),
-            PExpression::DeAnon(typ, exp) => format!("deanon<{}> {}", typ.codegen(indent), exp.codegen(indent)),
+            PExpression::DeAnon(typ, exp) => {
+                format!("deanon<{}> {}", typ.codegen(indent), exp.codegen(indent))
+            }
         }
     }
 }
 impl PExpression {
     fn is_atomic(&self) -> bool {
         match self {
-            PExpression::U8(..) |
-            PExpression::I8(..) |
-            PExpression::U16(..) |
-            PExpression::I16(..) |
-            PExpression::U32(..) |
-            PExpression::I32(..) |
-            PExpression::U64(..) |
-            PExpression::I64(..) |
-            PExpression::USZ(..) |
-            PExpression::ISZ(..) |
-            PExpression::F32(..) |
-            PExpression::F64(..) |
-            PExpression::Boolean(..) | PExpression::Void | PExpression::None | 
-            PExpression::String(..) | PExpression::PathIdent(..) | PExpression::Call { .. } |
-            PExpression::Construction { .. } |
-            PExpression::IfStatement { .. } | PExpression::MemberAccess(..) |
-            PExpression::CollectionLiteral(..) | PExpression::MemberCall { .. } |
-            PExpression::Tuple(..) | PExpression::Char(..) | PExpression::DerefFat(..)
-                => true,
-            
-            PExpression::UnaryOperation { .. } | PExpression::Bang(..) | 
-            PExpression::BinaryOperation { .. } | PExpression::Range { .. } |
-            PExpression::HeapAlloc(..) | PExpression::MakeAnon(..) | PExpression::DeAnon(..)
-                => false,
+            PExpression::U8(..)
+            | PExpression::I8(..)
+            | PExpression::U16(..)
+            | PExpression::I16(..)
+            | PExpression::U32(..)
+            | PExpression::I32(..)
+            | PExpression::U64(..)
+            | PExpression::I64(..)
+            | PExpression::USZ(..)
+            | PExpression::ISZ(..)
+            | PExpression::F32(..)
+            | PExpression::F64(..)
+            | PExpression::Boolean(..)
+            | PExpression::Void
+            | PExpression::None
+            | PExpression::String(..)
+            | PExpression::PathIdent(..)
+            | PExpression::Call { .. }
+            | PExpression::Construction { .. }
+            | PExpression::IfStatement { .. }
+            | PExpression::MemberAccess(..)
+            | PExpression::CollectionLiteral(..)
+            | PExpression::MemberCall { .. }
+            | PExpression::Tuple(..)
+            | PExpression::Char(..)
+            | PExpression::DerefFat(..) => true,
+
+            PExpression::UnaryOperation { .. }
+            | PExpression::Bang(..)
+            | PExpression::BinaryOperation { .. }
+            | PExpression::Range { .. }
+            | PExpression::HeapAlloc(..)
+            | PExpression::MakeAnon(..)
+            | PExpression::DeAnon(..) => false,
         }
     }
     fn codegen_as_sub(&self, indent: usize) -> String {
@@ -346,7 +413,7 @@ impl IdentExpression {
 #[derive(Clone, PartialEq)]
 pub enum OptionalIdentifier {
     Ident(String), // A true identifier
-    Ignore, // The ignore token, "~"
+    Ignore,        // The ignore token, "~"
 }
 impl SimpleCodeGen for OptionalIdentifier {
     fn codegen(&self, _: usize) -> String {
@@ -375,9 +442,7 @@ pub enum PathError {
 }
 impl PathIdent {
     pub fn simple(name: String) -> Self {
-        Self {
-            path: vec![name],
-        }
+        Self { path: vec![name] }
     }
     pub fn new(name: Vec<&str>) -> Self {
         Self {
@@ -386,21 +451,15 @@ impl PathIdent {
     }
     pub fn continued(first: PathIdent, next: String) -> Self {
         if first.is_empty() {
-            Self {
-                path: vec![next],
-            }
+            Self { path: vec![next] }
         } else {
             let mut path = first.path.clone();
             path.push(next);
-            Self {
-                path: path,
-            }
+            Self { path: path }
         }
     }
     pub fn empty() -> Self {
-        Self {
-            path: Vec::new(),
-        }
+        Self { path: Vec::new() }
     }
     pub fn concat(first: &PathIdent, second: &PathIdent) -> Self {
         if first.is_empty() {
@@ -410,9 +469,7 @@ impl PathIdent {
         } else {
             let mut path = first.path.clone();
             path.extend(second.path.clone());
-            Self {
-                path: path,
-            }
+            Self { path: path }
         }
     }
 
@@ -450,11 +507,7 @@ impl PathIdent {
                     return Err(PathError::PathEmpty);
                 }
             }
-            Ok(
-                Self {
-                    path: path
-                }
-            )
+            Ok(Self { path: path })
         }
     }
     pub fn subtract_if_possible(self, second: &PathIdent) -> Self {
@@ -468,14 +521,12 @@ impl PathIdent {
     pub fn without_last(&self) -> Self {
         let mut new_vec = self.path.clone();
         new_vec.remove(new_vec.len() - 1);
-        Self {
-            path: new_vec,
-        }
+        Self { path: new_vec }
     }
 
-    // Returns all subpaths, including the empty path
+    // Returns all subpaths, including the empty path, but not including this path
     // Ex for apple::banana::carrot, returns:
-    // '', 'apple', 'apple::banana', 'apple::banana::carrot'
+    // '', 'apple', 'apple::banana'
     pub fn subpaths(&self) -> Vec<Self> {
         let result = (0..=self.path.len())
             .map(|i| self.path[0..i].to_vec())
@@ -489,9 +540,7 @@ impl PathIdent {
             Err(PathError::PathEmpty)
         } else {
             let new_path: Vec<String> = self.path.iter().skip(1).cloned().collect();
-            Ok(PathIdent {
-                path: new_path,
-            })
+            Ok(PathIdent { path: new_path })
         }
     }
     pub fn get_front(&self) -> Result<&String, PathError> {
@@ -522,7 +571,11 @@ impl PathIdent {
     }
 
     pub fn to_string(&self, separator: &str) -> String {
-        self.path.iter().cloned().collect::<Vec<_>>().join(separator)
+        self.path
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(separator)
     }
 }
 
@@ -534,13 +587,11 @@ pub enum UnaryOperator {
 }
 impl SimpleCodeGen for UnaryOperator {
     fn codegen(&self, _indent: usize) -> String {
-        String::from(
-            match self {
-                UnaryOperator::Negate => "-",
-                UnaryOperator::Invert => "!",
-                UnaryOperator::Deref => "@",
-            }
-        )
+        String::from(match self {
+            UnaryOperator::Negate => "-",
+            UnaryOperator::Invert => "!",
+            UnaryOperator::Deref => "@",
+        })
     }
 }
 
@@ -562,22 +613,20 @@ pub enum BinaryOperator {
 }
 impl SimpleCodeGen for BinaryOperator {
     fn codegen(&self, _: usize) -> String {
-        String::from(
-            match self {
-                BinaryOperator::Add => "+",
-                BinaryOperator::Subtract => "-",
-                BinaryOperator::Multiply => "*",
-                BinaryOperator::Divide => "/",
-                BinaryOperator::Remainder => "%",
-                BinaryOperator::LogicAnd => "&&",
-                BinaryOperator::LogicOr => "||",
-                BinaryOperator::IsEqual => "==",
-                BinaryOperator::IsNotEqual => "!=",
-                BinaryOperator::IsLessThan => "<",
-                BinaryOperator::IsGreaterThan => ">",
-                BinaryOperator::IsLessThanOrEqualTo => "<=",
-                BinaryOperator::IsGreaterThanOrEqualTo => ">=",
-            }
-        )
+        String::from(match self {
+            BinaryOperator::Add => "+",
+            BinaryOperator::Subtract => "-",
+            BinaryOperator::Multiply => "*",
+            BinaryOperator::Divide => "/",
+            BinaryOperator::Remainder => "%",
+            BinaryOperator::LogicAnd => "&&",
+            BinaryOperator::LogicOr => "||",
+            BinaryOperator::IsEqual => "==",
+            BinaryOperator::IsNotEqual => "!=",
+            BinaryOperator::IsLessThan => "<",
+            BinaryOperator::IsGreaterThan => ">",
+            BinaryOperator::IsLessThanOrEqualTo => "<=",
+            BinaryOperator::IsGreaterThanOrEqualTo => ">=",
+        })
     }
 }

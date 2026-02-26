@@ -44,7 +44,7 @@ impl CortexPreprocessor {
             Ok(r) => Ok(r),
             Err(e) => {
                 let mut valid_prefixes = self.imported_paths.clone();
-                valid_prefixes.push(PathIdent::empty());
+                valid_prefixes.append(&mut self.current_context.subpaths());
                 for prefix in &valid_prefixes {
                     let res = self.lookup_type_with(path, prefix);
                     if let Ok(r) = res {
@@ -120,7 +120,7 @@ impl CortexPreprocessor {
             Ok(r) => Ok(r),
             Err(e) => {
                 let mut valid_prefixes = self.imported_paths.clone();
-                valid_prefixes.push(PathIdent::empty());
+                valid_prefixes.append(&mut self.current_context.subpaths());
                 for prefix in &valid_prefixes {
                     let res = self.lookup_contract_with(path, prefix);
                     if let Ok(r) = res {
@@ -214,7 +214,7 @@ impl CortexPreprocessor {
             Ok(res) => Ok((res, self.current_context.clone())),
             Err(e) => {
                 let mut valid_prefixes = self.imported_paths.clone();
-                valid_prefixes.push(PathIdent::empty());
+                valid_prefixes.append(&mut self.current_context.subpaths());
                 for prefix in &valid_prefixes {
                     let res = self.lookup_signature_with(&path, prefix);
                     if let Ok(res) = res {
