@@ -104,15 +104,20 @@ impl CortexPreprocessor {
             vec![],
         ))?;
         corelib.add_function(PFunction::new(
-            OptionalIdentifier::Ident(String::from("spanAllocAnonymous")),
+            OptionalIdentifier::Ident(String::from("spanAlloc")),
             vec![Parameter::named("size", PType::usz())],
-            PType::reference(PType::span(PType::anonbox()), true),
+            PType::reference(PType::span(PType::generic("T")), true),
             Body::Native(Box::new(|env, heap| {
                 let size = env.get_value("size")?;
                 if let CortexValue::USZ(size) = size {
                     let mut values = Vec::new();
                     for _i in 0..size {
-                        values.push(CortexValue::AnonymousBox(Box::new(CortexValue::None)));
+                        // NOTE: This makes it unsafe to access the initial values in this span
+                        // Can only access values once they've been assigned
+                        // TODO: maybe could have an "undefined" runtime type that is only used to
+                        // validate this? Instead of None. "undefined" would be really bad to see,
+                        // a clear sign something is wrong
+                        values.push(CortexValue::None);
                     }
 
                     let addr = heap.allocate(CortexValue::Span(values));
@@ -121,7 +126,7 @@ impl CortexPreprocessor {
                     Err(Box::new(CoreLibError::MismatchedTypes(String::from("usz"))))
                 }
             })),
-            vec![],
+            vec![TypeParam::new("T", TypeParamType::Ty)],
         ))?;
 
         corelib.add_function(PFunction::new(
@@ -143,9 +148,7 @@ impl CortexPreprocessor {
         // TODO: shouldn't need to parameterize Result
         corelib.add_contract(Contract::new(
             "CoreFromSpan",
-            vec![
-                TypeParam::new("T", TypeParamType::Ty),
-            ],
+            vec![TypeParam::new("T", TypeParamType::Ty)],
             vec![MemberFunctionSignature::new(
                 OptionalIdentifier::Ident(String::from("fromSpan")),
                 vec![
