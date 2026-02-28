@@ -144,8 +144,8 @@ impl CortexPreprocessor {
         let mut global_module = Module::new();
         Self::add_corelib(&mut global_module)?;
         // Self::add_list_funcs(&mut global_module)?;
-        // Self::add_string_funcs(&mut global_module)?;
-        // Self::add_range_struct(&mut global_module)?;
+        Self::add_string_funcs(&mut global_module)?;
+        Self::add_range_struct(&mut global_module)?;
 
         this.add_module(PathIdent::empty(), global_module);
 
