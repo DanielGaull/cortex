@@ -209,6 +209,7 @@ impl CortexPreprocessor {
                 }
             }
         }
+
         let res = self.lookup_signature_with(&path, &self.current_context);
         match res {
             Ok(res) => Ok((res, self.current_context.clone())),
@@ -350,7 +351,7 @@ impl CortexPreprocessor {
     pub fn add_module(&mut self, path: PathIdent, module: Module) {
         self.modules.push((path, module));
     }
-    pub fn process_added_modules(&mut self) -> Result<(), CortexError> {
+    pub fn build_modules(&mut self) -> Result<(), CortexError> {
         let modules = std::mem::take(&mut self.modules);
         for (path, module) in &modules {
             self.stub_module(path, module)?;
@@ -360,30 +361,15 @@ impl CortexPreprocessor {
         let mut structs = vec![];
         let mut extensions = vec![];
         let mut contracts = vec![];
-        for (path, mut module) in modules {
-            let mfunctions = module
-                .take_functions()?
-                .into_iter()
-                .map(|f| match &f.name {
-                    OptionalIdentifier::Ident(func_name) => {
-                        let addr = FunctionAddress {
-                            own_module_path: PathIdent::continued(path.clone(), func_name.clone()),
-                            target: None,
-                        };
-                        Some((addr, f))
-                    }
-                    OptionalIdentifier::Ignore => None,
-                })
-                .filter_map(|x| x)
-                .collect::<Vec<(FunctionAddress, PFunction)>>();
-            let mstructs = module.take_structs()?;
-            let mextensions = module.take_extensions()?;
-            let mcontracts = module.take_contracts()?;
-            functions.extend(mfunctions.into_iter().map(|data| (path.clone(), data)));
-            structs.extend(mstructs.into_iter().map(|data| (path.clone(), data)));
-            contracts.extend(mcontracts.into_iter().map(|data| (path.clone(), data)));
-            extensions.extend(mextensions.into_iter().map(|data| (path.clone(), data)));
-            // self.register_module(&path, module)?;
+        for (path, module) in modules {
+            Self::get_module_stuffs(
+                module,
+                path,
+                &mut functions,
+                &mut structs,
+                &mut extensions,
+                &mut contracts,
+            )?;
         }
 
         for (path, item) in contracts {
@@ -430,6 +416,49 @@ impl CortexPreprocessor {
             self.current_context = context_to_return_to;
         }
 
+        Ok(())
+    }
+    fn get_module_stuffs(
+        mut module: Module,
+        path: PathIdent,
+        functions: &mut Vec<(PathIdent, (FunctionAddress, PFunction))>,
+        structs: &mut Vec<(PathIdent, Struct)>,
+        extensions: &mut Vec<(PathIdent, Extension)>,
+        contracts: &mut Vec<(PathIdent, Contract)>,
+    ) -> Result<(), CortexError> {
+        for (name, child) in module.children_iter() {
+            Self::get_module_stuffs(
+                child,
+                PathIdent::concat(&path, &PathIdent::simple(name)),
+                functions,
+                structs,
+                extensions,
+                contracts,
+            )?;
+        }
+
+        let mfunctions = module
+            .take_functions()?
+            .into_iter()
+            .map(|f| match &f.name {
+                OptionalIdentifier::Ident(func_name) => {
+                    let addr = FunctionAddress {
+                        own_module_path: PathIdent::continued(path.clone(), func_name.clone()),
+                        target: None,
+                    };
+                    Some((addr, f))
+                }
+                OptionalIdentifier::Ignore => None,
+            })
+            .filter_map(|x| x)
+            .collect::<Vec<(FunctionAddress, PFunction)>>();
+        let mstructs = module.take_structs()?;
+        let mextensions = module.take_extensions()?;
+        let mcontracts = module.take_contracts()?;
+        functions.extend(mfunctions.into_iter().map(|data| (path.clone(), data)));
+        structs.extend(mstructs.into_iter().map(|data| (path.clone(), data)));
+        contracts.extend(mcontracts.into_iter().map(|data| (path.clone(), data)));
+        extensions.extend(mextensions.into_iter().map(|data| (path.clone(), data)));
         Ok(())
     }
     fn stub_module(&mut self, path: &PathIdent, module: &Module) -> Result<(), CortexError> {
@@ -494,14 +523,13 @@ impl CortexPreprocessor {
                 .insert(contract_path, c.type_params.clone());
         }
         for (addr, f) in functions {
-            let function_path = FunctionAddress::concat(path, &addr);
-            if self.stubbed_functions.contains_key(&function_path) {
+            // let function_path = FunctionAddress::concat(path, &addr);
+            if self.stubbed_functions.contains_key(&addr) {
                 return Err(Box::new(ModuleError::FunctionAlreadyExists(
-                    function_path.codegen(0),
+                    addr.codegen(0),
                 )));
             }
-            self.stubbed_functions
-                .insert(function_path, f.type_params.clone());
+            self.stubbed_functions.insert(addr, f.type_params.clone());
         }
         for e in extensions {
             let struct_path = &e.name;

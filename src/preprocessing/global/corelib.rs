@@ -6,7 +6,7 @@ use crate::{
     interpreting::value::CortexValue,
     parsing::ast::{
         expression::{OptionalIdentifier, Parameter, PathIdent},
-        top_level::{Body, Contract, MemberFunctionSignature, PFunction, ThisArg},
+        top_level::{Body, PFunction},
     },
     preprocessing::{
         global::string::cortex_value_to_string, module::Module,
@@ -143,22 +143,6 @@ impl CortexPreprocessor {
                 }
             })),
             vec![],
-        ))?;
-
-        // TODO: shouldn't need to parameterize Result
-        corelib.add_contract(Contract::new(
-            "CoreFromSpan",
-            vec![TypeParam::new("T", TypeParamType::Ty)],
-            vec![MemberFunctionSignature::new(
-                OptionalIdentifier::Ident(String::from("fromSpan")),
-                vec![
-                    Parameter::named("collection", PType::span(PType::generic("T"))),
-                    Parameter::named("length", PType::usz()),
-                ],
-                PType::void(),
-                ThisArg::RefMutThis, // TODO: should be a static fn, rn it mutates the list
-                vec![],
-            )],
         ))?;
 
         global.add_module(&PathIdent::simple(String::from("corelib")), corelib)?;

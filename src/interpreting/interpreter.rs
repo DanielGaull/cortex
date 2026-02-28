@@ -129,8 +129,8 @@ impl CortexInterpreter {
     pub fn add_module(&mut self, path: PathIdent, module: Module) {
         self.preprocessor.add_module(path, module)
     }
-    pub fn process_added_modules(&mut self) -> Result<(), CortexError> {
-        self.preprocessor.process_added_modules()
+    pub fn build_modules(&mut self) -> Result<(), CortexError> {
+        self.preprocessor.build_modules()
     }
 
     pub fn run_program(&mut self, program: ModuleContent) -> Result<(), CortexError> {
@@ -158,7 +158,7 @@ impl CortexInterpreter {
         }
 
         self.preprocessor.add_module(PathIdent::empty(), module);
-        self.preprocessor.process_added_modules()?;
+        self.preprocessor.build_modules()?;
         Ok(())
     }
     pub fn finish_running_program(&mut self) {

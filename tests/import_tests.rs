@@ -104,7 +104,7 @@ fn test_import_errors3() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     load_lib(&mut interpreter)?;
     top_level("struct NumWrapper { }", &mut interpreter)?;
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
     assert_err_import(
         "import mylib;",
         PreprocessingError::DuplicateSymbolImport(String::from("NumWrapper")),
@@ -114,7 +114,7 @@ fn test_import_errors3() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     load_lib(&mut interpreter)?;
     top_level("contract NumWrapper { }", &mut interpreter)?;
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
     assert_err_import(
         "import mylib;",
         PreprocessingError::DuplicateSymbolImport(String::from("NumWrapper")),
@@ -124,7 +124,7 @@ fn test_import_errors3() -> Result<(), Box<dyn Error>> {
     let mut interpreter = CortexInterpreter::new()?;
     load_lib(&mut interpreter)?;
     top_level("fn NumWrapper() { }", &mut interpreter)?;
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
     assert_err_import(
         "import mylib;",
         PreprocessingError::DuplicateSymbolImport(String::from("NumWrapper")),

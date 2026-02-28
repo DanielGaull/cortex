@@ -22,9 +22,7 @@ module stdlib {
             fn add(&mut this, item: T) {
                 if this._len >= this._capacity {
                     let nextCapacity = this._capacity * 2usz;
-                    // TODO: seems like a bug that this doesn't get upset about not providing the type param
-                    // How is spanAlloc able to infer it??
-                    let nextSpan = corelib::spanAlloc(nextCapacity);
+                    let nextSpan = corelib::spanAlloc<T>(nextCapacity);
                     let i = 0usz;
                     while i < this._len {
                         let currentVal = this._items[i];

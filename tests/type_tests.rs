@@ -101,7 +101,8 @@ fn subtype_tests() -> Result<(), Box<dyn Error>> {
         )])),
     ))?;
 
-    preprocessor.register_module(&PathIdent::empty(), module)?;
+    preprocessor.add_module(PathIdent::empty(), module);
+    preprocessor.build_modules()?;
 
     assert_subtype("none", "i32?", &preprocessor, Some("i32?"))?;
     assert_subtype("&mut i32", "&i32", &preprocessor, Some("&i32"))?;
@@ -242,7 +243,7 @@ fn run_reference_type_tests() -> Result<(), Box<dyn Error>> {
         None,
     ))?;
     interpreter.add_module(PathIdent::simple(String::from("Time")), module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
     run_test(
         "heap Time::Time{m:5,s:5}",
         "&mut Time::Time",
@@ -288,7 +289,7 @@ fn run_generic_type_tests() -> Result<(), Box<dyn Error>> {
         vec![TypeParam::ty("T")],
     ))?;
     interpreter.add_module(PathIdent::simple(String::from("box")), module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
     interpreter.execute_statement(CortexParser::parse_statement(
         "let box = heap box::Box<i32>{ item: 5 };",
     )?)?;
@@ -319,7 +320,7 @@ fn run_function_pointer_tests() -> Result<(), Box<dyn Error>> {
         vec![],
     ))?;
     interpreter.add_module(PathIdent::simple(String::from("box")), module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
 
     run_test("box::call", "(i32?) => bool?", &mut interpreter)?;
 

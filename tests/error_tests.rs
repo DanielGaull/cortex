@@ -161,7 +161,7 @@ fn test_contract_errors() -> Result<(), Box<dyn Error>> {
         }
     }",
     )?)?;
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
 
     assert_err_toplevel(
         "struct NumList1 follows Iterator<i32> {}",
@@ -467,6 +467,7 @@ fn test_type_argument_errors() -> Result<(), Box<dyn Error>> {
     let mut interpreter = setup_interpreter()?;
 
     interpreter.run_top_level(CortexParser::parse_top_level("fn a<T>(){}")?)?;
+    interpreter.build_modules()?;
     assert_err(
         "a();",
         PreprocessingError::CouldNotInferTypeBinding(String::from("a")),
@@ -491,6 +492,7 @@ fn test_type_argument_errors() -> Result<(), Box<dyn Error>> {
     interpreter.run_top_level(CortexParser::parse_top_level(
         "struct GenericStruct<T, R>{}",
     )?)?;
+    interpreter.build_modules()?;
     assert_err(
         "GenericStruct<i32>{};",
         PreprocessingError::MismatchedTypeArgCount(String::from("GenericStruct"), 2, 1, "Type"),
@@ -506,13 +508,20 @@ fn assert_err_toplevel<T: Error + PartialEq + 'static>(
     interpreter: &mut CortexInterpreter,
 ) -> Result<(), Box<dyn Error>> {
     let parsed = CortexParser::parse_top_level(statement)?;
-    let evaled = interpreter.run_top_level(parsed);
-    if let Err(e) = evaled {
+    let evaled1 = interpreter.run_top_level(parsed);
+    let evaled2 = interpreter.build_modules();
+    if let Err(e) = evaled1 {
         let error = *e.downcast::<T>().expect("Expected provided error type");
         assert_eq!(flavor, error);
         Ok(())
     } else {
-        panic!("Statement did not result in an error: {}", statement);
+        if let Err(e) = evaled2 {
+            let error = *e.downcast::<T>().expect("Expected provided error type");
+            assert_eq!(flavor, error);
+            Ok(())
+        } else {
+            panic!("Statement did not result in an error: {}", statement);
+        }
     }
 }
 fn assert_err_equal<T: Error + PartialEq + 'static, S>(
@@ -576,6 +585,6 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     module.add_struct(test_struct2)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.add_module(path, module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
     Ok(interpreter)
 }

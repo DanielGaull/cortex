@@ -166,7 +166,7 @@ fn native_function_tests() -> Result<(), Box<dyn Error>> {
     module.add_function(add_func)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.add_module(path, module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
 
     run_test("simple::add(5,2)", "7", &mut interpreter)?;
     run_test("simple::add(-5,2)", "-3", &mut interpreter)?;
@@ -195,7 +195,7 @@ fn basic_function_tests() -> Result<(), Box<dyn Error>> {
     module.add_function(test_func)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.add_module(path, module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
 
     run_test("simple::test()", "5", &mut interpreter)?;
 
@@ -220,7 +220,7 @@ fn function_pointer_tests() -> Result<(), Box<dyn Error>> {
     module.add_function(test_func)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.add_module(path, module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
 
     interpreter.execute_statement(CortexParser::parse_statement(
         "let test_function_pointer = simple::test;",
@@ -252,7 +252,7 @@ fn struct_tests() -> Result<(), Box<dyn Error>> {
     module.add_struct(date_struct)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.add_module(path, module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
 
     interpreter.execute_statement(CortexParser::parse_statement(
         "let time = simple::Time{m:5,s:10};",
@@ -302,7 +302,7 @@ fn heap_struct_tests() -> Result<(), Box<dyn Error>> {
     module.add_struct(date_struct)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.add_module(path, module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
 
     interpreter.execute_statement(CortexParser::parse_statement(
         "let time = heap simple::Time{m:5,s:10};",
@@ -338,7 +338,7 @@ fn recursive_function_test() -> Result<(), Box<dyn Error>> {
             }\
         }";
     interpreter.run_top_level(CortexParser::parse_top_level(f)?)?;
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
     run_test("factorial(3)", "6", &mut interpreter)?;
     run_test("factorial(5)", "120", &mut interpreter)?;
     Ok(())

@@ -115,7 +115,7 @@ impl CortexPreprocessor {
         add_core_type!("none");
         add_core_type!("char");
         add_core_type!("anonbox");
-        // NOTE: range is added by Self::add_range_funcs (since it can operate as a struct... maybe add to stdlib?)
+        // NOTE: range is added by Self::add_range_funcs (since it can operate as a struct)
 
         let span_path = PathIdent::simple(String::from("span"));
         let span_type_params = vec![TypeParam::ty("T")];
@@ -144,8 +144,8 @@ impl CortexPreprocessor {
         let mut global_module = Module::new();
         Self::add_corelib(&mut global_module)?;
         // Self::add_list_funcs(&mut global_module)?;
-        Self::add_string_funcs(&mut global_module)?;
-        Self::add_range_struct(&mut global_module)?;
+        // Self::add_string_funcs(&mut global_module)?;
+        // Self::add_range_struct(&mut global_module)?;
 
         this.add_module(PathIdent::empty(), global_module);
 

@@ -52,6 +52,6 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     module.add_struct(test_struct)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.add_module(path, module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
     Ok(interpreter)
 }

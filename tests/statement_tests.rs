@@ -66,7 +66,7 @@ fn setup_interpreter() -> Result<CortexInterpreter, Box<dyn Error>> {
     module.add_function(add_func)?;
     let path = CortexParser::parse_path("simple")?;
     interpreter.add_module(path, module);
-    interpreter.process_added_modules()?;
+    interpreter.build_modules()?;
     Ok(interpreter)
 }
 
