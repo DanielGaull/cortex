@@ -1,8 +1,16 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue}, parsing::codegen::r#trait::SimpleCodeGen, r#type::r#type::{PType, FollowsClause, TypeArg, TypeParam, TypeParamType}};
+use crate::{
+    interpreting::{env::Environment, error::CortexError, heap::Heap, value::CortexValue},
+    parsing::codegen::r#trait::SimpleCodeGen,
+    r#type::r#type::{FollowsClause, PType, TypeArg, TypeParam, TypeParamType},
+};
 
-use super::{expression::{OptionalIdentifier, PExpression, Parameter, PathIdent}, program::ModuleContent, statement::PStatement};
+use super::{
+    expression::{OptionalIdentifier, PExpression, Parameter, PathIdent},
+    program::ModuleContent,
+    statement::PStatement,
+};
 
 pub struct ImportEntry {
     pub(crate) path: PathIdent,
@@ -24,9 +32,10 @@ pub struct Import {
 impl SimpleCodeGen for Import {
     fn codegen(&self, indent: usize) -> String {
         format!(
-            "{}import {};", 
+            "{}import {};",
             "    ".repeat(indent),
-            self.entries.iter()
+            self.entries
+                .iter()
                 .map(|e| e.codegen(0))
                 .collect::<Vec<_>>()
                 .join(", ")
@@ -56,11 +65,11 @@ impl SimpleCodeGen for TopLevel {
                 s.push_str(" {\n");
 
                 s.push_str(&contents.codegen(indent + 1));
-                
+
                 s.push_str(indent_prefix);
                 s.push_str("}");
                 s
-            },
+            }
             Self::Function(func) => func.codegen(indent),
             Self::Struct(struc) => struc.codegen(indent),
             Self::Extension(extension) => extension.codegen(indent),
@@ -74,6 +83,7 @@ pub enum ThisArg {
     RefThis,
     RefMutThis,
     DirectThis,
+    Static,
 }
 
 #[derive(Clone)]
@@ -102,11 +112,14 @@ impl SimpleCodeGen for PFunction {
 
         if self.type_params.len() > 0 {
             s.push_str("<");
-            s.push_str(&self.type_params
-                .iter()
-                .map(|t| t.codegen(0))
-                .collect::<Vec<_>>()
-                .join(","));
+            s.push_str(
+                &self
+                    .type_params
+                    .iter()
+                    .map(|t| t.codegen(0))
+                    .collect::<Vec<_>>()
+                    .join(","),
+            );
             s.push_str(">");
         }
 
@@ -135,7 +148,13 @@ impl SimpleCodeGen for PFunction {
     }
 }
 impl PFunction {
-    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: PType, body: Body, type_params: Vec<TypeParam>) -> Self {
+    pub fn new(
+        name: OptionalIdentifier,
+        params: Vec<Parameter>,
+        return_type: PType,
+        body: Body,
+        type_params: Vec<TypeParam>,
+    ) -> Self {
         PFunction {
             name: name,
             params: params,
@@ -177,7 +196,13 @@ pub struct MemberFunctionSignature {
     pub(crate) where_clause: Option<WhereClause>,
 }
 impl MemberFunctionSignature {
-    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: PType, this_arg: ThisArg, type_params: Vec<TypeParam>) -> Self {
+    pub fn new(
+        name: OptionalIdentifier,
+        params: Vec<Parameter>,
+        return_type: PType,
+        this_arg: ThisArg,
+        type_params: Vec<TypeParam>,
+    ) -> Self {
         MemberFunctionSignature {
             name: name,
             params: params,
@@ -197,22 +222,26 @@ impl SimpleCodeGen for MemberFunctionSignature {
 
         if self.type_params.len() > 0 {
             s.push_str("<");
-            s.push_str(&self.type_params
-                .iter()
-                .map(|t| t.codegen(0))
-                .collect::<Vec<_>>()
-                .join(","));
+            s.push_str(
+                &self
+                    .type_params
+                    .iter()
+                    .map(|t| t.codegen(0))
+                    .collect::<Vec<_>>()
+                    .join(","),
+            );
             s.push_str(">");
         }
 
         s.push_str("(");
-        
+
         match self.this_arg {
             ThisArg::RefThis => s.push_str("&this"),
             ThisArg::RefMutThis => s.push_str("&mut this"),
             ThisArg::DirectThis => s.push_str("this"),
+            ThisArg::Static => {}
         }
-        if self.params.len() > 0 {
+        if self.params.len() > 0 && self.this_arg != ThisArg::Static {
             s.push_str(", ");
         }
 
@@ -252,7 +281,14 @@ impl SimpleCodeGen for MemberFunction {
     }
 }
 impl MemberFunction {
-    pub fn new(name: OptionalIdentifier, params: Vec<Parameter>, return_type: PType, body: Body, this_arg: ThisArg, type_params: Vec<TypeParam>) -> Self {
+    pub fn new(
+        name: OptionalIdentifier,
+        params: Vec<Parameter>,
+        return_type: PType,
+        body: Body,
+        this_arg: ThisArg,
+        type_params: Vec<TypeParam>,
+    ) -> Self {
         MemberFunction {
             signature: MemberFunctionSignature {
                 name,
@@ -267,10 +303,7 @@ impl MemberFunction {
     }
 
     pub fn new_with_sig(signature: MemberFunctionSignature, body: Body) -> Self {
-        MemberFunction {
-            signature,
-            body,
-        }
+        MemberFunction { signature, body }
     }
 }
 
@@ -344,11 +377,14 @@ impl SimpleCodeGen for Struct {
 
         if self.type_params.len() > 0 {
             s.push_str("<");
-            s.push_str(&self.type_params
-                .iter()
-                .map(|t| t.codegen(0))
-                .collect::<Vec<_>>()
-                .join(","));
+            s.push_str(
+                &self
+                    .type_params
+                    .iter()
+                    .map(|t| t.codegen(0))
+                    .collect::<Vec<_>>()
+                    .join(","),
+            );
             s.push_str(">");
         }
 
@@ -380,7 +416,13 @@ impl SimpleCodeGen for Struct {
     }
 }
 impl Struct {
-    pub fn new(name: &str, fields: Vec<(&str, PType)>, funcs: Vec<MemberFunction>, type_arg_names: Vec<&str>, follows_clause: Option<FollowsClause>) -> Self {
+    pub fn new(
+        name: &str,
+        fields: Vec<(&str, PType)>,
+        funcs: Vec<MemberFunction>,
+        type_arg_names: Vec<&str>,
+        follows_clause: Option<FollowsClause>,
+    ) -> Self {
         let mut map = HashMap::new();
         for f in fields {
             map.insert(String::from(f.0), f.1);
@@ -389,7 +431,10 @@ impl Struct {
             name: String::from(name),
             fields: map,
             functions: funcs,
-            type_params: type_arg_names.into_iter().map(|s| TypeParam::new(s, TypeParamType::Ty)).collect(),
+            type_params: type_arg_names
+                .into_iter()
+                .map(|s| TypeParam::new(s, TypeParamType::Ty))
+                .collect(),
             follows_clause,
         }
     }
@@ -411,7 +456,14 @@ impl SimpleCodeGen for Extension {
         s.push_str("extend");
 
         if self.type_params.len() > 0 {
-            s.push_str(&format!("<{}> ", self.type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
+            s.push_str(&format!(
+                "<{}> ",
+                self.type_params
+                    .iter()
+                    .map(|t| t.codegen(0))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
         } else {
             s.push_str(" ");
         }
@@ -419,7 +471,14 @@ impl SimpleCodeGen for Extension {
         s.push_str(&self.name.codegen(indent));
 
         if self.type_args.len() > 0 {
-            s.push_str(&format!("<{}>", self.type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
+            s.push_str(&format!(
+                "<{}>",
+                self.type_args
+                    .iter()
+                    .map(|t| t.codegen(0))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
         }
 
         if let Some(clause) = &self.follows_clause {
@@ -456,11 +515,14 @@ impl SimpleCodeGen for Contract {
 
         if self.type_params.len() > 0 {
             s.push_str("<");
-            s.push_str(&self.type_params
-                .iter()
-                .map(|t| t.codegen(0))
-                .collect::<Vec<_>>()
-                .join(","));
+            s.push_str(
+                &self
+                    .type_params
+                    .iter()
+                    .map(|t| t.codegen(0))
+                    .collect::<Vec<_>>()
+                    .join(","),
+            );
             s.push_str(">");
         }
 
@@ -479,15 +541,18 @@ impl SimpleCodeGen for Contract {
     }
 }
 impl Contract {
-    pub fn new(name: &str, type_params: Vec<TypeParam>, function_sigs: Vec<MemberFunctionSignature>) -> Self {
+    pub fn new(
+        name: &str,
+        type_params: Vec<TypeParam>,
+        function_sigs: Vec<MemberFunctionSignature>,
+    ) -> Self {
         Self {
             name: String::from(name),
             type_params,
-            function_sigs
+            function_sigs,
         }
     }
 }
-
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WhereClause {
@@ -497,8 +562,7 @@ impl SimpleCodeGen for WhereClause {
     fn codegen(&self, indent: usize) -> String {
         format!(
             "where {}",
-            self
-                .entries
+            self.entries
                 .iter()
                 .map(|(name, clause)| format!("{} {}", name, clause.codegen(indent)))
                 .collect::<Vec<_>>()
@@ -508,8 +572,6 @@ impl SimpleCodeGen for WhereClause {
 }
 impl WhereClause {
     pub fn new(entries: Vec<(String, FollowsClause)>) -> Self {
-        Self {
-            entries,
-        }
+        Self { entries }
     }
 }

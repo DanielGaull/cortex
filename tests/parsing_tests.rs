@@ -1,5 +1,5 @@
-use std::error::Error;
 use paste::paste;
+use std::error::Error;
 
 use cortex_lang::parsing::{codegen::r#trait::SimpleCodeGen, parser::CortexParser};
 
@@ -63,7 +63,7 @@ fn test_parse_literals() -> Result<(), Box<dyn Error>> {
     run_expression_test("2f32")?;
     run_expression_test("2.3f32")?;
     run_expression_test_expected("2.3f64", "2.3")?;
-    
+
     Ok(())
 }
 
@@ -81,7 +81,9 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("test != 7")?;
     run_expression_test("foo.bar")?;
     run_expression_test("foo.bar.baz")?;
-    run_expression_test("if hi {\n    doThing();\n} elif foo {\n    bar();\n} else {\n    doOtherThing();\n}")?;
+    run_expression_test(
+        "if hi {\n    doThing();\n} elif foo {\n    bar();\n} else {\n    doOtherThing();\n}",
+    )?;
     run_expression_test("-foo")?;
     run_expression_test("!foo")?;
     run_expression_test("-foo()")?;
@@ -102,6 +104,15 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("anon heap anon heap 5")?;
     run_expression_test("deanon<i32> value")?;
     run_expression_test("deanon<i32> anon 5")?;
+
+    // Static functions
+    run_expression_test("List.new(x, y, z)")?;
+    run_expression_test("List.new<R>(x, y, z)")?;
+    run_expression_test("List<T>.new(x, y, z)")?;
+    run_expression_test("List<T>.new<R>(x, y, z)")?;
+    run_expression_test("stdlib::List.new(x, y, z)")?;
+    run_expression_test("stdlib::List<T>.new(x, y, z)")?;
+    run_expression_test("stdlib::List<T>.new<R>(x, y, z)")?;
     Ok(())
 }
 
@@ -155,7 +166,10 @@ fn test_statements() -> Result<(), Box<dyn Error>> {
     run_statement_test("while true {\n    x = x + 1;\n}")?;
     run_statement_test("myNum.increment(3);")?;
     run_statement_test_expected("myList[1] = 10;", "myList.__indexSet(1, 10);")?;
-    run_statement_test_expected("myList[1] += 10;", "myList.__indexSet(1, myList.__indexGet(1) + 10);")?;
+    run_statement_test_expected(
+        "myList[1] += 10;",
+        "myList.__indexSet(1, myList.__indexGet(1) + 10);",
+    )?;
     run_statement_test("(x, y) = (5, 3);")?;
     run_statement_test("((x, y), z) = ((5, 3), 7);")?;
     run_statement_test("((x, y), z, ((w,),)) = ((5, 3), 7, ((6,),));")?;
@@ -172,10 +186,19 @@ fn test_functions() -> Result<(), Box<dyn Error>> {
     run_function_test("fn ~(x: i32): void {\n    throw;\n}")?;
     run_function_test("fn test(): void {\n    throw;\n}")?;
     run_function_test("fn ~(): void {\n    throw;\n}")?;
-    run_function_test_expected("fn test() {\n    throw;\n}", "fn test(): void {\n    throw;\n}")?;
+    run_function_test_expected(
+        "fn test() {\n    throw;\n}",
+        "fn test(): void {\n    throw;\n}",
+    )?;
     run_function_test_expected("fn ~() {\n    throw;\n}", "fn ~(): void {\n    throw;\n}")?;
-    run_function_test_expected("fn test<T>() {\n    throw;\n}", "fn test<T: ty>(): void {\n    throw;\n}")?;
-    run_function_test_expected("fn test<T>(arg: T) where T follows Add<i32> {\n    throw;\n}", "fn test<T: ty>(arg: T): void where T follows Add<i32> {\n    throw;\n}")?;
+    run_function_test_expected(
+        "fn test<T>() {\n    throw;\n}",
+        "fn test<T: ty>(): void {\n    throw;\n}",
+    )?;
+    run_function_test_expected(
+        "fn test<T>(arg: T) where T follows Add<i32> {\n    throw;\n}",
+        "fn test<T: ty>(arg: T): void where T follows Add<i32> {\n    throw;\n}",
+    )?;
     Ok(())
 }
 
@@ -193,20 +216,23 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     run_top_level_test("module myMod {\n    fn test(x: i32): void {\n        throw;\n    }\n}")?;
     run_top_level_test_or(
         "struct Point {\n    x: i32,\n    y: i32,\n}\n",
-        "struct Point {\n    y: i32,\n    x: i32,\n}\n"
+        "struct Point {\n    y: i32,\n    x: i32,\n}\n",
     )?;
     run_top_level_test_or(
         "struct Point {\n    x: i32,\n    y: i32,\n    fn incX(&mut this, amt: i32): void {\n        this.x = this.x + amt;\n    }\n}\n",
-        "struct Point {\n    y: i32,\n    x: i32,\n    fn incX(&mut this, amt: i32): void {\n        this.x = this.x + amt;\n    }\n}\n"
+        "struct Point {\n    y: i32,\n    x: i32,\n    fn incX(&mut this, amt: i32): void {\n        this.x = this.x + amt;\n    }\n}\n",
     )?;
-    run_top_level_test_expected("struct Box<T> {\n    item: T,\n}\n", "struct Box<T: ty> {\n    item: T,\n}\n")?;
+    run_top_level_test_expected(
+        "struct Box<T> {\n    item: T,\n}\n",
+        "struct Box<T: ty> {\n    item: T,\n}\n",
+    )?;
     run_top_level_test_expected(
         "struct Box<T> {\n    fn doAThing<U>(&this): void {\n    }\n}\n",
-        "struct Box<T: ty> {\n    fn doAThing<U: ty>(&this): void {\n    }\n}\n"
+        "struct Box<T: ty> {\n    fn doAThing<U: ty>(&this): void {\n    }\n}\n",
     )?;
     run_top_level_test_expected(
         "struct Box<T> {\n    fn doAThing<U>(&this): void where U follows MyC {\n    }\n}\n",
-        "struct Box<T: ty> {\n    fn doAThing<U: ty>(&this): void where U follows MyC {\n    }\n}\n"
+        "struct Box<T: ty> {\n    fn doAThing<U: ty>(&this): void where U follows MyC {\n    }\n}\n",
     )?;
     run_top_level_test("extend string {\n}\n")?;
     run_top_level_test("extend string {\n    fn len(&this): i32 {\n        5\n    }\n}\n")?;
@@ -217,41 +243,38 @@ fn test_top_level() -> Result<(), Box<dyn Error>> {
     run_top_level_test("contract Requester {\n    fn request(&mut this): string;\n}\n")?;
     run_top_level_test_expected(
         "contract Iterator<T> {\n    fn next(&mut this): T;\n    fn hasNext(&this): bool;\n}\n",
-        "contract Iterator<T: ty> {\n    fn next(&mut this): T;\n    fn hasNext(&this): bool;\n}\n"
+        "contract Iterator<T: ty> {\n    fn next(&mut this): T;\n    fn hasNext(&this): bool;\n}\n",
     )?;
     run_top_level_test_expected(
         "contract Requester {\n    fn request<T>(&mut this): string where T follows MyC;\n}\n",
-        "contract Requester {\n    fn request<T: ty>(&mut this): string where T follows MyC;\n}\n"
+        "contract Requester {\n    fn request<T: ty>(&mut this): string where T follows MyC;\n}\n",
     )?;
 
     run_top_level_test_expected(
         "struct Box<T> follows Iterator<T> {\n}\n",
-        "struct Box<T: ty> follows Iterator<T> {\n}\n"
+        "struct Box<T: ty> follows Iterator<T> {\n}\n",
     )?;
     run_top_level_test("struct Box follows C1 + C2 {\n}\n")?;
     run_top_level_test("struct Box follows C1 {\n}\n")?;
-    run_top_level_test_expected(
-        "struct Box<T> {\n}\n",
-        "struct Box<T: ty> {\n}\n"
-    )?;
+    run_top_level_test_expected("struct Box<T> {\n}\n", "struct Box<T: ty> {\n}\n")?;
     run_top_level_test("struct Box {\n}\n")?;
     run_top_level_test_expected(
         "struct Box<T> follows Iterator<T> + Iterable<T> {\n}\n",
-        "struct Box<T: ty> follows Iterator<T> + Iterable<T> {\n}\n"
+        "struct Box<T: ty> follows Iterator<T> + Iterable<T> {\n}\n",
     )?;
     run_top_level_test_expected(
         "struct Box<T,R> follows Iterator<T> + Iterable<R> {\n}\n",
-        "struct Box<T: ty,R: ty> follows Iterator<T> + Iterable<R> {\n}\n"
+        "struct Box<T: ty,R: ty> follows Iterator<T> + Iterable<R> {\n}\n",
     )?;
     run_top_level_test_expected(
         "struct Box<T,R> follows Iterator<R, T> + Iterable<R, R> {\n}\n",
-        "struct Box<T: ty,R: ty> follows Iterator<R, T> + Iterable<R, R> {\n}\n"
+        "struct Box<T: ty,R: ty> follows Iterator<R, T> + Iterable<R, R> {\n}\n",
     )?;
     run_top_level_test("struct NumList follows Iterator<i32> {\n}\n")?;
     run_top_level_test_expected(
         "struct DTupleList<T> follows Iterator<(T, T)> {\n}\n",
-    "struct DTupleList<T: ty> follows Iterator<(T, T)> {\n}\n"
+        "struct DTupleList<T: ty> follows Iterator<(T, T)> {\n}\n",
     )?;
-    
+
     Ok(())
 }

@@ -51,6 +51,12 @@ pub enum PExpression {
         args: Vec<PExpression>,
         type_args: Option<Vec<TypeArg>>,
     },
+    StaticFunctionCall {
+        typ: PType,
+        member: String,
+        args: Vec<PExpression>,
+        type_args: Option<Vec<TypeArg>>,
+    },
     Construction {
         name: PathIdent,
         type_args: Vec<TypeArg>,
@@ -248,6 +254,39 @@ impl SimpleCodeGen for PExpression {
                     )
                 }
             }
+            PExpression::StaticFunctionCall {
+                typ,
+                member: member_name,
+                args,
+                type_args,
+            } => {
+                if let Some(type_args) = type_args {
+                    format!(
+                        "{}.{}<{}>({})",
+                        typ.codegen(indent),
+                        member_name,
+                        type_args
+                            .iter()
+                            .map(|t| t.codegen(indent))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        args.iter()
+                            .map(|a| a.codegen(indent))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                } else {
+                    format!(
+                        "{}.{}({})",
+                        typ.codegen(indent),
+                        member_name,
+                        args.iter()
+                            .map(|a| a.codegen(indent))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                }
+            }
             PExpression::Tuple(items) => {
                 if items.len() == 1 {
                     format!("({},)", items.get(0).unwrap().codegen(indent))
@@ -309,6 +348,7 @@ impl PExpression {
             | PExpression::String(..)
             | PExpression::PathIdent(..)
             | PExpression::Call { .. }
+            | PExpression::StaticFunctionCall { .. }
             | PExpression::Construction { .. }
             | PExpression::IfStatement { .. }
             | PExpression::MemberAccess(..)

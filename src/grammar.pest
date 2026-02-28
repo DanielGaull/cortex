@@ -35,7 +35,7 @@ indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ e
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
-atom = { range | numbers | boolean | none | void | string | char | tuple | listLiteral | call | construction | if | pathIdent | unOpAtom | heapExp | anonymize | deanonymize | "(" ~ expr ~ ")" }
+atom = { range | numbers | boolean | none | void | string | char | tuple | listLiteral | call | construction | if | pathIdent | unOpAtom | heapExp | anonymize | deanonymize | staticFunctionCall | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberCallTail | memberAccessTail | indexTail | "" }
 
 primary = { atom ~ exprTail }
@@ -46,6 +46,7 @@ logicResult = _{ eqResult ~ ((and | or) ~ eqResult)* }
 expr = { logicResult }
 
 call = { pathIdent ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ exprList ~ ")" }
+staticFunctionCall = { basicType ~ "." ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ exprList ~ ")" }
 heapExp = { "heap" ~ expr }
 construction = { pathIdent ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberInit ~ ",")* ~ memberInit? ~ "}" }
 memberInit = { ident ~ ":" ~ expr }
@@ -150,9 +151,10 @@ whereClause = { "where" ~ (ident ~ followsClause ~ ",")* ~ (ident ~ followsClaus
 directThis = { "this" }
 refThis = { "&this" }
 refMutThis = { "&mut this" }
+static = { "static" }
 
 memberParamList = { ("," ~ param)* }
-memberFunctionSignature = { "fn" ~ optIdentifier ~ ("<" ~ typeParamList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis) ~ memberParamList ~ ")" ~ (":" ~ typ)? ~ whereClause? }
+memberFunctionSignature = { "fn" ~ optIdentifier ~ ("<" ~ typeParamList ~ ">")? ~ "(" ~ (directThis | refThis | refMutThis | static) ~ memberParamList ~ ")" ~ (":" ~ typ)? ~ whereClause? }
 memberFunction = { memberFunctionSignature ~ "{" ~ body ~ "}" }
 memberFuncList = { memberFunction* }
 

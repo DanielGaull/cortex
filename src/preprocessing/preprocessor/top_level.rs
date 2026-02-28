@@ -724,15 +724,18 @@ impl CortexPreprocessor {
         for func in functions {
             match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named(
-                        "this",
-                        Self::this_arg_to_type(
-                            func.signature.this_arg,
-                            item_name,
-                            item_type_params,
-                        ),
-                    );
-                    let mut param_list = vec![new_param];
+                    let mut param_list = vec![];
+                    if func.signature.this_arg != ThisArg::Static {
+                        let new_param = Parameter::named(
+                            "this",
+                            Self::this_arg_to_type(
+                                func.signature.this_arg,
+                                item_name,
+                                item_type_params,
+                            ),
+                        );
+                        param_list.push(new_param);
+                    }
                     param_list.extend(func.signature.params);
                     let mut type_param_names = func.signature.type_params;
                     let intersecting_type_param = item_type_params
@@ -795,16 +798,19 @@ impl CortexPreprocessor {
         for func in item.functions {
             match func.signature.name {
                 OptionalIdentifier::Ident(func_name) => {
-                    let new_param = Parameter::named(
-                        "this",
-                        Self::this_arg_to_type(
-                            func.signature.this_arg,
-                            &item_name,
-                            &item.type_params,
-                        )
-                        .with_prefix(&item_prefix),
-                    );
-                    let mut param_list = vec![new_param];
+                    let mut param_list = vec![];
+                    if func.signature.this_arg != ThisArg::Static {
+                        let new_param = Parameter::named(
+                            "this",
+                            Self::this_arg_to_type(
+                                func.signature.this_arg,
+                                &item_name,
+                                &item.type_params,
+                            )
+                            .with_prefix(&item_prefix),
+                        );
+                        param_list.push(new_param);
+                    }
                     param_list.extend(func.signature.params);
                     let mut type_param_names = func.signature.type_params;
                     let intersecting_type_param = item
@@ -871,6 +877,7 @@ impl CortexPreprocessor {
                 PathIdent::simple(item_name.clone()),
                 forwarded_type_args_unvalidated(type_params),
             ),
+            ThisArg::Static => panic!("Should never try to convert static this arg to a type"),
         }
     }
 

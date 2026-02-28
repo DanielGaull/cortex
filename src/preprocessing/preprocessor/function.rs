@@ -182,6 +182,51 @@ impl CortexPreprocessor {
         let result = self.check_exp(call_exp, expected_type)?;
         Ok(result)
     }
+    pub(super) fn check_static_call(
+        &mut self,
+        static_type: RType,
+        args: Vec<PExpression>,
+        member: String,
+        type_args: Option<Vec<TypeArg>>,
+        st_str: String,
+        expected_type: Option<RType>,
+    ) -> CheckResult<RExpression> {
+        let caller_type = static_type.name()?;
+        let actual_func_addr = self.get_member_function_address(&static_type, &member)?;
+
+        let true_type_args;
+        if let Some(mut type_args) = type_args {
+            let typedef = self.lookup_type(&caller_type)?;
+            let mut bindings = HashMap::new();
+            self.infer_arg_type(
+                &RType::BasicType(
+                    caller_type.clone(),
+                    forwarded_type_args(&typedef.type_params),
+                ),
+                &static_type,
+                &typedef.type_params,
+                &mut bindings,
+                &String::from("static_caller"),
+                &st_str,
+            )?;
+            let mut beginning_type_args = Vec::new();
+            for a in &typedef.type_params {
+                beginning_type_args.push(bindings.remove(a).unwrap());
+            }
+            type_args.extend(self.devalidate_type_args(beginning_type_args));
+            true_type_args = Some(type_args);
+        } else {
+            true_type_args = None;
+        }
+
+        let call_exp = PExpression::Call {
+            name: actual_func_addr,
+            args,
+            type_args: true_type_args,
+        };
+        let result = self.check_exp(call_exp, expected_type)?;
+        Ok(result)
+    }
 
     pub(super) fn get_member_function_address(
         &self,

@@ -720,6 +720,30 @@ impl CortexParser {
                 let inner = Self::parse_expr_pair(pairs.next().unwrap(), active_generics)?;
                 Ok(PExpression::DeAnon(typ, Box::new(inner)))
             }
+            Rule::staticFunctionCall => {
+                let mut pairs = pair.into_inner().peekable();
+                let typ = Self::parse_type_pair(pairs.next().unwrap(), active_generics)?;
+                let name = pairs.next().unwrap().as_str();
+                let next_pair = pairs.peek().unwrap();
+                let type_args;
+                if let Rule::typeArgList = next_pair.as_rule() {
+                    type_args = Some(Self::parse_type_arg_list(
+                        pairs.next().unwrap(),
+                        active_generics,
+                    )?);
+                } else {
+                    type_args = None;
+                }
+                let args_pair = pairs.next().unwrap();
+                let args = Self::parse_expr_list(args_pair, active_generics)?;
+
+                Ok(PExpression::StaticFunctionCall {
+                    typ,
+                    member: String::from(name),
+                    args,
+                    type_args,
+                })
+            }
             _ => Err(ParseError::FailAtom(String::from(pair.as_str()))),
         }
     }
@@ -1276,7 +1300,7 @@ impl CortexParser {
             name: name,
             params: params,
             return_type: return_type,
-            this_arg: this_arg,
+            this_arg,
             type_params,
             where_clause,
         })
@@ -1289,6 +1313,8 @@ impl CortexParser {
             Ok(ThisArg::RefMutThis)
         } else if matches!(pair.as_rule(), Rule::directThis) {
             Ok(ThisArg::DirectThis)
+        } else if matches!(pair.as_rule(), Rule::r#static) {
+            Ok(ThisArg::Static)
         } else {
             Err(ParseError::InvalidThisArg(String::from(pair.as_str())))
         }

@@ -811,6 +811,29 @@ impl CortexPreprocessor {
                     Ok((ex, ty, statements))
                 }
             }
+            PExpression::StaticFunctionCall {
+                typ,
+                member,
+                args,
+                type_args,
+            } => {
+                // TODO: where clauses will need to be enforced here as well (ex. type can be generic type)
+                // Otherwise it will be a basic type so we are safe to assume here
+                if let PType::BasicType(_) = &typ {
+                    let static_type = self.validate_type(typ)?;
+                    let (ex, ty, st) = self.check_static_call(
+                        static_type,
+                        args,
+                        member,
+                        type_args,
+                        st_str,
+                        expected_type,
+                    )?;
+                    Ok((ex, ty, st))
+                } else {
+                    panic!("How did we get non basic type for static function call?")
+                }
+            }
             PExpression::BinaryOperation { left, op, right } => {
                 let (left_exp, left_type, st_left) = self.check_exp(*left, None)?;
                 let (right_exp, right_type, st_right) = self.check_exp(*right, None)?;

@@ -1,6 +1,9 @@
 use thiserror::Error;
 
-use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, preprocessing::ast::r#type::{RType, RTypeArg}};
+use crate::{
+    parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen},
+    preprocessing::ast::r#type::{RType, RTypeArg},
+};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum TypeError {
@@ -19,6 +22,7 @@ pub struct BasicType {
     pub(crate) name: PathIdent,
     pub(crate) type_args: Vec<TypeArg>,
 }
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RefType {
     pub(crate) contained: Box<PType>,
@@ -70,11 +74,17 @@ impl SimpleCodeGen for PType {
                 s.push_str(&b.name.codegen(0));
                 if b.type_args.len() > 0 {
                     s.push_str("<");
-                    s.push_str(&b.type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(","));
+                    s.push_str(
+                        &b.type_args
+                            .iter()
+                            .map(|t| t.codegen(0))
+                            .collect::<Vec<_>>()
+                            .join(","),
+                    );
                     s.push_str(">");
                 }
                 s
-            },
+            }
             PType::RefType(r) => {
                 let mut s = String::from("&");
                 if r.mutable {
@@ -82,34 +92,59 @@ impl SimpleCodeGen for PType {
                 }
                 s.push_str(&r.contained.codegen(0));
                 s
-            },
+            }
             PType::TupleType(t) => {
                 if t.types.len() == 1 {
-                    format!("({},)", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
+                    format!(
+                        "({},)",
+                        t.types
+                            .iter()
+                            .map(|t| t.codegen(0))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
                 } else {
-                    format!("({})", t.types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
+                    format!(
+                        "({})",
+                        t.types
+                            .iter()
+                            .map(|t| t.codegen(0))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
                 }
-            },
+            }
             PType::FollowsType(t) => {
                 format!("{}", t.clause.codegen(0))
-            },
+            }
             PType::OptionalType(inner) => {
                 format!("{}?", inner.codegen_wrap_if_needed())
-            },
+            }
             PType::NoneType => String::from("none"),
             PType::GenericType(name) => name.clone(),
             PType::FunctionType(f) => {
                 format!(
                     "{}({}) => {}",
                     if f.type_params.len() > 0 {
-                        format!("<{}>", f.type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
+                        format!(
+                            "<{}>",
+                            f.type_params
+                                .iter()
+                                .map(|t| t.codegen(0))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
                     } else {
                         String::new()
                     },
-                    f.param_types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "),
+                    f.param_types
+                        .iter()
+                        .map(|t| t.codegen(0))
+                        .collect::<Vec<_>>()
+                        .join(", "),
                     f.return_type.codegen(0)
                 )
-            },
+            }
         }
     }
 }
@@ -219,8 +254,8 @@ impl PType {
     }
     pub fn list(typ: PType) -> Self {
         Self::basic(
-            PathIdent::simple(String::from("list")), 
-            vec![TypeArg::Ty(typ)]
+            PathIdent::simple(String::from("list")),
+            vec![TypeArg::Ty(typ)],
         )
     }
     pub fn char() -> Self {
@@ -237,51 +272,49 @@ impl PType {
     }
     pub fn span(typ: PType) -> Self {
         Self::basic(
-            PathIdent::simple(String::from("span")), 
-            vec![TypeArg::Ty(typ)]
+            PathIdent::simple(String::from("span")),
+            vec![TypeArg::Ty(typ)],
         )
     }
 
     pub fn with_prefix(&self, path: &PathIdent) -> Self {
         match self {
-            PType::BasicType(b) => {
-                PType::BasicType(BasicType {
-                    name: PathIdent::concat(path, &b.name),
-                    type_args: b.type_args.clone(),
-                })
-            },
-            PType::RefType(r) => {
-                PType::RefType(RefType {
-                    contained: Box::new(r.contained.with_prefix(path)),
-                    mutable: r.mutable,
-                })
-            },
-            PType::TupleType(t) => {
-                PType::TupleType(TupleType { types: t.types.iter().map(|t| t.with_prefix(path).clone()).collect() })
-            },
-            PType::FollowsType(f) => {
-                PType::FollowsType(FollowsType {
-                    clause: FollowsClause {
-                        contracts: f.clause.contracts.iter().map(|c| FollowsEntry {
+            PType::BasicType(b) => PType::BasicType(BasicType {
+                name: PathIdent::concat(path, &b.name),
+                type_args: b.type_args.clone(),
+            }),
+            PType::RefType(r) => PType::RefType(RefType {
+                contained: Box::new(r.contained.with_prefix(path)),
+                mutable: r.mutable,
+            }),
+            PType::TupleType(t) => PType::TupleType(TupleType {
+                types: t
+                    .types
+                    .iter()
+                    .map(|t| t.with_prefix(path).clone())
+                    .collect(),
+            }),
+            PType::FollowsType(f) => PType::FollowsType(FollowsType {
+                clause: FollowsClause {
+                    contracts: f
+                        .clause
+                        .contracts
+                        .iter()
+                        .map(|c| FollowsEntry {
                             name: PathIdent::concat(path, &c.name),
                             type_args: c.type_args.iter().map(|t| t.with_prefix(path)).collect(),
-                        }).collect(),
-                    },
-                })
-            },
-            PType::OptionalType(t) => {
-                PType::OptionalType(Box::new(t.with_prefix(path)))
-            },
+                        })
+                        .collect(),
+                },
+            }),
+            PType::OptionalType(t) => PType::OptionalType(Box::new(t.with_prefix(path))),
             PType::NoneType => PType::NoneType,
             PType::GenericType(name) => PType::GenericType(name.clone()),
-            PType::FunctionType(f) => 
-                PType::FunctionType(
-                    FunctionType {
-                        type_params: f.type_params.clone(),
-                        param_types: f.param_types.iter().map(|p| p.with_prefix(path)).collect(),
-                        return_type: Box::new(f.return_type.with_prefix(path)),
-                    }
-                )
+            PType::FunctionType(f) => PType::FunctionType(FunctionType {
+                type_params: f.type_params.clone(),
+                param_types: f.param_types.iter().map(|p| p.with_prefix(path)).collect(),
+                return_type: Box::new(f.return_type.with_prefix(path)),
+            }),
         }
     }
 
@@ -324,17 +357,21 @@ impl SimpleCodeGen for FollowsEntry {
         let mut s = String::new();
         s.push_str(&self.name.codegen(indent));
         if self.type_args.len() > 0 {
-            s.push_str(&format!("<{}>", self.type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
+            s.push_str(&format!(
+                "<{}>",
+                self.type_args
+                    .iter()
+                    .map(|t| t.codegen(0))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
         }
         s
     }
 }
 impl FollowsEntry {
     pub fn new(name: PathIdent, type_args: Vec<TypeArg>) -> Self {
-        FollowsEntry {
-            name,
-            type_args,
-        }
+        FollowsEntry { name, type_args }
     }
 }
 
@@ -344,14 +381,19 @@ pub struct FollowsClause {
 }
 impl SimpleCodeGen for FollowsClause {
     fn codegen(&self, indent: usize) -> String {
-        format!("follows {}", self.contracts.iter().map(|c| c.codegen(indent)).collect::<Vec<_>>().join(" + "))
+        format!(
+            "follows {}",
+            self.contracts
+                .iter()
+                .map(|c| c.codegen(indent))
+                .collect::<Vec<_>>()
+                .join(" + ")
+        )
     }
 }
 impl FollowsClause {
     pub fn new(contracts: Vec<FollowsEntry>) -> Self {
-        Self {
-            contracts
-        }
+        Self { contracts }
     }
 }
 
