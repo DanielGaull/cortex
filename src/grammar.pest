@@ -121,10 +121,11 @@ tupleAssign = { "(" ~ assignName ~ "," ~ (assignName ~ ("," ~ assignName)*)? ~ "
 assignName = { tupleAssign | identExpr | ignoredIdentifier }
 
 typ = { atomType ~ typeTail }
-atomType = _{ functionType | basicType | tupleType | followsType | refType | "(" ~ typ ~ ")" }
+atomType = _{ thisType | functionType | basicType | tupleType | followsType | refType | "(" ~ typ ~ ")" }
 typeTail = { optionalTail | spanSugarTypeTail | "" }
-refType = { ("&mut" | "&") ~ typ }
+thisType = { "This" }
 basicType = { pathIdent ~ ("<" ~ typeArgList ~ ">")? }
+refType = { ("&mut" | "&") ~ typ }
 tupleType = { "(" ~ typ ~ "," ~ typ? ~ ("," ~ typ)* ~ ")" }
 followsType = { followsClause }
 optionalTail = { "?" }

@@ -64,6 +64,8 @@ pub enum PType {
     GenericType(String),
     // Represents a function type. For now, only function pointers; but in the future could support closures as well
     FunctionType(FunctionType),
+    // Represents the "This" type
+    ThisType,
 }
 
 impl SimpleCodeGen for PType {
@@ -121,6 +123,7 @@ impl SimpleCodeGen for PType {
                 format!("{}?", inner.codegen_wrap_if_needed())
             }
             PType::NoneType => String::from("none"),
+            PType::ThisType => String::from("This"),
             PType::GenericType(name) => name.clone(),
             PType::FunctionType(f) => {
                 format!(
@@ -166,6 +169,7 @@ impl PType {
             PType::FollowsType(_) => true,
             PType::OptionalType(_) => true,
             PType::NoneType => false,
+            PType::ThisType => false,
             PType::GenericType(_) => false,
             PType::FunctionType(_) => true,
         }
@@ -309,6 +313,7 @@ impl PType {
             }),
             PType::OptionalType(t) => PType::OptionalType(Box::new(t.with_prefix(path))),
             PType::NoneType => PType::NoneType,
+            PType::ThisType => PType::ThisType,
             PType::GenericType(name) => PType::GenericType(name.clone()),
             PType::FunctionType(f) => PType::FunctionType(FunctionType {
                 type_params: f.type_params.clone(),
@@ -326,6 +331,7 @@ impl PType {
             PType::FollowsType(_) => Err(TypeError::FollowsTypeNotValid),
             PType::OptionalType(t) => t.name(),
             PType::NoneType => Ok(PathIdent::new(vec!["none"])),
+            PType::ThisType => Ok(PathIdent::new(vec!["This"])),
             PType::GenericType(g) => Ok(PathIdent::new(vec![g])),
             PType::FunctionType(_) => Err(TypeError::FunctionTypeNotValid),
         }

@@ -934,6 +934,7 @@ impl CortexParser {
         active_generics: &Vec<String>,
     ) -> Result<PType, ParseError> {
         match pair.as_rule() {
+            Rule::thisType => Ok(PType::ThisType),
             Rule::basicType => {
                 let mut pairs = pair.into_inner();
                 let ident = Self::parse_path_ident(pairs.next().unwrap())?;

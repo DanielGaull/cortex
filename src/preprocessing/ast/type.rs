@@ -1,4 +1,7 @@
-use crate::{parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen}, r#type::r#type::{TypeError, TypeParam}};
+use crate::{
+    parsing::{ast::expression::PathIdent, codegen::r#trait::SimpleCodeGen},
+    r#type::r#type::{TypeError, TypeParam},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RFollowsClause {
@@ -26,22 +29,55 @@ pub enum RType {
     OptionalType(Box<RType>),
     NoneType,
     GenericType(String),
-    FunctionType(Vec<TypeParam>, Vec<RType>, Box<RType>)
+    FunctionType(Vec<TypeParam>, Vec<RType>, Box<RType>),
+    ThisType,
 }
 
 macro_rules! core_types {
     () => {
-        "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | 
-        "isz" | "usz" | "f32" | "f64" | 
-        "bool" | "string" | "void" | "none" | "list" | "char" | "range" | "anonbox" | "span"
-    }
+        "i8" | "u8"
+            | "i16"
+            | "u16"
+            | "i32"
+            | "u32"
+            | "i64"
+            | "u64"
+            | "isz"
+            | "usz"
+            | "f32"
+            | "f64"
+            | "bool"
+            | "string"
+            | "void"
+            | "none"
+            | "list"
+            | "char"
+            | "range"
+            | "anonbox"
+            | "span"
+    };
 }
 macro_rules! non_composite_types {
     () => {
-        "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | 
-        "isz" | "usz" | "f32" | "f64" | 
-        "bool" | "string" | "void" | "none" | "char" | "anonbox" | "span"
-    }
+        "i8" | "u8"
+            | "i16"
+            | "u16"
+            | "i32"
+            | "u32"
+            | "i64"
+            | "u64"
+            | "isz"
+            | "usz"
+            | "f32"
+            | "f64"
+            | "bool"
+            | "string"
+            | "void"
+            | "none"
+            | "char"
+            | "anonbox"
+            | "span"
+    };
 }
 
 pub fn is_path_a_core_type(path: &PathIdent) -> bool {
@@ -134,32 +170,33 @@ impl RType {
             RType::NoneType => Ok(PathIdent::new(vec!["none"])),
             RType::GenericType(g) => Ok(PathIdent::new(vec![g])),
             RType::FunctionType(..) => Err(TypeError::FunctionTypeNotValid),
+            RType::ThisType => Ok(PathIdent::new(vec!["This"])),
         }
     }
 
     pub fn is_core(&self) -> bool {
         match self {
-            Self::BasicType(name, ..) => {
-                is_path_a_core_type(name)
-            },
-            Self::RefType(r, ..) => {
-                r.is_core()
-            },
+            Self::BasicType(name, ..) => is_path_a_core_type(name),
+            Self::RefType(r, ..) => r.is_core(),
             Self::TupleType(_) => false,
             Self::FollowsType(_) => false,
             Self::OptionalType(t) => t.is_core(),
             Self::NoneType => true,
             Self::GenericType(_) => false,
             Self::FunctionType(..) => false,
+            Self::ThisType => false,
         }
     }
 
     pub fn optional(&self) -> bool {
         match self {
-            Self::BasicType(..) | Self::RefType(..) | Self::TupleType(..) | 
-            Self::FollowsType(..) | Self::GenericType(..) | Self::FunctionType(..) => {
-                false
-            },
+            Self::BasicType(..)
+            | Self::RefType(..)
+            | Self::TupleType(..)
+            | Self::FollowsType(..)
+            | Self::GenericType(..)
+            | Self::FunctionType(..)
+            | Self::ThisType => false,
             Self::OptionalType(..) => true,
             Self::NoneType => true,
         }
@@ -179,22 +216,18 @@ impl RType {
                 } else {
                     *inner
                 }
-            },
+            }
             other => {
                 if value {
                     Self::OptionalType(Box::new(other))
                 } else {
                     other
                 }
-            },
+            }
         }
     }
     pub fn to_optional_if_true(self, value: bool) -> Self {
-        if value {
-            self.to_optional()
-        } else {
-            self
-        }
+        if value { self.to_optional() } else { self }
     }
 
     fn codegen_wrap_if_needed(&self) -> String {
@@ -213,6 +246,7 @@ impl RType {
             Self::FollowsType(..) => true,
             Self::OptionalType(..) => true,
             Self::NoneType => false,
+            Self::ThisType => false,
             Self::GenericType(..) => false,
             Self::FunctionType(..) => true,
         }
@@ -225,10 +259,8 @@ impl RType {
             self
         } else {
             match self {
-                RType::RefType(r, _) => {
-                    RType::RefType(r, false)
-                },
-                other => other
+                RType::RefType(r, _) => RType::RefType(r, false),
+                other => other,
             }
         }
     }
@@ -236,18 +268,17 @@ impl RType {
     pub fn is_non_composite(&self) -> bool {
         match self {
             RType::BasicType(name, ..) => {
-                name.is_final() && 
-                    matches!(name.get_back().unwrap().as_str(), non_composite_types!())
-            },
-            RType::RefType(r, ..) => {
-                r.is_non_composite()
-            },
+                name.is_final()
+                    && matches!(name.get_back().unwrap().as_str(), non_composite_types!())
+            }
+            RType::RefType(r, ..) => r.is_non_composite(),
             RType::TupleType(..) => true,
             RType::FollowsType(..) => true,
             RType::OptionalType(t) => t.is_non_composite(),
             RType::NoneType => true,
             RType::GenericType(..) => false,
-            Self::FunctionType(..) => true,
+            RType::FunctionType(..) => true,
+            RType::ThisType => false,
         }
     }
 }
@@ -259,11 +290,17 @@ impl SimpleCodeGen for RType {
                 s.push_str(&name.codegen(0));
                 if type_args.len() > 0 {
                     s.push_str("<");
-                    s.push_str(&type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(","));
+                    s.push_str(
+                        &type_args
+                            .iter()
+                            .map(|t| t.codegen(0))
+                            .collect::<Vec<_>>()
+                            .join(","),
+                    );
                     s.push_str(">");
                 }
                 s
-            },
+            }
             Self::RefType(r, mutable) => {
                 let mut s = String::from("&");
                 if *mutable {
@@ -271,41 +308,72 @@ impl SimpleCodeGen for RType {
                 }
                 s.push_str(&r.codegen(0));
                 s
-            },
+            }
             Self::TupleType(t) => {
                 if t.len() == 1 {
-                    format!("({},)", t.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
+                    format!(
+                        "({},)",
+                        t.iter()
+                            .map(|t| t.codegen(0))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
                 } else {
-                    format!("({})", t.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
+                    format!(
+                        "({})",
+                        t.iter()
+                            .map(|t| t.codegen(0))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
                 }
-            },
+            }
             Self::FollowsType(f) => {
                 format!("{}", f.codegen(0))
-            },
+            }
             Self::OptionalType(inner) => {
                 format!("{}?", inner.codegen_wrap_if_needed())
-            },
+            }
             Self::NoneType => String::from("none"),
             Self::GenericType(name) => name.clone(),
             Self::FunctionType(type_params, param_types, return_type) => {
                 format!(
                     "{}({}) => {}",
                     if type_params.len() > 0 {
-                        format!("<{}>", type_params.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "))
+                        format!(
+                            "<{}>",
+                            type_params
+                                .iter()
+                                .map(|t| t.codegen(0))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
                     } else {
                         String::new()
                     },
-                    param_types.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", "),
+                    param_types
+                        .iter()
+                        .map(|t| t.codegen(0))
+                        .collect::<Vec<_>>()
+                        .join(", "),
                     return_type.codegen(0)
                 )
-            },
+            }
+            Self::ThisType => String::from("This"),
         }
     }
 }
 
 impl SimpleCodeGen for RFollowsClause {
     fn codegen(&self, indent: usize) -> String {
-        format!("follows {}", self.entries.iter().map(|c| c.codegen(indent)).collect::<Vec<_>>().join(" + "))
+        format!(
+            "follows {}",
+            self.entries
+                .iter()
+                .map(|c| c.codegen(indent))
+                .collect::<Vec<_>>()
+                .join(" + ")
+        )
     }
 }
 impl SimpleCodeGen for RFollowsEntry {
@@ -313,7 +381,14 @@ impl SimpleCodeGen for RFollowsEntry {
         let mut s = String::new();
         s.push_str(&self.name.codegen(indent));
         if self.type_args.len() > 0 {
-            s.push_str(&format!("<{}>", self.type_args.iter().map(|t| t.codegen(0)).collect::<Vec<_>>().join(", ")));
+            s.push_str(&format!(
+                "<{}>",
+                self.type_args
+                    .iter()
+                    .map(|t| t.codegen(0))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
         }
         s
     }
