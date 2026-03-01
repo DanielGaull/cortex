@@ -262,7 +262,7 @@ impl SimpleCodeGen for PExpression {
             } => {
                 if let Some(type_args) = type_args {
                     format!(
-                        "{}.{}<{}>({})",
+                        "{}:{}<{}>({})",
                         typ.codegen(indent),
                         member_name,
                         type_args
@@ -277,7 +277,7 @@ impl SimpleCodeGen for PExpression {
                     )
                 } else {
                     format!(
-                        "{}.{}({})",
+                        "{}:{}({})",
                         typ.codegen(indent),
                         member_name,
                         args.iter()

@@ -104,15 +104,18 @@ fn test_parse_complex_expressions() -> Result<(), Box<dyn Error>> {
     run_expression_test("anon heap anon heap 5")?;
     run_expression_test("deanon<i32> value")?;
     run_expression_test("deanon<i32> anon 5")?;
+    Ok(())
+}
 
-    // Static functions
-    run_expression_test("List.new(x, y, z)")?;
-    run_expression_test("List.new<R>(x, y, z)")?;
-    run_expression_test("List<T>.new(x, y, z)")?;
-    run_expression_test("List<T>.new<R>(x, y, z)")?;
-    run_expression_test("stdlib::List.new(x, y, z)")?;
-    run_expression_test("stdlib::List<T>.new(x, y, z)")?;
-    run_expression_test("stdlib::List<T>.new<R>(x, y, z)")?;
+#[test]
+fn test_parse_static_func_calls() -> Result<(), Box<dyn Error>> {
+    run_expression_test("List:new(x, y, z)")?;
+    run_expression_test("List:new<R>(x, y, z)")?;
+    run_expression_test("List<T>:new(x, y, z)")?;
+    run_expression_test("List<T>:new<R>(x, y, z)")?;
+    run_expression_test("stdlib::List:new(x, y, z)")?;
+    run_expression_test("stdlib::List<T>:new(x, y, z)")?;
+    run_expression_test("stdlib::List<T>:new<R>(x, y, z)")?;
     Ok(())
 }
 

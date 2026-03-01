@@ -12,7 +12,7 @@ fn simple_static_function_test() -> Result<(), Box<dyn Error>> {
         }";
     interpreter.run_top_level(CortexParser::parse_top_level(s)?)?;
     interpreter.build_modules()?;
-    run_test("StaticTest.myStaticFn(3, 5)", "8", &mut interpreter)?;
+    run_test("StaticTest:myStaticFn(3, 5)", "8", &mut interpreter)?;
     Ok(())
 }
 
@@ -26,7 +26,7 @@ fn generic_static_function_test() -> Result<(), Box<dyn Error>> {
         }";
     interpreter.run_top_level(CortexParser::parse_top_level(s)?)?;
     interpreter.build_modules()?;
-    run_test("StaticTest<i32>.identity(5)", "5", &mut interpreter)?;
+    run_test("StaticTest<i32>:identity(5)", "5", &mut interpreter)?;
     Ok(())
 }
 

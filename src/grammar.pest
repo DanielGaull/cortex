@@ -35,7 +35,7 @@ indexVarAssign = { identExpr ~ "[" ~ exprList ~ "]" ~ arithLogicBinOp? ~ "=" ~ e
 while = { "while" ~ expr ~ "{" ~ body ~ "}" }
 
 // Expressions
-atom = { range | numbers | boolean | none | void | string | char | tuple | listLiteral | call | construction | if | pathIdent | unOpAtom | heapExp | anonymize | deanonymize | staticFunctionCall | "(" ~ expr ~ ")" }
+atom = { range | numbers | boolean | none | void | string | char | tuple | listLiteral | call | construction | if | staticFunctionCall | pathIdent | unOpAtom | heapExp | anonymize | deanonymize | "(" ~ expr ~ ")" }
 exprTail = { postfixBangTail | memberCallTail | memberAccessTail | indexTail | "" }
 
 primary = { atom ~ exprTail }
@@ -46,7 +46,7 @@ logicResult = _{ eqResult ~ ((and | or) ~ eqResult)* }
 expr = { logicResult }
 
 call = { pathIdent ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ exprList ~ ")" }
-staticFunctionCall = { basicType ~ "." ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ exprList ~ ")" }
+staticFunctionCall = { typ ~ ":" ~ ident ~ ("<" ~ typeArgList ~ ">")? ~ "(" ~ exprList ~ ")" }
 heapExp = { "heap" ~ expr }
 construction = { pathIdent ~ ("<" ~ typeArgList ~ ">")? ~ "{" ~ (memberInit ~ ",")* ~ memberInit? ~ "}" }
 memberInit = { ident ~ ":" ~ expr }
