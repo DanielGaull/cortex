@@ -30,6 +30,42 @@ fn generic_static_function_test() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn simple_contract_static_function_test() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    let s1 = "contract GetInteger {
+        fn get(static): i32;
+    }";
+    let s2 = "struct StaticTest follows GetInteger {
+            fn get(static): i32 {
+                100
+            }
+        }";
+    interpreter.run_top_level(CortexParser::parse_top_level(s1)?)?;
+    interpreter.run_top_level(CortexParser::parse_top_level(s2)?)?;
+    interpreter.build_modules()?;
+    run_test("StaticTest:get()", "100", &mut interpreter)?;
+    Ok(())
+}
+
+#[test]
+fn generic_contract_static_function_test() -> Result<(), Box<dyn Error>> {
+    let mut interpreter = CortexInterpreter::new()?;
+    let s1 = "contract Getter<R> {
+        fn get(static): R;
+    }";
+    let s2 = "struct StaticTest follows Getter<i32> {
+            fn get(static): i32 {
+                100
+            }
+        }";
+    interpreter.run_top_level(CortexParser::parse_top_level(s1)?)?;
+    interpreter.run_top_level(CortexParser::parse_top_level(s2)?)?;
+    interpreter.build_modules()?;
+    run_test("StaticTest:get()", "100", &mut interpreter)?;
+    Ok(())
+}
+
 fn run_test(
     input: &str,
     expected: &str,
