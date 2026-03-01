@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{interpreting::env::EnvError, preprocessing::ast::r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg}};
+use crate::{
+    interpreting::env::EnvError,
+    preprocessing::ast::r#type::{RFollowsClause, RFollowsEntry, RType, RTypeArg},
+};
 
 use super::r#type::{TypeError, TypeParam};
 
@@ -48,29 +51,39 @@ impl TypeEnvironment {
 
     pub fn fill_type(typ: RType, bindings: &HashMap<TypeParam, RTypeArg>) -> RType {
         match typ {
-            RType::BasicType(name, type_args) => {
-                RType::BasicType(name, type_args.into_iter().map(|t| Self::fill_type_arg(t, bindings)).collect())
-            },
+            RType::BasicType(name, type_args) => RType::BasicType(
+                name,
+                type_args
+                    .into_iter()
+                    .map(|t| Self::fill_type_arg(t, bindings))
+                    .collect(),
+            ),
             RType::RefType(contained, mutable) => {
                 let new_contained = Self::fill_type(*contained, bindings);
-                RType::RefType(Box::new(new_contained), mutable )
-            },
+                RType::RefType(Box::new(new_contained), mutable)
+            }
             RType::TupleType(t) => {
-                let new_types = t.into_iter().map(|t| Self::fill_type(t, bindings))
+                let new_types = t
+                    .into_iter()
+                    .map(|t| Self::fill_type(t, bindings))
                     .collect();
                 RType::TupleType(new_types)
-            },
-            RType::FollowsType(f) => {
-                RType::FollowsType(RFollowsClause {
-                    entries: f.entries.into_iter().map(|c| RFollowsEntry {
+            }
+            RType::FollowsType(f) => RType::FollowsType(RFollowsClause {
+                entries: f
+                    .entries
+                    .into_iter()
+                    .map(|c| RFollowsEntry {
                         name: c.name,
-                        type_args: c.type_args.into_iter().map(|t| Self::fill_type_arg(t, bindings)).collect()
-                    }).collect(),
-                })
-            },
-            RType::OptionalType(t) => {
-                RType::OptionalType(Box::new(Self::fill_type(*t, bindings)))
-            },
+                        type_args: c
+                            .type_args
+                            .into_iter()
+                            .map(|t| Self::fill_type_arg(t, bindings))
+                            .collect(),
+                    })
+                    .collect(),
+            }),
+            RType::OptionalType(t) => RType::OptionalType(Box::new(Self::fill_type(*t, bindings))),
             RType::NoneType => RType::NoneType,
             RType::GenericType(name) => {
                 if let Some(value) = bindings.get(&TypeParam::ty(&name)) {
@@ -82,25 +95,34 @@ impl TypeEnvironment {
                 // we attempt to infer them, so there are cases where we want to return back
                 // what we read in here
                 RType::GenericType(name)
-            },
-            RType::FunctionType(type_param_types, param_types, return_type) => {
-                RType::FunctionType(
-                    type_param_types, 
-                    param_types.into_iter().map(|p| Self::fill_type(p, bindings)).collect(),
-                    Box::new(Self::fill_type(*return_type, bindings)),
-                )
-            },
+            }
+            RType::FunctionType(type_param_types, param_types, return_type) => RType::FunctionType(
+                type_param_types,
+                param_types
+                    .into_iter()
+                    .map(|p| Self::fill_type(p, bindings))
+                    .collect(),
+                Box::new(Self::fill_type(*return_type, bindings)),
+            ),
+            RType::ThisType => RType::ThisType,
         }
     }
 
-    pub fn create_bindings(params: &Vec<TypeParam>, values: &Vec<RTypeArg>) -> HashMap<TypeParam, RTypeArg> {
+    pub fn create_bindings(
+        params: &Vec<TypeParam>,
+        values: &Vec<RTypeArg>,
+    ) -> HashMap<TypeParam, RTypeArg> {
         params.clone().into_iter().zip(values.clone()).collect()
     }
 
     // For example, going from Iterator<D> where Wrapper<D> follows Iterator<D> when we have a Wrapper<i32>
     // to an Iterator<i32>
     // Returns a list (in the same order as in the typedef) of all follows entries, filled in
-    pub(crate) fn fill_in_follows_entry_from_typedef(type_args: Vec<RTypeArg>, type_params: Vec<TypeParam>, followed_contracts: Vec<RFollowsEntry>) -> Result<Vec<RFollowsEntry>, TypeError> {
+    pub(crate) fn fill_in_follows_entry_from_typedef(
+        type_args: Vec<RTypeArg>,
+        type_params: Vec<TypeParam>,
+        followed_contracts: Vec<RFollowsEntry>,
+    ) -> Result<Vec<RFollowsEntry>, TypeError> {
         let type_arg_map: HashMap<_, _> = type_params.into_iter().zip(type_args).collect();
         let mut result = Vec::new();
         for init_entry in followed_contracts {
