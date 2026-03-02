@@ -117,7 +117,14 @@ impl CortexPreprocessor {
             None
         };
 
-        let call = self.check_call_base(pure_sig, member.clone(), args, type_args, &st_str)?;
+        let call = self.check_call_base(
+            pure_sig,
+            member.clone(),
+            args,
+            type_args,
+            HashMap::new(),
+            &st_str,
+        )?;
         let mut statements = Vec::new();
         statements.extend(callee_st);
         statements.extend(call.statements);
@@ -140,7 +147,6 @@ impl CortexPreprocessor {
         member: String,
         type_args: Option<Vec<TypeArg>>,
         st_str: String,
-        expected_type: Option<RType>,
     ) -> CheckResult<RExpression> {
         let caller_type = atom_type.name()?;
         let actual_func_addr = self.get_member_function_address(&atom_type, &member)?;
@@ -173,13 +179,13 @@ impl CortexPreprocessor {
         } else {
             true_type_args = None;
         }
-
-        let call_exp = PExpression::Call {
-            name: actual_func_addr,
+        let result = self.check_call(
+            actual_func_addr,
             args,
-            type_args: true_type_args,
-        };
-        let result = self.check_exp(call_exp, expected_type)?;
+            true_type_args,
+            HashMap::new(),
+            &st_str,
+        )?;
         Ok(result)
     }
     pub(super) fn check_static_call(
@@ -189,14 +195,14 @@ impl CortexPreprocessor {
         member: String,
         type_args: Option<Vec<TypeArg>>,
         st_str: String,
-        expected_type: Option<RType>,
     ) -> CheckResult<RExpression> {
         let caller_type = static_type.name()?;
         let actual_func_addr = self.get_member_function_address(&static_type, &member)?;
 
+        let typedef = self.lookup_type(&caller_type)?;
         let true_type_args;
+        let init_type_args = Self::get_bindings(&typedef.type_params, &static_type);
         if let Some(mut type_args) = type_args {
-            let typedef = self.lookup_type(&caller_type)?;
             let mut bindings = HashMap::new();
             self.infer_arg_type(
                 &RType::BasicType(
@@ -219,12 +225,13 @@ impl CortexPreprocessor {
             true_type_args = None;
         }
 
-        let call_exp = PExpression::Call {
-            name: actual_func_addr,
+        let result = self.check_call(
+            actual_func_addr,
             args,
-            type_args: true_type_args,
-        };
-        let result = self.check_exp(call_exp, expected_type)?;
+            true_type_args,
+            init_type_args,
+            &st_str,
+        )?;
         Ok(result)
     }
 
@@ -262,6 +269,7 @@ impl CortexPreprocessor {
         addr: FunctionAddress,
         arg_exps: Vec<PExpression>,
         type_args: Option<Vec<TypeArg>>,
+        init_type_args: HashMap<TypeParam, RTypeArg>,
         st_str: &String,
     ) -> CheckResult<RExpression> {
         let (sig, sig_prefix_used) = self.lookup_signature(&addr)?;
@@ -281,6 +289,7 @@ impl CortexPreprocessor {
             full_path.codegen(0),
             arg_exps,
             type_args,
+            init_type_args,
             st_str,
         )?;
         let func_id = self.function_dict.add_call(full_path)?;
@@ -310,7 +319,14 @@ impl CortexPreprocessor {
             return_type: *return_type,
             type_params,
         };
-        let call = self.check_call_base(mock_sig.clone(), name.clone(), arg_exps, None, st_str)?;
+        let call = self.check_call_base(
+            mock_sig.clone(),
+            name.clone(),
+            arg_exps,
+            None,
+            HashMap::new(),
+            st_str,
+        )?;
         Ok((
             RExpression::FunctionPointerCall {
                 ident: name,
@@ -327,6 +343,7 @@ impl CortexPreprocessor {
         name: String,
         arg_exps: Vec<PExpression>,
         type_args: Option<Vec<RTypeArg>>,
+        init_type_args: HashMap<TypeParam, RTypeArg>,
         st_str: &String,
     ) -> Result<ProcessedCall, CortexError> {
         let provided_arg_count = arg_exps.len();
@@ -357,18 +374,27 @@ impl CortexPreprocessor {
             param_types.push(param.typ.clone());
         }
 
-        let bindings;
+        // TODO: Check if init_type_args has any conflicts with the inferred ones
+        let bindings: HashMap<TypeParam, RTypeArg>;
         if let Some(type_args) = type_args {
             bindings = sig.type_params.iter().cloned().zip(type_args).collect();
         } else {
-            bindings = self.infer_type_args(
+            let inferred_bindings = self.infer_type_args(
                 &param_names,
                 &param_types,
-                &sig.type_params,
+                &sig.type_params
+                    .into_iter()
+                    .filter(|t| !init_type_args.contains_key(t))
+                    .collect(),
                 &arg_types,
                 name,
                 st_str,
             )?;
+
+            bindings = init_type_args
+                .into_iter()
+                .chain(inferred_bindings)
+                .collect();
         }
         let parent_type_env = self
             .current_type_env

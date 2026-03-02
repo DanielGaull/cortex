@@ -77,7 +77,7 @@ impl CortexPreprocessor {
                             Err(Box::new(RuntimeError::InvalidArg("usz", "index")))
                         }
                     })),
-                    ThisArg::DirectThis,
+                    ThisArg::RefThis,
                     vec![],
                 ),
                 MemberFunction::new(
@@ -109,7 +109,7 @@ impl CortexPreprocessor {
                             Err(Box::new(RuntimeError::InvalidArg("usz", "index")))
                         }
                     })),
-                    ThisArg::DirectThis,
+                    ThisArg::RefMutThis,
                     vec![],
                 ),
             ],

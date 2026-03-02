@@ -239,9 +239,9 @@ impl SimpleCodeGen for MemberFunctionSignature {
             ThisArg::RefThis => s.push_str("&this"),
             ThisArg::RefMutThis => s.push_str("&mut this"),
             ThisArg::DirectThis => s.push_str("this"),
-            ThisArg::Static => {}
+            ThisArg::Static => s.push_str("static"),
         }
-        if self.params.len() > 0 && self.this_arg != ThisArg::Static {
+        if self.params.len() > 0 {
             s.push_str(", ");
         }
 

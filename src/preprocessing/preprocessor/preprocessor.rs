@@ -600,7 +600,7 @@ impl CortexPreprocessor {
                     }
                 }
 
-                let result = self.check_call(addr, arg_exps, type_args, &st_str);
+                let result = self.check_call(addr, arg_exps, type_args, HashMap::new(), &st_str);
                 result
             }
             PExpression::Construction {
@@ -801,13 +801,7 @@ impl CortexPreprocessor {
                     Ok((ex, ty, statements))
                 } else {
                     let (ex, ty, st) = self.check_direct_member_call(
-                        atom_type,
-                        args,
-                        callee,
-                        member,
-                        type_args,
-                        st_str,
-                        expected_type,
+                        atom_type, args, callee, member, type_args, st_str,
                     )?;
                     statements.extend(st);
                     Ok((ex, ty, statements))
@@ -823,14 +817,8 @@ impl CortexPreprocessor {
                 // Otherwise it will be a basic type so we are safe to assume here
                 if let PType::BasicType(_) = &typ {
                     let static_type = self.validate_type(typ)?;
-                    let (ex, ty, st) = self.check_static_call(
-                        static_type,
-                        args,
-                        member,
-                        type_args,
-                        st_str,
-                        expected_type,
-                    )?;
+                    let (ex, ty, st) =
+                        self.check_static_call(static_type, args, member, type_args, st_str)?;
                     Ok((ex, ty, st))
                 } else {
                     panic!("How did we get non basic type for static function call?")
