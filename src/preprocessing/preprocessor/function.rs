@@ -235,11 +235,6 @@ impl CortexPreprocessor {
     ) -> Result<FunctionAddress, CortexError> {
         let caller_type = callee_type.name()?;
         let caller_type_prefix = caller_type.without_last();
-        // TODO: remove commented code at some point
-        // I think this should work; then, will only have a call to `subtract` in one more place...
-        // let non_extension_func_addr = FunctionAddress::member_func(
-        //     PathIdent::continued(caller_type_prefix.clone().subtract(&self.current_context)?, member.clone()),
-        //     caller_type.clone().subtract(&self.current_context)?);
         let non_extension_func_addr = FunctionAddress::member_func(
             PathIdent::continued(caller_type_prefix.clone(), member.clone()),
             caller_type.clone(),

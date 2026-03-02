@@ -1,20 +1,6 @@
 module stdlib {
-    extend<T: ty> span<T> {
-        fn __indexGet(&this, index: usz): T {
-            let boxThis = anon this;
-            let boxedResult = corelib::spanIndexGetSingleAnonymous(boxThis, index);
-            deanon<T> boxedResult
-        }
-
-        fn __indexSet(&mut this, index: usz, value: T): void {
-            let boxThis = anon this;
-            let boxValue = anon value;
-            corelib::spanIndexAssignSingleAnonymous(boxThis, index, boxValue);
-        }
-    }
-
     module collections {
-        struct List<T: ty> { //follows corelib::CoreFromSpan<T> {
+        struct List<T: ty> {
             _items: &mut span<T>,
             _len: usz,
             _capacity: usz,
@@ -22,7 +8,7 @@ module stdlib {
             fn add(&mut this, item: T) {
                 if this._len >= this._capacity {
                     let nextCapacity = this._capacity * 2usz;
-                    let nextSpan = corelib::spanAlloc<T>(nextCapacity);
+                    let nextSpan = span<T>:new(nextCapacity);
                     let i = 0usz;
                     while i < this._len {
                         let currentVal = this._items[i];
@@ -47,14 +33,14 @@ module stdlib {
             fn __indexGet(&mut this, index: usz): T {
                 // TODO: these checks can't be done until we fix comparing diff. number types
                 if index >= this._len {
-                    throw "Index out of range: " + corelib::toStringAnonymous(anon index) + " for list of length " + corelib::toStringAnonymous(anon this._len);
+                    throw "Index out of range: " + corelib::toString(index) + " for list of length " + corelib::toString(this._len);
                 };
 
                 this._items[index]
             }
             fn __indexSet(&mut this, index: usz, value: T): void {
                 if index >= this._len {
-                    throw "Index out of range: " + corelib::toStringAnonymous(anon index) + " for list of length " + corelib::toStringAnonymous(anon this._len);
+                    throw "Index out of range: " + corelib::toString(index) + " for list of length " + corelib::toString(this._len);
                 };
 
                 this._items[index] = value;

@@ -144,6 +144,7 @@ impl CortexPreprocessor {
         // Self::add_list_funcs(&mut global_module)?;
         Self::add_string_funcs(&mut global_module)?;
         Self::add_range_struct(&mut global_module)?;
+        Self::add_span_funcs(&mut global_module)?;
 
         this.add_module(PathIdent::empty(), global_module);
 
@@ -561,8 +562,6 @@ impl CortexPreprocessor {
                         vec![],
                     ))
                 } else {
-                    // TODO: if we add static functions, this will need to change
-                    // (Attempting to create a function pointer)
                     let function_addr = FunctionAddress::new(path_ident.clone(), None);
                     let (sig, sig_prefix_used) = self.lookup_signature(&function_addr)?;
                     let function_addr = FunctionAddress::concat(&sig_prefix_used, &function_addr);
